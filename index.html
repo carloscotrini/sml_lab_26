@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regression Autopsy — Eight Ways Your Model Is Lying to You</title>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Regression Autopsy">
+  <meta property="og:description" content="Eight Ways Your Model Is Lying to You — interactive Colab notebooks for learning regression diagnostics">
+  <meta property="og:image" content="images/og_card.png">
+  <meta property="og:type" content="website">
+
+  <style>
+    /* ── Reset & Base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1B2A4A;
+      color: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ───────────────────────────────────────── */
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Hero ─────────────────────────────────────────── */
+    .hero {
+      padding: 72px 0 48px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+
+    .hero .subtitle {
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      font-weight: 500;
+      color: #D4A017;
+      margin-bottom: 36px;
+    }
+
+    .hero .hook {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      color: #c0c8d8;
+      text-align: left;
+    }
+
+    /* ── Cards list ───────────────────────────────────── */
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-bottom: 80px;
+      margin-top: 48px;
+    }
+
+    /* ── Full-width card (core notebooks) ─────────────── */
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 28px 32px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 20px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      background: rgba(46, 94, 168, 0.15);
+      border-color: rgba(46, 94, 168, 0.4);
+    }
+
+    .card .number {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #2E5EA8;
+      min-width: 48px;
+    }
+
+    .card .title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .card .desc {
+      width: 100%;
+      color: #a0aabe;
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    .card .badge-row {
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .colab-badge {
+      display: inline-block;
+      height: 28px;
+    }
+
+    .colab-badge img {
+      height: 28px;
+    }
+
+    /* ── Half-width indented card (optional deep dive) ── */
+    .card.half {
+      width: 50%;
+      margin-left: auto;
+      background: rgba(212, 160, 23, 0.06);
+      border-color: rgba(212, 160, 23, 0.18);
+    }
+
+    .card.half:hover {
+      background: rgba(212, 160, 23, 0.12);
+      border-color: rgba(212, 160, 23, 0.35);
+    }
+
+    .card.half .number {
+      color: #D4A017;
+    }
+
+    .optional-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #1B2A4A;
+      background: #D4A017;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-left: 12px;
+      vertical-align: middle;
+      position: relative;
+      top: -2px;
+    }
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media (max-width: 640px) {
+      .hero { padding: 48px 0 32px; }
+
+      .card {
+        padding: 20px 20px;
+      }
+
+      .card .number {
+        font-size: 1.3rem;
+        min-width: 36px;
+      }
+
+      .card .title {
+        font-size: 1.05rem;
+      }
+
+      .card.half {
+        width: 100%;
+        margin-left: 0;
+        border-left: 4px solid #D4A017;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Hero -->
+    <header class="hero">
+      <h1>Regression Autopsy</h1>
+      <p class="subtitle">Eight Ways Your Model Is Lying to You</p>
+      <p class="hook">
+        Regression is the most dangerous tool in data science. Not because it doesn't
+        work&nbsp;&mdash; because it <em>almost</em> works. It gives you a number, a confidence
+        interval, a p-value, and a clean summary table. Everything looks authoritative. And in
+        most observational analyses, the number is wrong. This series of notebooks will show you
+        exactly how, exactly why, and exactly what to do about it.
+      </p>
+    </header>
+
+    <!-- Notebook cards -->
+    <section class="cards">
+
+      <!-- NB 1 -->
+      <div class="card">
+        <span class="number">01</span>
+        <span class="title">Why Your Coefficient Is Wrong</span>
+        <span class="desc">Omitted variable bias: your number is systematically shifted.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/01_coefficient.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 1.5 (optional deep dive) -->
+      <div class="card half">
+        <span class="number">01b</span>
+        <span class="title">What "Controlling For" Actually Means<span class="optional-badge">Optional Deep Dive</span></span>
+        <span class="desc">The Frisch-Waugh-Lovell theorem: multiple regression strips out what controls explain, then measures what's left.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/01b_controlling_for.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 2 -->
+      <div class="card">
+        <span class="number">02</span>
+        <span class="title">Why Your Uncertainty Is Wrong</span>
+        <span class="desc">Heteroscedasticity: your confidence intervals lie.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/02_uncertainty.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 3 -->
+      <div class="card">
+        <span class="number">03</span>
+        <span class="title">Why Your Significance Is Wrong</span>
+        <span class="desc">Statistical vs. practical significance: everything is significant with enough data.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/03_significance.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 4 -->
+      <div class="card">
+        <span class="number">04</span>
+        <span class="title">Why Your Model Is Wrong</span>
+        <span class="desc">Specification error: your model is the wrong shape.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/04_specification.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 5 -->
+      <div class="card">
+        <span class="number">05</span>
+        <span class="title">Why Your R&sup2; Is Lying</span>
+        <span class="desc">Overfitting: your model memorizes, not learns.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/05_overfitting.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 6 -->
+      <div class="card">
+        <span class="number">06</span>
+        <span class="title">Why Your Causal Claim Is Wrong</span>
+        <span class="desc">Endogeneity: correlation isn't causation, and your regression can't tell.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/06_causation.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 7 -->
+      <div class="card">
+        <span class="number">07</span>
+        <span class="title">The Real World</span>
+        <span class="desc">All pathologies at once: real data breaks everything.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/07_real_world.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+      <!-- NB 8 -->
+      <div class="card">
+        <span class="number">08</span>
+        <span class="title">The Redemption</span>
+        <span class="desc">Regression discontinuity: when the design earns trust.</span>
+        <span class="badge-row">
+          <a class="colab-badge" href="https://colab.research.google.com/github/[REPO]/blob/main/notebooks/08_redemption.ipynb" target="_blank" rel="noopener">
+            <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab">
+          </a>
+        </span>
+      </div>
+
+    </section>
+  </div>
+
+</body>
+</html>
