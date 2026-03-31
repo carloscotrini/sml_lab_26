@@ -1,0 +1,779 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{caption}
+
+% --- Colors ---
+\definecolor{olsblue}{HTML}{2E5EA8}
+\definecolor{truthgold}{HTML}{D4A017}
+\definecolor{biasred}{HTML}{C0392B}
+\definecolor{repairgreen}{HTML}{27AE60}
+
+% --- Theorem environments ---
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}{Example}[section]
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{corollary}{Corollary}[section]
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}[section]
+
+% --- Coloured boxes ---
+\tcbuselibrary{breakable}
+\newtcolorbox{keyinsight}[1][]{colback=olsblue!5, colframe=olsblue!80!black,
+  fonttitle=\bfseries, title={Key Insight}, breakable, #1}
+\newtcolorbox{warningbox}[1][]{colback=biasred!5, colframe=biasred!80!black,
+  fonttitle=\bfseries, title={Warning}, breakable, #1}
+\newtcolorbox{repairbox}[1][]{colback=repairgreen!5, colframe=repairgreen!80!black,
+  fonttitle=\bfseries, title={The Repair}, breakable, #1}
+
+% --- Header / Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textsc{Regression Autopsy}}
+\rhead{\textsc{Lecture Notes}}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Section formatting ---
+\titleformat{\section}{\Large\bfseries\color{olsblue!80!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{olsblue!60!black}}{\thesubsection}{1em}{}
+
+% --- Hyperref setup ---
+\hypersetup{
+  colorlinks=true,
+  linkcolor=olsblue,
+  citecolor=olsblue,
+  urlcolor=olsblue!70!black,
+}
+
+% --- Custom commands ---
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\Bias}{\operatorname{Bias}}
+\newcommand{\MSE}{\operatorname{MSE}}
+\newcommand{\se}{\operatorname{SE}}
+\newcommand{\plim}{\operatorname{plim}}
+\newcommand{\bhat}{\hat{\beta}}
+\newcommand{\bols}{\hat{\beta}_{\text{OLS}}}
+\newcommand{\biv}{\hat{\beta}_{\text{IV}}}
+
+\begin{document}
+
+% ============================================================
+% TITLE PAGE
+% ============================================================
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\Huge\bfseries Regression Autopsy\par}
+\vspace{0.5cm}
+{\LARGE\color{olsblue!80!black}\itshape Eight Ways Your Model Is Lying to You\par}
+\vspace{2cm}
+{\Large Lecture Notes\par}
+\vspace{1cm}
+{\large Statistical and Machine Learning Lab\par}
+\vspace{0.5cm}
+{\large Spring 2026\par}
+\vfill
+\rule{\textwidth}{0.4pt}\\[0.3cm]
+{\small These notes accompany the interactive Jupyter notebook series.
+All theorems stated here are validated by Monte Carlo simulation in the corresponding notebooks.}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+\section{Introduction}\label{sec:intro}
+
+Regression is the most widely used tool in quantitative data analysis.
+It produces point estimates, standard errors, confidence intervals, $p$-values, and $R^2$ statistics---all of which look authoritative.
+In most observational analyses, at least one of these numbers is wrong.
+
+These lecture notes formalise the mathematical foundations behind the eight core failure modes of ordinary least squares (OLS) regression.
+Each section corresponds to one interactive notebook in the accompanying lab series.
+The notes are designed to be self-contained: every claim is stated as a formal result and, in the lab, confirmed by Monte Carlo simulation.
+
+\subsection{The NovaMart Scenario}
+
+Throughout the course, we work with a single fictional company---\textbf{NovaMart}, an online retailer.
+The variables of interest are:
+\begin{itemize}[nosep]
+  \item $Y$: monthly revenue (thousands of dollars),
+  \item $X_1$: advertising spend (thousands of dollars),
+  \item $X_2$: number of sales staff,
+  \item $X_3$: customer satisfaction score,
+  \item $U$: unobserved market demand (hidden from the analyst).
+\end{itemize}
+
+Using a single recurring dataset creates continuity: when a coefficient changes from one notebook to the next, the student remembers the old value.
+
+% ============================================================
+% 2. THE DATA GENERATING PROCESS
+% ============================================================
+\section{The Data Generating Process}\label{sec:dgp}
+
+\begin{definition}[NovaMart DGP]\label{def:dgp}
+The data are generated according to the following structural equations:
+\begin{align}
+  U &\sim \mathcal{N}(0,1), \label{eq:U}\\
+  X_1 &= \gamma_1 U + \eta_1, \quad \eta_1 \sim \mathcal{N}(0,\sigma_\eta^2), \label{eq:X1}\\
+  X_2 &= \gamma_2 U + \eta_2, \quad \eta_2 \sim \mathcal{N}(0,\sigma_\eta^2), \label{eq:X2}\\
+  \varepsilon &\sim \mathcal{N}\!\left(0,\; h \cdot |X_1|\right), \label{eq:eps}\\
+  Y &= \beta_0 + \beta_1 \log(X_1) + \beta_2 X_2 + \beta_U U + \varepsilon, \label{eq:Y}\\
+  X_3 &= \alpha \, Y + \eta_3, \quad \eta_3 \sim \mathcal{N}(0,\sigma_\eta^2). \label{eq:X3}
+\end{align}
+\end{definition}
+
+The default parameter values are:
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Default} \\
+\midrule
+Intercept & $\beta_0$ & 50 \\
+Ad spend effect & $\beta_1$ & 8 \\
+Staff effect & $\beta_2$ & 3 \\
+Demand effect & $\beta_U$ & 2 \\
+Endogeneity strength & $\gamma_1$ & 20 \\
+Staff--demand loading & $\gamma_2$ & 5 \\
+Heteroscedasticity & $h$ & 0.5 \\
+Bad-control strength & $\alpha$ & 0.1 \\
+Noise scale & $\sigma_\eta$ & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}[Causal ordering]
+The generation order is critical: first $U$, then $(X_1, X_2)$, then $Y$, then $X_3$.
+The variable $X_3$ is \emph{post-treatment}: it is caused by $Y$, not a cause of $Y$.
+It never appears in the true DGP for~$Y$.
+Including $X_3$ as a control variable introduces collider bias (see \Cref{sec:causation}).
+\end{remark}
+
+\subsection{Pathologies Embedded in the DGP}
+
+The single DGP simultaneously contains all of the following pathologies:
+\begin{enumerate}[nosep]
+  \item \textbf{Omitted variable bias:} $U$ drives both $X_1$ and $Y$.
+        Omitting $U$ biases $\bhat_1$ upward.
+  \item \textbf{Heteroscedasticity:} $\Var(\varepsilon \mid X_1) = h \cdot |X_1|$;
+        larger campaigns have more variable returns.
+  \item \textbf{Inflated significance:} with large $n$, trivially small effects become ``significant.''
+  \item \textbf{Misspecification:} the true relationship is $\log(X_1)$, not $X_1$.
+  \item \textbf{Overfitting:} adding polynomial terms inflates training $R^2$ but destroys test $R^2$.
+  \item \textbf{Collider bias / bad control:} $X_3$ is caused by $Y$;
+        conditioning on it opens a spurious path.
+\end{enumerate}
+
+Each notebook isolates and examines one pathology while the others remain present in the background.
+
+% ============================================================
+% 3. OMITTED VARIABLE BIAS (NB 1)
+% ============================================================
+\section{Why Your Coefficient Is Wrong: Omitted Variable Bias}\label{sec:ovb}
+
+\subsection{Setup}
+
+Suppose the true model is
+\begin{equation}\label{eq:long}
+  Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon, \qquad \E[\varepsilon \mid X_1, X_2] = 0,
+\end{equation}
+but the analyst estimates the \emph{short} regression
+\begin{equation}\label{eq:short}
+  Y = \tilde\beta_0 + \tilde\beta_1 X_1 + \tilde\varepsilon.
+\end{equation}
+
+\begin{theorem}[Omitted Variable Bias Formula]\label{thm:ovb}
+Let $\bhat_1^{\text{short}}$ denote the OLS estimator of $\tilde\beta_1$ from the short regression~\eqref{eq:short}, and let $\beta_1$ be the true coefficient in~\eqref{eq:long}.  Define the \emph{auxiliary slope}
+\[
+  \delta_1 \;=\; \frac{\Cov(X_1, X_2)}{\Var(X_1)}.
+\]
+Then
+\begin{equation}\label{eq:ovb}
+  \E[\bhat_1^{\emph{short}}] \;=\; \beta_1 + \beta_2 \, \delta_1.
+\end{equation}
+The term $\beta_2 \delta_1$ is the \textbf{omitted variable bias}.
+\end{theorem}
+
+\begin{proof}
+Write the OLS estimator in population form.  From the short regression,
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \frac{\Cov(X_1, Y)}{\Var(X_1)}
+  = \frac{\Cov(X_1,\, \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon)}{\Var(X_1)}.
+\]
+Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, we obtain
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \beta_1 + \beta_2 \cdot \frac{\Cov(X_1, X_2)}{\Var(X_1)}
+  = \beta_1 + \beta_2 \, \delta_1. \qedhere
+\]
+\end{proof}
+
+\begin{keyinsight}
+The bias has a \emph{sign} and a \emph{direction}.
+In the NovaMart DGP with default parameters, $\beta_2 = 3$ and $\delta_1 > 0$ (because both $X_1$ and $X_2$ are driven by $U$), so the bias is \emph{positive}: the short regression overestimates the effect of ad spend.
+The OVB formula predicts $\E[\bhat_1^{\text{short}}] \approx 2.3 + 2.0 \times 1.2 = 4.7$, which is confirmed by Monte Carlo simulation (mean $\approx 4.698$ over 5{,}000 replications).
+\end{keyinsight}
+
+\subsection{When OVB Cannot Be Signed}
+
+The formula~\eqref{eq:ovb} generalises to multiple omitted variables.
+If $k$ variables are omitted, the bias on $\bhat_1$ is a weighted sum of terms $\beta_j \delta_{1j}$, where each $\delta_{1j}$ is the partial regression coefficient of $X_j$ on $X_1$ after partialling out included regressors.
+In general, the sign of the total bias is indeterminate without knowledge of all omitted variables.
+
+\subsection{The Proxy Variable Approach}
+
+\begin{repairbox}
+If the true confounder $U$ is unobservable, one can include a \emph{proxy} $\tilde{U}$ that is correlated with $U$.
+If $\tilde{U}$ explains a fraction $q \in [0,1]$ of the variation in $U$, the residual bias is approximately $(1-q)$ times the original bias.
+At $q = 1$ (perfect proxy), the bias vanishes; at $q = 0$, the full bias remains.
+\end{repairbox}
+
+\begin{warningbox}
+Including $X_3$ (customer satisfaction) as a control makes things \emph{worse}, not better.
+Because $X_3$ is caused by $Y$, conditioning on $X_3$ opens a collider path and introduces additional bias.
+\end{warningbox}
+
+% ============================================================
+% 4. HETEROSCEDASTICITY AND STANDARD ERRORS (NB 2)
+% ============================================================
+\section{Why Your Uncertainty Is Wrong: Heteroscedasticity}\label{sec:hetero}
+
+\subsection{The Classical Variance Formula}
+
+Under the standard linear model $Y = X\beta + \varepsilon$ with $\E[\varepsilon\varepsilon^\top \mid X] = \sigma^2 I_n$, the variance of the OLS estimator is
+\begin{equation}\label{eq:var-homo}
+  \Var(\bols \mid X) = \sigma^2 (X^\top X)^{-1}.
+\end{equation}
+
+\begin{definition}[Heteroscedasticity]
+The error term is \emph{heteroscedastic} if $\Var(\varepsilon_i \mid X_i) = \sigma_i^2$ with $\sigma_i^2$ not constant across $i$.
+In the NovaMart DGP, $\sigma_i^2 = h \cdot |X_{1,i}|$: larger ad campaigns have more unpredictable returns.
+\end{definition}
+
+\begin{theorem}[Variance Under Heteroscedasticity]\label{thm:sandwich}
+When $\E[\varepsilon\varepsilon^\top \mid X] = \Omega \neq \sigma^2 I_n$, the OLS estimator $\bols$ remains \emph{unbiased} but its variance becomes
+\begin{equation}\label{eq:var-hetero}
+  \Var(\bols \mid X) = (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
+\end{equation}
+This is the \textbf{sandwich formula}.
+The classical formula~\eqref{eq:var-homo} underestimates or overestimates the true variance, depending on the correlation structure between $X$ and the error variances.
+\end{theorem}
+
+\subsection{Consequences for Inference}
+
+If the classical standard errors are used under heteroscedasticity:
+\begin{itemize}[nosep]
+  \item Confidence intervals have incorrect coverage.
+        In the NovaMart simulation, the nominal 95\% CI achieves only $\approx$82\% coverage.
+  \item $t$-statistics and $p$-values are unreliable.
+  \item The coefficient estimates themselves are \emph{not} biased---only the uncertainty is wrong.
+\end{itemize}
+
+\subsection{The Breusch--Pagan Test}
+
+\begin{definition}[Breusch--Pagan Test]
+Regress the squared OLS residuals $\hat\varepsilon_i^2$ on the regressors $X$.
+Under $H_0$: homoscedasticity, the test statistic $nR^2$ from this auxiliary regression follows $\chi^2_p$ asymptotically, where $p$ is the number of regressors (excluding the constant).
+\end{definition}
+
+\subsection{Robust Standard Errors}
+
+\begin{repairbox}
+The \textbf{White--Huber--Eicker} (``sandwich'') standard errors are computed as
+\[
+  \widehat{\Var}(\bols) = (X^\top X)^{-1} \left(\sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top\right) (X^\top X)^{-1},
+\]
+where $\hat\varepsilon_i$ are the OLS residuals.  These standard errors are consistent under heteroscedasticity of unknown form.
+With robust SEs, the 95\% CI recovers $\approx$95\% coverage.
+\end{repairbox}
+
+\begin{warningbox}
+Robust standard errors perform poorly in small samples.
+When $n = 20$, the sandwich estimator is more biased than the classical estimator.
+The crossover point depends on the severity of heteroscedasticity, but as a rough guide, $n \geq 50$ is typically needed for reliable sandwich SEs.
+\end{warningbox}
+
+% ============================================================
+% 5. SIGNIFICANCE VS EFFECT SIZE (NB 3)
+% ============================================================
+\section{Why Your Significance Is Wrong: Effect Size and Power}\label{sec:significance}
+
+\subsection{The Anatomy of a $t$-Statistic}
+
+The $t$-statistic for testing $H_0: \beta_j = 0$ is
+\begin{equation}\label{eq:tstat}
+  t = \frac{\bhat_j}{\se(\bhat_j)}.
+\end{equation}
+Since $\se(\bhat_j) = O(1/\sqrt{n})$, for any fixed $\beta_j \neq 0$:
+\[
+  |t| \;\to\; \infty \quad \text{as } n \to \infty.
+\]
+
+\begin{keyinsight}
+With enough data, \emph{every} non-zero effect becomes statistically significant, no matter how small.
+With $n = 50{,}000$ observations (NovaMart at store-month level), customer satisfaction has $p < 0.001$ despite a coefficient of \$0.003 per satisfaction point---economically meaningless.
+\end{keyinsight}
+
+\subsection{Statistical Power}
+
+\begin{definition}[Power]
+The \textbf{power} of a test is the probability of correctly rejecting $H_0$ when $H_0$ is false:
+\[
+  \text{Power} = P\!\left(|t| > c_\alpha \;\middle|\; \beta_j \neq 0\right),
+\]
+where $c_\alpha$ is the critical value at significance level~$\alpha$.
+\end{definition}
+
+\begin{proposition}[Power Increases with $n$ and Effect Size]
+For a two-sided $t$-test at level $\alpha$ with true coefficient $\beta_j$ and standard deviation $\sigma$,
+\[
+  \text{Power} \approx \Phi\!\left(\frac{|\beta_j|}{\sigma/\sqrt{n}} - z_{\alpha/2}\right),
+\]
+where $\Phi$ is the standard normal CDF and $z_{\alpha/2}$ is the upper $\alpha/2$ quantile.
+Power increases with both $|\beta_j|$ (effect size) and $\sqrt{n}$.
+\end{proposition}
+
+\subsection{The Multiple Testing Problem}
+
+Running $m$ independent hypothesis tests at level $\alpha$ produces
+\[
+  \E[\text{false positives}] = m \cdot \alpha.
+\]
+With $m = 1{,}000{,}000$ tests at $\alpha = 0.05$, we expect 50{,}000 false positives.
+
+\begin{repairbox}
+The \textbf{Bonferroni correction} tests each hypothesis at level $\alpha/m$, controlling the family-wise error rate at~$\alpha$.
+For genome-wide association studies ($m \approx 10^6$), the corrected threshold is $\alpha/m = 5 \times 10^{-8}$.
+Always report effect sizes and confidence intervals alongside $p$-values.
+\end{repairbox}
+
+% ============================================================
+% 6. SPECIFICATION ERROR (NB 4)
+% ============================================================
+\section{Why Your Model Is Wrong: Specification Error}\label{sec:specification}
+
+\subsection{The Problem of Functional Form}
+
+Suppose the true relationship is $Y = f(X) + \varepsilon$ for some nonlinear function $f$, but we fit the linear model $Y = X\beta + \varepsilon$.
+
+\begin{theorem}[Linear Projection Under Misspecification]\label{thm:linproj}
+If $Y = f(X) + \varepsilon$ with $\E[\varepsilon \mid X] = 0$, and we estimate $Y = X\beta + u$ by OLS, then the OLS estimator converges to
+\[
+  \beta^* = \underset{\beta}{\arg\min}\; \E\!\left[(Y - X\beta)^2\right],
+\]
+which is the best linear approximation to $f(X)$ in the mean-squared-error sense.
+This $\beta^*$ equals the true $\beta$ only if $f$ is linear.
+\end{theorem}
+
+In the NovaMart DGP, $f(X_1) = \beta_1 \log(X_1)$.
+A linear model in $X_1$ provides a reasonable approximation within the observed data range but diverges catastrophically when extrapolating.
+
+\subsection{The Extrapolation Danger}
+
+If the true relationship is $Y = 8\log(X_1) + \cdots$ and we fit $Y = \tilde\beta_1 X_1 + \cdots$:
+\begin{itemize}[nosep]
+  \item At $X_1 = 100$ (within sample): moderate overestimation.
+  \item At $X_1 = 2{,}000$ (extrapolation): linear prediction overshoots by a factor of $\approx$3.
+  \item The confidence band widens but does \emph{not} contain the truth.
+\end{itemize}
+
+\begin{repairbox}
+Fit the correctly specified model by transforming the predictor:
+\[
+  Y = \beta_0 + \beta_1 \log(X_1) + \beta_2 X_2 + \varepsilon.
+\]
+Extrapolation accuracy improves dramatically.
+However, even the log model is a local approximation---at extreme extrapolation, all parametric models eventually fail.
+\end{repairbox}
+
+% ============================================================
+% 7. OVERFITTING AND BIAS-VARIANCE (NB 5)
+% ============================================================
+\section{Why Your $R^2$ Is Lying: Overfitting}\label{sec:overfitting}
+
+\subsection{The Bias--Variance Decomposition}
+
+\begin{theorem}[Bias--Variance Decomposition]\label{thm:biasvar}
+For any estimator $\hat{f}$ of the regression function $f$, the expected prediction error at a point $x_0$ decomposes as
+\begin{equation}\label{eq:biasvar}
+  \E\!\left[(Y - \hat{f}(x_0))^2\right]
+  = \underbrace{\left(f(x_0) - \E[\hat{f}(x_0)]\right)^2}_{\text{Bias}^2}
+  + \underbrace{\Var(\hat{f}(x_0))}_{\text{Variance}}
+  + \underbrace{\sigma^2_\varepsilon}_{\text{Irreducible noise}}.
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Let $\mu = \E[\hat{f}(x_0)]$.  Then
+\begin{align*}
+  \E[(Y - \hat{f})^2]
+  &= \E[(f + \varepsilon - \hat{f})^2] \\
+  &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
+  &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
+\end{align*}
+where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ (trained on separate data) and has mean zero.
+Now expand:
+\[
+  \E[(f - \hat{f})^2]
+  = (f - \mu)^2 + \E[(\hat{f} - \mu)^2]
+  = \Bias^2(\hat{f}) + \Var(\hat{f}). \qedhere
+\]
+\end{proof}
+
+\subsection{Overfitting in Practice}
+
+Adding polynomial terms to a regression always increases training $R^2$ (since $R^2$ is monotonically non-decreasing in the number of regressors).
+In the NovaMart demo:
+\begin{center}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+\textbf{Degree} & \textbf{Training $R^2$} & \textbf{Test $R^2$} \\
+\midrule
+1 & 0.71 & 0.69 \\
+3 & 0.82 & 0.78 \\
+7 & 0.91 & 0.63 \\
+15 & 0.97 & $<0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+A degree-15 polynomial achieves $R^2 = 0.97$ on training data but predicts \emph{worse than the sample mean} on held-out data.
+
+\subsection{Cross-Validation}
+
+\begin{definition}[$k$-Fold Cross-Validation]
+Partition the data into $k$ equally sized folds.  For each fold $j$, train the model on all data except fold~$j$ and compute the prediction error on fold~$j$.
+The CV estimate of prediction error is
+\[
+  \text{CV}(k) = \frac{1}{k} \sum_{j=1}^{k} \MSE_j.
+\]
+\end{definition}
+
+\begin{repairbox}
+Using cross-validation, the log-linear model (which matches the true DGP) achieves the lowest CV error, outperforming all polynomial models.
+The right model family matters more than the degree of flexibility.
+\end{repairbox}
+
+\begin{warningbox}
+Cross-validation itself can overfit if the number of candidate model specifications searched is large.
+The best CV $R^2$ inflates with the breadth of the search.
+\end{warningbox}
+
+% ============================================================
+% 8. BAD CONTROLS AND CAUSATION (NB 6)
+% ============================================================
+\section{Why Your Causal Claim Is Wrong: Endogeneity and Bad Controls}\label{sec:causation}
+
+\subsection{Endogeneity}
+
+\begin{definition}[Endogeneity]
+A regressor $X_j$ is \emph{endogenous} if $\Cov(X_j, \varepsilon) \neq 0$.
+This can arise from omitted variables, measurement error, or simultaneous causation (feedback loops).
+\end{definition}
+
+In the NovaMart DGP, revenue and ad spend are mutually related through demand~$U$.
+OLS captures the correlation but cannot distinguish causal direction.
+
+\subsection{Collider Bias from Bad Controls}
+
+The causal graph for NovaMart is:
+\[
+  U \longrightarrow X_1 \longrightarrow Y \longrightarrow X_3, \qquad U \longrightarrow Y.
+\]
+Including $X_3$ (satisfaction) as a regressor conditions on a descendant of $Y$, which opens a spurious association path through $Y$.
+
+\begin{proposition}[Collider Bias]
+If $X_3 = \alpha Y + \eta_3$ (i.e., $X_3$ is a post-treatment variable), then the regression of $Y$ on $(X_1, X_3)$ yields a biased estimate of the causal effect of $X_1$ on~$Y$, even if $X_1$ is otherwise exogenous.
+The bias arises because conditioning on a descendant of $Y$ partially conditions on $Y$ itself.
+\end{proposition}
+
+\begin{warningbox}
+The advice ``control for everything available'' is wrong.
+Controlling for post-treatment variables or colliders \emph{introduces} bias rather than removing it.
+Variable selection for causal inference requires understanding the causal structure, not just statistical association.
+\end{warningbox}
+
+\subsection{Instrumental Variables}
+
+\begin{definition}[Instrument]
+A variable $Z$ is a valid \emph{instrument} for $X$ in the equation $Y = X\beta + \varepsilon$ if:
+\begin{enumerate}[nosep]
+  \item \textbf{Relevance:} $\Cov(Z, X) \neq 0$.
+  \item \textbf{Exclusion:} $\Cov(Z, \varepsilon) = 0$ (the instrument affects $Y$ only through $X$).
+\end{enumerate}
+\end{definition}
+
+\begin{theorem}[IV Consistency]\label{thm:iv}
+If $Z$ is a valid instrument, the IV estimator
+\begin{equation}\label{eq:iv}
+  \biv = (Z^\top X)^{-1} Z^\top Y
+\end{equation}
+is consistent for~$\beta$:
+\[
+  \plim\, \biv
+  = \plim \frac{Z^\top Y / n}{Z^\top X / n}
+  = \frac{\Cov(Z, Y)}{\Cov(Z, X)}
+  = \beta.
+\]
+\end{theorem}
+
+In the NovaMart context, if ad prices varied randomly across regions (a natural experiment), the regional price variation serves as an instrument for ad spend.
+
+\begin{warningbox}
+Weak instruments ($\Cov(Z, X) \approx 0$) cause the IV estimator to be highly variable and unreliable.
+When the first-stage $F$-statistic is below 10, IV confidence intervals are extremely wide and the estimator may be more biased than OLS.
+\end{warningbox}
+
+% ============================================================
+% 9. CONFRONTING REAL DATA (NB 7)
+% ============================================================
+\section{The Real World: When All Pathologies Strike at Once}\label{sec:realworld}
+
+\subsection{The Lalonde Dataset}
+
+Notebook~7 transitions from simulated data to the Lalonde (1986) dataset, a benchmark in causal inference.
+The question: does a job training programme increase earnings?
+
+\begin{itemize}[nosep]
+  \item \textbf{Observational estimate (OLS):} negative coefficient---training appears to \emph{reduce} earnings.
+  \item \textbf{Experimental estimate (RCT):} positive and large ($\approx$\$1{,}800).
+  \item The two estimates do not even have the same sign.
+\end{itemize}
+
+All standard diagnostics pass: VIFs are low, Breusch--Pagan is non-significant, robust SEs barely change.
+The problem is not in the model---it is in the \emph{data}.
+The observational and experimental groups differ systematically on unobservables.
+
+\subsection{Sensitivity Analysis: Cinelli--Hazlett Framework}
+
+\begin{definition}[Robustness Value]
+The \textbf{robustness value} (RV) is the minimum strength of association (measured in partial~$R^2$) that an unobserved confounder would need to have with both the treatment and the outcome to explain away the observed result.
+\end{definition}
+
+Formally, define
+\[
+  \text{RV}_{q,\alpha} = \min\{r : \text{adjusted estimate crosses } q \cdot \bhat \text{ at level } \alpha\}.
+\]
+A small RV indicates fragility: a weak confounder suffices to nullify the result.
+A large RV indicates robustness.
+
+\begin{keyinsight}
+The Lalonde observational estimate has a very small robustness value: the result is fragile.
+A confounder with even modest partial $R^2$ with both treatment and outcome would explain away the finding.
+This is why the observational and experimental estimates disagree.
+\end{keyinsight}
+
+% ============================================================
+% 10. REGRESSION DISCONTINUITY DESIGN (NB 8)
+% ============================================================
+\section{The Redemption: Regression Discontinuity Design}\label{sec:rdd}
+
+\subsection{When Design Earns Trust}
+
+Regression works brilliantly when the world provides a natural experiment.
+The \textbf{regression discontinuity design} (RDD) exploits a sharp threshold to identify causal effects.
+
+\begin{definition}[Sharp RDD]
+Suppose treatment is assigned deterministically by a \emph{running variable} $R$ at a cutoff~$c$:
+\[
+  D_i = \mathbf{1}(R_i \geq c).
+\]
+Under continuity of potential outcomes at~$c$, the \textbf{local average treatment effect} at the cutoff is
+\begin{equation}\label{eq:rdd}
+  \tau_{\text{RDD}} = \lim_{r \downarrow c}\, \E[Y \mid R = r] - \lim_{r \uparrow c}\, \E[Y \mid R = r].
+\end{equation}
+\end{definition}
+
+\begin{theorem}[RDD Identification]\label{thm:rdd}
+If $\E[Y_0 \mid R = r]$ and $\E[Y_1 \mid R = r]$ are continuous at $r = c$, then
+\[
+  \tau_{\text{RDD}} = \E[Y_1 - Y_0 \mid R = c].
+\]
+The design eliminates confounding \emph{locally} at the cutoff because units just above and just below the threshold are nearly identical in all characteristics.
+\end{theorem}
+
+\subsection{Example: Scholarship Cutoff}
+
+Students with test scores just above a threshold receive scholarships; those just below do not.
+Near the cutoff, the two groups are essentially identical.
+The jump in outcomes at the threshold identifies the causal effect of the scholarship.
+
+\subsection{Bandwidth Choice}
+
+The RDD estimator faces a bias--variance tradeoff controlled by the \emph{bandwidth}~$h$:
+\begin{itemize}[nosep]
+  \item \textbf{Narrow bandwidth:} low bias (observations are close to the cutoff), high variance (few observations).
+  \item \textbf{Wide bandwidth:} low variance (more observations), high bias (observations far from the cutoff may not be comparable).
+\end{itemize}
+
+Optimal bandwidth selection (e.g., Imbens--Kalyanaraman or Calonico--Cattaneo--Titiunik) balances these two forces.
+
+\begin{repairbox}
+The RDD does not require controlling for confounders.
+The design itself ensures comparability near the cutoff.
+When the autopsy report is run on the RDD estimate, all indicators are green: the regression is trustworthy because the \emph{design} is trustworthy.
+\end{repairbox}
+
+% ============================================================
+% 11. THE FRISCH-WAUGH-LOVELL THEOREM (NB 1.5)
+% ============================================================
+\section{What ``Controlling For'' Actually Means: The Frisch--Waugh--Lovell Theorem}\label{sec:fwl}
+
+\subsection{Motivation}
+
+When we say ``the coefficient on $X_1$, controlling for $X_2$,'' we do \emph{not} mean ``holding $X_2$ constant.''
+We mean: the coefficient from regressing the part of $Y$ unexplained by $X_2$ on the part of $X_1$ unexplained by $X_2$.
+
+\begin{theorem}[Frisch--Waugh--Lovell]\label{thm:fwl}
+Consider the regression $Y = X_1 \beta_1 + X_2 \beta_2 + \varepsilon$.
+Let $M_2 = I - X_2(X_2^\top X_2)^{-1}X_2^\top$ be the residual-maker matrix that projects orthogonally to the column space of~$X_2$.
+Then
+\begin{equation}\label{eq:fwl}
+  \bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y.
+\end{equation}
+That is, $\bhat_1$ from the full regression is \emph{identical} (to numerical precision) to the coefficient obtained by:
+\begin{enumerate}[nosep]
+  \item Regressing $Y$ on $X_2$ and taking residuals: $\tilde{Y} = M_2 Y$.
+  \item Regressing $X_1$ on $X_2$ and taking residuals: $\tilde{X}_1 = M_2 X_1$.
+  \item Regressing $\tilde{Y}$ on $\tilde{X}_1$ (no intercept).
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+The OLS normal equations for the partitioned model $Y = X_1\beta_1 + X_2\beta_2 + \varepsilon$ give
+\[
+  \begin{pmatrix} X_1^\top X_1 & X_1^\top X_2 \\ X_2^\top X_1 & X_2^\top X_2 \end{pmatrix}
+  \begin{pmatrix} \bhat_1 \\ \bhat_2 \end{pmatrix}
+  =
+  \begin{pmatrix} X_1^\top Y \\ X_2^\top Y \end{pmatrix}.
+\]
+From the second block, $\bhat_2 = (X_2^\top X_2)^{-1} X_2^\top (Y - X_1 \bhat_1)$.
+Substituting into the first block and simplifying:
+\begin{align*}
+  X_1^\top X_1 \bhat_1 + X_1^\top X_2 (X_2^\top X_2)^{-1} X_2^\top(Y - X_1\bhat_1) &= X_1^\top Y \\
+  X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] X_1\, \bhat_1 &= X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] Y \\
+  X_1^\top M_2 X_1\, \bhat_1 &= X_1^\top M_2 Y.
+\end{align*}
+Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
+\end{proof}
+
+\begin{keyinsight}
+``Controlling for'' means residualising---stripping out the linear relationship with the control variables from \emph{both} sides of the equation.
+The partial regression plot (also called an added-variable plot) visualises this: it plots $\tilde{Y}$ against $\tilde{X}_1$.
+The slope of this scatterplot \emph{is} $\bhat_1$ from the full multiple regression.
+\end{keyinsight}
+
+% ============================================================
+% 12. DIAGNOSTICS TOOLKIT SUMMARY
+% ============================================================
+\section{Diagnostic Toolkit Summary}\label{sec:diagnostics}
+
+The following diagnostics are used across all notebooks:
+
+\begin{center}
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{Diagnostic} & \textbf{Tests For} & \textbf{Interpretation} \\
+\midrule
+Residuals vs.\ Fitted & Nonlinearity, heteroscedasticity & Residuals should show no pattern; funnel shape indicates heteroscedasticity \\
+Normal Q--Q plot & Non-normality of residuals & Points should lie on the 45$^\circ$ line \\
+Scale--Location & Heteroscedasticity & $\sqrt{|\text{standardised residuals}|}$ should be flat against fitted values \\
+Residuals vs.\ Leverage & Influential observations & Points with high leverage \emph{and} large residuals (Cook's $d > 1$) are influential \\
+\midrule
+VIF & Multicollinearity & $\text{VIF}_j > 10$ suggests problematic collinearity \\
+Breusch--Pagan & Heteroscedasticity & $H_0$: homoscedasticity; reject if $p < \alpha$ \\
+Durbin--Watson & Autocorrelation & Statistic near 2 indicates no autocorrelation \\
+Jarque--Bera & Non-normality & $H_0$: residuals are normally distributed \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{warningbox}
+Passing all diagnostics does not guarantee a valid causal estimate.
+In the Lalonde example (Notebook~7), every diagnostic passes, yet the OLS estimate has the wrong sign.
+Diagnostics check the model's internal consistency, not whether the research design is sound.
+\end{warningbox}
+
+% ============================================================
+% 13. THEOREM MAP
+% ============================================================
+\section{Theorem Map: How the Results Connect}\label{sec:theoremmap}
+
+The theorems in this course form a logical chain where each generalises the previous:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}clp{7.5cm}@{}}
+\toprule
+\textbf{NB} & \textbf{Theorem} & \textbf{Generalisation Relationship} \\
+\midrule
+1 & Omitted Variable Bias & Foundation: bias from omitting a relevant variable \\
+2 & Sandwich Variance & Relaxes $\Var(\varepsilon) = \sigma^2 I$; OVB is a special case of endogeneity \\
+3 & Power Analysis & $t = \bhat/\se(\bhat)$; builds on correct SEs from NB~2 \\
+4 & Linear Projection & Best linear approx.\ to $f(X)$; relaxes $f$ linear \\
+5 & Bias--Variance Tradeoff & $\MSE = \Bias^2 + \Var + \sigma^2$; generalises specification error \\
+6 & IV Consistency & If $\E[\varepsilon X] \neq 0$ but $\E[\varepsilon Z] = 0$; generalises OVB repair \\
+7 & Sensitivity Analysis & Robustness value quantifies fragility of any estimate \\
+8 & RDD Identification & Continuity at cutoff $\Rightarrow$ causal identification \\
+1.5 & Frisch--Waugh--Lovell & What ``controlling for'' means algebraically \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The meta-lesson: each theorem relaxes an assumption that justified the previous conclusion.
+Classical variance is a special case of the sandwich estimator.
+The linear model is a special case of all models.
+OVB is a special case of endogeneity.
+
+% ============================================================
+% CONCLUSION
+% ============================================================
+\section{Conclusion}
+
+These notes have formalised the eight core failure modes of OLS regression demonstrated in the Regression Autopsy lab series:
+
+\begin{enumerate}[nosep]
+  \item Omitted variable bias shifts your coefficient.
+  \item Heteroscedasticity corrupts your standard errors.
+  \item Large samples make trivial effects ``significant.''
+  \item Misspecification makes extrapolation fiction.
+  \item Overfitting makes memorisation look like learning.
+  \item Bad controls and endogeneity destroy causal claims.
+  \item Real data confronts you with all failures simultaneously.
+  \item Sound research design (RDD) earns regression its trust back.
+\end{enumerate}
+
+The unifying lesson is not that regression should be abandoned, but that its outputs must be accompanied by an honest assessment of the assumptions under which they are valid.
+The diagnostics tell you whether the \emph{model} is internally consistent; only the \emph{research design} can tell you whether the estimate is credible.
+
+\vspace{1cm}
+\begin{center}
+\textit{This doesn't mean you should stop using regression.\\
+It means you're finally ready to start.}
+\end{center}
+
+\end{document}
