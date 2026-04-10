@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 &mdash; Why Your Model Is Wrong | Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .prediction-widget {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1.25rem; margin: 1.25rem 0;
+    }
+    .prediction-widget .pred-question {
+      font-weight: 600; margin-bottom: 1rem; font-size: 1.05rem;
+    }
+    .prediction-widget input[type="number"] {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 1rem; width: 180px;
+      font-family: var(--font-mono);
+    }
+    .prediction-widget input[type="number"]:focus {
+      outline: none; border-color: var(--blue);
+    }
+    .radio-options { display: flex; flex-direction: column; gap: 0.4rem; }
+    .radio-options label {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.6rem 0.75rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.95rem; transition: background 0.15s;
+    }
+    .radio-options label:hover { background: rgba(46,94,168,0.12); }
+    .radio-options input[type="radio"] { accent-color: var(--blue); width: 18px; height: 18px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .insight-box {
+      padding: 1rem 1.25rem; border-radius: 8px; margin: 1rem 0; font-size: 0.95rem; line-height: 1.6;
+    }
+    .insight-box.red { background: rgba(192,57,43,0.12); border: 1px solid var(--red); }
+    .insight-box.green { background: rgba(39,174,96,0.12); border: 1px solid var(--green); }
+    .insight-box.gold { background: rgba(212,160,23,0.12); border: 1px solid var(--gold); }
+    .toggle-group { display: flex; gap: 0; margin: 1rem 0; }
+    .toggle-group button {
+      padding: 0.5rem 1.25rem; border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); font-size: 0.9rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600;
+    }
+    .toggle-group button:first-child { border-radius: 6px 0 0 6px; }
+    .toggle-group button:last-child { border-radius: 0 6px 6px 0; }
+    .toggle-group button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .progress-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17,19,23,0.92); z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .progress-overlay .bar-track {
+      width: 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 1rem;
+    }
+    .progress-overlay .bar-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.2s; border-radius: 4px; }
+    .divergence-readout {
+      font-family: var(--font-mono); font-size: 1.1rem; padding: 0.75rem 1rem;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      margin-top: 1rem; text-align: center;
+    }
+    .challenger-plot { min-height: 300px; }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="top-nav">
+  <a href="../index.html">Index</a>
+  <a href="03_significance.html">&larr; Prev</a>
+  <a href="05_overfitting.html">Next &rarr;</a>
+  <span class="nav-title">04 &mdash; Why Your Model Is Wrong</span>
+</nav>
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <h2>Generating data&hellip;</h2>
+  <div class="bar-track"><div class="bar-fill" id="progressBar"></div></div>
+  <p class="text-muted mt-1" id="progressText">Initializing PRNG</p>
+</div>
+
+<div class="page-wrapper">
+
+  <!-- Hero -->
+  <div class="hero" style="padding-top:1.5rem; padding-bottom:1rem;">
+    <h1>Why Your Model Is <span class="accent">Wrong</span></h1>
+    <p class="hook">A straight line through a curved world. Your model fits beautifully inside the data&mdash;and breaks catastrophically outside it.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TRAP -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionTrap">
+    <span class="beat-tag trap">Trap</span>
+    <h2>The Linear Model</h2>
+    <p class="text-muted mb-2">We regressed sale price on living area (in units of 1,000 sqft) using a linear model. The fit looks excellent: \(R^2 = \) <span id="trapR2" class="text-gold">--</span>.</p>
+
+    <div id="trapPlot" class="viz-plot" style="min-height:420px;"></div>
+
+    <div class="prediction-widget mt-2">
+      <div class="pred-question">A 10,000 sqft mansion comes on the market. What does the model predict for its sale price?</div>
+      <div class="radio-options" id="predOptions">
+        <label><input type="radio" name="predChoice" value="A"> <span id="optA"></span></label>
+        <label><input type="radio" name="predChoice" value="B"> <span id="optB"></span></label>
+        <label><input type="radio" name="predChoice" value="C"> <span id="optC"></span></label>
+        <label><input type="radio" name="predChoice" value="D"> <span id="optD"></span></label>
+      </div>
+      <button class="trap-submit mt-2" id="trapSubmitBtn" onclick="evaluateTrap()">Submit prediction</button>
+      <div class="trap-feedback" id="trapFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- REVEAL -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionReveal" style="display:none;">
+    <span class="beat-tag reveal">Reveal</span>
+    <h2>The True Relationship Is Logarithmic</h2>
+    <p class="text-muted mb-2">The data-generating process uses \(Y = 50 + 8 \cdot \log(X_1) + \ldots\). A linear model approximates the log curve within the data range but diverges wildly outside it.</p>
+
+    <div id="revealPlot" class="viz-plot" style="min-height:440px;"></div>
+
+    <div class="insight-box red mt-2">
+      <strong>At \(X_1 = 10\) (10,000 sqft)</strong>, the linear model predicts <span id="revLinPred" class="text-red">--</span>, while the true log relationship gives <span id="revTruePred" class="text-gold">--</span>. The linear extrapolation overshoots by <span id="revOvershoot" class="text-red">--</span>.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DESTROY -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionDestroy" style="display:none;">
+    <span class="beat-tag destroy">Destroy</span>
+    <h2>Extrapolation: Where Models Go to Die</h2>
+    <p class="text-muted mb-2">Drag the prediction point along the \(X_1\) axis. Inside the data range, linear and log overlap. Outside, they diverge catastrophically.</p>
+
+    <div class="slider-container">
+      <label>Prediction point \(X_1\) <span class="slider-value" id="predXVal">2.0</span></label>
+      <input type="range" id="predXSlider" min="0.5" max="20" step="0.1" value="2.0">
+    </div>
+
+    <div id="destroyPlot" class="viz-plot" style="min-height:440px;"></div>
+
+    <div class="divergence-readout">
+      Linear prediction: <span id="divLinear" class="text-blue">--</span> &nbsp;|&nbsp;
+      Log truth: <span id="divLog" class="text-gold">--</span> &nbsp;|&nbsp;
+      Divergence: <span id="divGap" class="text-red">--</span>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- REPAIR -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionRepair" style="display:none;">
+    <span class="beat-tag repair">Repair</span>
+    <h2>Use the Right Functional Form</h2>
+    <p class="text-muted mb-2">Toggle between the linear model and the log-transformed model. The log model extrapolates much more gracefully because it respects diminishing returns.</p>
+
+    <div class="toggle-group">
+      <button class="active" id="btnLinear" onclick="setModel('linear')">Linear Model</button>
+      <button id="btnLog" onclick="setModel('log')">Log-transformed Model</button>
+    </div>
+
+    <div id="repairPlot" class="viz-plot" style="min-height:440px;"></div>
+
+    <div class="insight-box green mt-2">
+      <strong>Diminishing returns:</strong> Each additional square foot of living area adds less to the sale price. A 500 sqft apartment gaining 100 sqft is transformative; a 5,000 sqft mansion gaining 100 sqft is barely noticeable. The logarithm captures this naturally.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- LIMIT -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionLimit" style="display:none;">
+    <span class="beat-tag limit">Limit</span>
+    <h2>Even the Log Model Has Limits</h2>
+    <p class="text-muted mb-2">Push \(X_1\) to extreme values. At \(X_1 = 100\) (100,000 sqft), even the log model's prediction becomes unreliable. Every functional form is a local approximation.</p>
+
+    <div class="slider-container">
+      <label>Extreme prediction \(X_1\) <span class="slider-value" id="limitXVal">10</span></label>
+      <input type="range" id="limitXSlider" min="1" max="100" step="1" value="10">
+    </div>
+
+    <div id="limitPlot" class="viz-plot" style="min-height:420px;"></div>
+
+    <div class="insight-box gold mt-2">
+      <strong>Every functional form is a local approximation.</strong> The log model is better than linear, but at \(X_1 = 100\) it still predicts with wild uncertainty. No model can reliably predict far outside its training data.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SIDEBAR -->
+  <!-- ============================================================ -->
+  <div class="sidebar-collapsible" id="sidebarChallenger">
+    <button class="sidebar-toggle" onclick="this.parentElement.classList.toggle('open')">
+      Sidebar: The Challenger O-Ring Disaster &mdash; Selection on Y
+    </button>
+    <div class="sidebar-content">
+      <p class="text-muted mb-2">Before the 1986 Challenger launch, engineers examined O-ring damage only for flights <em>where damage occurred</em>. They saw no clear temperature trend and cleared the launch at 31&deg;F.</p>
+      <p class="text-muted mb-2">Had they included all flights&mdash;including those with no damage at warm temperatures&mdash;the negative relationship between temperature and O-ring failure was obvious.</p>
+
+      <div id="challengerPlot" class="viz-plot challenger-plot"></div>
+
+      <p class="text-muted mt-1" style="font-size:0.85rem;">Red points: flights with O-ring damage. Blue points: flights with no damage (excluded from the original analysis). The trend is unmistakable when you include the full data. This is selection on the dependent variable&mdash;a specification error that cost seven lives.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BRIDGE -->
+  <!-- ============================================================ -->
+  <div class="bridge-section">
+    <p class="bridge-text">Your model is correctly specified. But how do you know it is not just memorizing?</p>
+    <a class="bridge-link" href="05_overfitting.html">05 &mdash; Why Your Model Memorizes &rarr;</a>
+  </div>
+
+</div><!-- /page-wrapper -->
+
+<script>
+// =====================================================================
+// SEEDED PRNG (mulberry32)
+// =====================================================================
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+var rng = mulberry32(77);
+
+function rnorm() {
+  var u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// =====================================================================
+// DGP
+// Y = 50 + 8*log(X1) + 3*X2 + 2*U + eps
+// We focus on the Y vs X1 relationship for this notebook
+// =====================================================================
+function generateData(n) {
+  var Y = new Float64Array(n);
+  var X1 = new Float64Array(n);
+  var X2 = new Float64Array(n);
+  var U = new Float64Array(n);
+
+  for (var i = 0; i < n; i++) {
+    U[i] = rnorm();
+    var eta1 = rnorm() * 0.3;
+    var eta2 = rnorm() * 0.3;
+    X1[i] = 2.0 + 0.5 * U[i] + eta1;
+    if (X1[i] <= 0.01) X1[i] = 0.01;
+    X2[i] = 3.0 + 0.5 * U[i] + eta2;
+    var eps = rnorm() * (0.5 * Math.abs(X1[i]));
+    Y[i] = 50 + 8 * Math.log(X1[i]) + 3 * X2[i] + 2 * U[i] + eps;
+  }
+  return { Y: Y, X1: X1, X2: X2, U: U, n: n };
+}
+
+// =====================================================================
+// Simple OLS: Y = a + b*X  (univariate)
+// =====================================================================
+function olsSimple(Y, X) {
+  var n = Y.length;
+  var sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (var i = 0; i < n; i++) {
+    sx += X[i]; sy += Y[i];
+    sxx += X[i] * X[i]; sxy += X[i] * Y[i];
+  }
+  var xm = sx / n, ym = sy / n;
+  var b = (sxy - n * xm * ym) / (sxx - n * xm * xm);
+  var a = ym - b * xm;
+  // R^2
+  var ssRes = 0, ssTot = 0;
+  for (var i = 0; i < n; i++) {
+    var yhat = a + b * X[i];
+    ssRes += (Y[i] - yhat) * (Y[i] - yhat);
+    ssTot += (Y[i] - ym) * (Y[i] - ym);
+  }
+  var r2 = 1 - ssRes / ssTot;
+  var sigma2 = ssRes / (n - 2);
+  var seB = Math.sqrt(sigma2 / (sxx - n * xm * xm));
+  return { a: a, b: b, r2: r2, sigma: Math.sqrt(sigma2), seB: seB };
+}
+
+// =====================================================================
+// OLS for log model: Y = a + b*log(X)
+// =====================================================================
+function olsLog(Y, X) {
+  var logX = new Float64Array(X.length);
+  for (var i = 0; i < X.length; i++) logX[i] = Math.log(X[i]);
+  return olsSimple(Y, logX);
+}
+
+// =====================================================================
+// GLOBALS
+// =====================================================================
+var COLORS = { blue: '#2E5EA8', gold: '#D4A017', red: '#C0392B', green: '#27AE60', gray: '#7F8C8D' };
+
+var plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(26,29,35,1)',
+  font: { color: '#e8e8e8', family: 'Inter, sans-serif' },
+  margin: { t: 40, r: 20, b: 50, l: 70 },
+  xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+  yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' }
+};
+
+var data = null;
+var linFit = null;
+var logFit = null;
+var currentModel = 'linear';
+
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+// =====================================================================
+// INITIALIZATION
+// =====================================================================
+async function init() {
+  var bar = document.getElementById('progressBar');
+  var txt = document.getElementById('progressText');
+
+  txt.textContent = 'Generating 2,000 observations...';
+  bar.style.width = '20%';
+  await sleep(50);
+
+  rng = mulberry32(77);
+  data = generateData(2000);
+
+  txt.textContent = 'Fitting linear model...';
+  bar.style.width = '50%';
+  await sleep(30);
+
+  linFit = olsSimple(data.Y, data.X1);
+
+  txt.textContent = 'Fitting log model...';
+  bar.style.width = '70%';
+  await sleep(30);
+
+  logFit = olsLog(data.Y, data.X1);
+
+  txt.textContent = 'Rendering...';
+  bar.style.width = '90%';
+  await sleep(30);
+
+  renderTrap();
+  prepareChallenger();
+
+  bar.style.width = '100%';
+  txt.textContent = 'Done!';
+  await sleep(200);
+  document.getElementById('progressOverlay').style.display = 'none';
+}
+
+// =====================================================================
+// TRAP
+// =====================================================================
+function renderTrap() {
+  document.getElementById('trapR2').textContent = linFit.r2.toFixed(2);
+
+  // Scatter plot with linear fit (only show data range)
+  var xMin = Infinity, xMax = -Infinity;
+  for (var i = 0; i < data.n; i++) {
+    if (data.X1[i] < xMin) xMin = data.X1[i];
+    if (data.X1[i] > xMax) xMax = data.X1[i];
+  }
+
+  // Subsample for plot performance
+  var step = Math.max(1, Math.floor(data.n / 500));
+  var px = [], py = [];
+  for (var i = 0; i < data.n; i += step) {
+    px.push(data.X1[i]);
+    py.push(data.Y[i]);
+  }
+
+  var fitX = [];
+  for (var x = xMin; x <= xMax; x += (xMax - xMin) / 200) fitX.push(x);
+  var fitY = fitX.map(function(x) { return linFit.a + linFit.b * x; });
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Living Area (X1, thousands sqft)';
+  layout.yaxis.title = 'Sale Price ($)';
+  layout.title = { text: 'Sale Price vs Living Area (Linear Fit)', font: { size: 14 } };
+
+  Plotly.react('trapPlot', [
+    { x: px, y: py, mode: 'markers', marker: { color: COLORS.gray, size: 4, opacity: 0.5 }, name: 'Data', type: 'scatter' },
+    { x: fitX, y: fitY, mode: 'lines', line: { color: COLORS.blue, width: 3 }, name: 'Linear OLS' }
+  ], layout, { responsive: true, displayModeBar: false });
+
+  // Set up prediction options
+  var linPred10 = linFit.a + linFit.b * 10;
+  var truePred10 = 50 + 8 * Math.log(10) + 3 * 3; // approximate (X2 mean ~3)
+  // Options: linear prediction, true value, and two distractors
+  var options = [
+    { key: 'A', val: Math.round(linPred10), label: '$' + Math.round(linPred10).toLocaleString() + ' (linear extrapolation)' },
+    { key: 'B', val: Math.round(truePred10), label: '$' + Math.round(truePred10).toLocaleString() + ' (diminishing returns)' },
+    { key: 'C', val: Math.round(linPred10 * 1.5), label: '$' + Math.round(linPred10 * 1.5).toLocaleString() + ' (premium markup)' },
+    { key: 'D', val: Math.round(truePred10 * 0.7), label: '$' + Math.round(truePred10 * 0.7).toLocaleString() + ' (market discount)' }
+  ];
+  document.getElementById('optA').textContent = options[0].label;
+  document.getElementById('optB').textContent = options[1].label;
+  document.getElementById('optC').textContent = options[2].label;
+  document.getElementById('optD').textContent = options[3].label;
+}
+
+function evaluateTrap() {
+  var selected = document.querySelector('input[name="predChoice"]:checked');
+  var fb = document.getElementById('trapFeedback');
+
+  if (!selected) {
+    fb.className = 'trap-feedback incorrect';
+    fb.innerHTML = 'Please select an option.';
+    fb.style.display = 'block';
+    return;
+  }
+
+  var linPred10 = linFit.a + linFit.b * 10;
+  var truePred10 = 50 + 8 * Math.log(10) + 3 * 3;
+
+  if (selected.value === 'A') {
+    fb.className = 'trap-feedback incorrect';
+    fb.innerHTML = '<strong>Trapped!</strong> The linear model predicts $' + Math.round(linPred10).toLocaleString() + ', but this is a wild extrapolation. The true relationship is logarithmic&mdash;the linear model overshoots by $' + Math.round(linPred10 - truePred10).toLocaleString() + '.';
+  } else if (selected.value === 'B') {
+    fb.className = 'trap-feedback correct';
+    fb.innerHTML = '<strong>Excellent!</strong> You recognized that returns diminish with size. The true value near $' + Math.round(truePred10).toLocaleString() + ' is far below the linear extrapolation of $' + Math.round(linPred10).toLocaleString() + '.';
+  } else {
+    fb.className = 'trap-feedback incorrect';
+    fb.innerHTML = '<strong>Not quite.</strong> The key insight is that the true relationship is logarithmic: each additional sqft matters less. The linear model overshoots dramatically at 10,000 sqft.';
+  }
+  fb.style.display = 'block';
+
+  // Show all subsequent sections
+  document.getElementById('sectionReveal').style.display = '';
+  document.getElementById('sectionDestroy').style.display = '';
+  document.getElementById('sectionRepair').style.display = '';
+  document.getElementById('sectionLimit').style.display = '';
+  renderReveal();
+  renderDestroy(2.0);
+  renderRepairPlot();
+  renderLimit(10);
+  document.getElementById('sectionReveal').scrollIntoView({ behavior: 'smooth' });
+}
+
+// =====================================================================
+// REVEAL
+// =====================================================================
+function renderReveal() {
+  var xMin = 0.5, xMax = 12;
+  var fitX = [];
+  for (var x = xMin; x <= xMax; x += 0.05) fitX.push(x);
+
+  var linY = fitX.map(function(x) { return linFit.a + linFit.b * x; });
+  var trueY = fitX.map(function(x) { return 50 + 8 * Math.log(x) + 3 * 3; }); // marginal over X2
+
+  // Data subsample
+  var step = Math.max(1, Math.floor(data.n / 400));
+  var px = [], py = [];
+  for (var i = 0; i < data.n; i += step) {
+    px.push(data.X1[i]);
+    py.push(data.Y[i]);
+  }
+
+  // Data range boundaries
+  var dataXMin = Infinity, dataXMax = -Infinity;
+  for (var i = 0; i < data.n; i++) {
+    if (data.X1[i] < dataXMin) dataXMin = data.X1[i];
+    if (data.X1[i] > dataXMax) dataXMax = data.X1[i];
+  }
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Living Area (X1)';
+  layout.yaxis.title = 'Sale Price ($)';
+  layout.title = { text: 'Linear Fit vs True Log Curve', font: { size: 14 } };
+  layout.shapes = [{
+    type: 'rect', x0: dataXMin, x1: dataXMax, y0: 0, y1: 1, yref: 'paper',
+    fillcolor: 'rgba(46,94,168,0.08)', line: { width: 0 }
+  }];
+  layout.annotations = [{
+    x: (dataXMin + dataXMax) / 2, y: 1.02, yref: 'paper', showarrow: false,
+    text: 'Data range', font: { color: COLORS.gray, size: 11 }
+  }];
+
+  Plotly.react('revealPlot', [
+    { x: px, y: py, mode: 'markers', marker: { color: COLORS.gray, size: 3, opacity: 0.4 }, name: 'Data', type: 'scatter' },
+    { x: fitX, y: linY, mode: 'lines', line: { color: COLORS.blue, width: 3 }, name: 'Linear OLS' },
+    { x: fitX, y: trueY, mode: 'lines', line: { color: COLORS.gold, width: 3, dash: 'dash' }, name: 'True (log)' },
+    { x: [10], y: [linFit.a + linFit.b * 10], mode: 'markers', marker: { color: COLORS.red, size: 14, symbol: 'x' }, name: 'Linear @ X1=10', type: 'scatter' },
+    { x: [10], y: [50 + 8 * Math.log(10) + 9], mode: 'markers', marker: { color: COLORS.gold, size: 14, symbol: 'diamond' }, name: 'True @ X1=10', type: 'scatter' }
+  ], layout, { responsive: true, displayModeBar: false });
+
+  var lp = linFit.a + linFit.b * 10;
+  var tp = 50 + 8 * Math.log(10) + 9;
+  document.getElementById('revLinPred').textContent = '$' + Math.round(lp).toLocaleString();
+  document.getElementById('revTruePred').textContent = '$' + Math.round(tp).toLocaleString();
+  document.getElementById('revOvershoot').textContent = '$' + Math.round(lp - tp).toLocaleString();
+}
+
+// =====================================================================
+// DESTROY: Draggable prediction point
+// =====================================================================
+function renderDestroy(predX) {
+  document.getElementById('predXVal').textContent = predX.toFixed(1);
+
+  var xMin = 0.3, xMax = 22;
+  var fitX = [];
+  for (var x = xMin; x <= xMax; x += 0.05) fitX.push(x);
+
+  var linY = fitX.map(function(x) { return linFit.a + linFit.b * x; });
+  var trueY = fitX.map(function(x) { return 50 + 8 * Math.log(x) + 9; });
+
+  // Confidence band for linear model
+  var xMean = 0, xSS = 0;
+  for (var i = 0; i < data.n; i++) { xMean += data.X1[i]; }
+  xMean /= data.n;
+  for (var i = 0; i < data.n; i++) { xSS += (data.X1[i] - xMean) * (data.X1[i] - xMean); }
+
+  var ciBandUpper = [], ciBandLower = [];
+  for (var j = 0; j < fitX.length; j++) {
+    var x = fitX[j];
+    var yhat = linFit.a + linFit.b * x;
+    var lever = 1 / data.n + (x - xMean) * (x - xMean) / xSS;
+    var me = 1.96 * linFit.sigma * Math.sqrt(lever);
+    ciBandUpper.push(yhat + me);
+    ciBandLower.push(yhat - me);
+  }
+
+  var linPred = linFit.a + linFit.b * predX;
+  var truePred = 50 + 8 * Math.log(predX) + 9;
+
+  // Subsample data
+  var step = Math.max(1, Math.floor(data.n / 300));
+  var px = [], py = [];
+  for (var i = 0; i < data.n; i += step) {
+    px.push(data.X1[i]);
+    py.push(data.Y[i]);
+  }
+
+  var dataXMin = Infinity, dataXMax = -Infinity;
+  for (var i = 0; i < data.n; i++) {
+    if (data.X1[i] < dataXMin) dataXMin = data.X1[i];
+    if (data.X1[i] > dataXMax) dataXMax = data.X1[i];
+  }
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Living Area (X1)';
+  layout.yaxis.title = 'Sale Price ($)';
+  layout.title = { text: 'Extrapolation Divergence', font: { size: 14 } };
+  layout.shapes = [
+    { type: 'rect', x0: dataXMin, x1: dataXMax, y0: 0, y1: 1, yref: 'paper', fillcolor: 'rgba(46,94,168,0.06)', line: { width: 0 } },
+    { type: 'line', x0: predX, x1: predX, y0: 0, y1: 1, yref: 'paper', line: { color: '#fff', width: 2, dash: 'dot' } }
+  ];
+
+  Plotly.react('destroyPlot', [
+    { x: px, y: py, mode: 'markers', marker: { color: COLORS.gray, size: 3, opacity: 0.35 }, name: 'Data', type: 'scatter' },
+    { x: fitX, y: ciBandUpper, mode: 'lines', line: { color: 'rgba(46,94,168,0.3)', width: 0 }, showlegend: false },
+    { x: fitX, y: ciBandLower, mode: 'lines', line: { color: 'rgba(46,94,168,0.3)', width: 0 }, fill: 'tonexty', fillcolor: 'rgba(46,94,168,0.12)', name: '95% CI (linear)' },
+    { x: fitX, y: linY, mode: 'lines', line: { color: COLORS.blue, width: 3 }, name: 'Linear OLS' },
+    { x: fitX, y: trueY, mode: 'lines', line: { color: COLORS.gold, width: 3, dash: 'dash' }, name: 'True (log)' },
+    { x: [predX], y: [linPred], mode: 'markers', marker: { color: COLORS.blue, size: 12 }, name: 'Linear pred', type: 'scatter' },
+    { x: [predX], y: [truePred], mode: 'markers', marker: { color: COLORS.gold, size: 12 }, name: 'True pred', type: 'scatter' }
+  ], layout, { responsive: true, displayModeBar: false });
+
+  document.getElementById('divLinear').textContent = '$' + Math.round(linPred).toLocaleString();
+  document.getElementById('divLog').textContent = '$' + Math.round(truePred).toLocaleString();
+  var gap = Math.round(linPred - truePred);
+  document.getElementById('divGap').textContent = (gap >= 0 ? '+$' : '-$') + Math.abs(gap).toLocaleString();
+}
+
+document.getElementById('predXSlider').addEventListener('input', function() {
+  renderDestroy(parseFloat(this.value));
+});
+
+// =====================================================================
+// REPAIR: Toggle linear vs log model
+// =====================================================================
+function setModel(m) {
+  currentModel = m;
+  document.getElementById('btnLinear').classList.toggle('active', m === 'linear');
+  document.getElementById('btnLog').classList.toggle('active', m === 'log');
+  renderRepairPlot();
+}
+
+function renderRepairPlot() {
+  var xMin = 0.3, xMax = 15;
+  var fitX = [];
+  for (var x = xMin; x <= xMax; x += 0.05) fitX.push(x);
+
+  var trueY = fitX.map(function(x) { return 50 + 8 * Math.log(x) + 9; });
+
+  var modelY, modelName, modelColor;
+  if (currentModel === 'linear') {
+    modelY = fitX.map(function(x) { return linFit.a + linFit.b * x; });
+    modelName = 'Linear: Y = ' + linFit.a.toFixed(1) + ' + ' + linFit.b.toFixed(2) + '*X1';
+    modelColor = COLORS.blue;
+  } else {
+    modelY = fitX.map(function(x) { return logFit.a + logFit.b * Math.log(x); });
+    modelName = 'Log: Y = ' + logFit.a.toFixed(1) + ' + ' + logFit.b.toFixed(2) + '*log(X1)';
+    modelColor = COLORS.green;
+  }
+
+  var step = Math.max(1, Math.floor(data.n / 300));
+  var px = [], py = [];
+  for (var i = 0; i < data.n; i += step) {
+    px.push(data.X1[i]);
+    py.push(data.Y[i]);
+  }
+
+  // Residuals for R^2 display
+  var r2 = currentModel === 'linear' ? linFit.r2 : logFit.r2;
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Living Area (X1)';
+  layout.yaxis.title = 'Sale Price ($)';
+  layout.title = { text: modelName + ' (R\u00B2=' + r2.toFixed(3) + ')', font: { size: 14 } };
+
+  Plotly.react('repairPlot', [
+    { x: px, y: py, mode: 'markers', marker: { color: COLORS.gray, size: 3, opacity: 0.35 }, name: 'Data', type: 'scatter' },
+    { x: fitX, y: modelY, mode: 'lines', line: { color: modelColor, width: 3 }, name: currentModel === 'linear' ? 'Linear' : 'Log model' },
+    { x: fitX, y: trueY, mode: 'lines', line: { color: COLORS.gold, width: 3, dash: 'dash' }, name: 'True DGP' }
+  ], layout, { responsive: true, displayModeBar: false });
+}
+
+// =====================================================================
+// LIMIT: Extreme extrapolation
+// =====================================================================
+function renderLimit(xPred) {
+  document.getElementById('limitXVal').textContent = xPred;
+
+  var xMax = Math.max(xPred * 1.2, 15);
+  var fitX = [];
+  for (var x = 0.3; x <= xMax; x += xMax / 400) fitX.push(x);
+
+  var linY = fitX.map(function(x) { return linFit.a + linFit.b * x; });
+  var logModelY = fitX.map(function(x) { return logFit.a + logFit.b * Math.log(x); });
+  var trueY = fitX.map(function(x) { return 50 + 8 * Math.log(x) + 9; });
+
+  // Data range
+  var dataXMax = -Infinity;
+  for (var i = 0; i < data.n; i++) {
+    if (data.X1[i] > dataXMax) dataXMax = data.X1[i];
+  }
+
+  var linPred = linFit.a + linFit.b * xPred;
+  var logPred = logFit.a + logFit.b * Math.log(xPred);
+  var truePred = 50 + 8 * Math.log(xPred) + 9;
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Living Area (X1)';
+  layout.yaxis.title = 'Sale Price ($)';
+  layout.title = { text: 'Extreme Extrapolation: X1 = ' + xPred, font: { size: 14 } };
+  layout.shapes = [{
+    type: 'line', x0: dataXMax, x1: dataXMax, y0: 0, y1: 1, yref: 'paper',
+    line: { color: COLORS.red, width: 1, dash: 'dot' }
+  }];
+  layout.annotations = [{
+    x: dataXMax, y: 1.02, yref: 'paper', showarrow: false,
+    text: 'Data boundary', font: { color: COLORS.red, size: 10 }
+  }, {
+    x: 0.02, y: 0.98, xref: 'paper', yref: 'paper', showarrow: false,
+    text: 'Linear: $' + Math.round(linPred).toLocaleString() +
+          '<br>Log model: $' + Math.round(logPred).toLocaleString() +
+          '<br>True DGP: $' + Math.round(truePred).toLocaleString(),
+    font: { size: 12, color: '#e8e8e8' },
+    align: 'left', bgcolor: 'rgba(26,29,35,0.9)', borderpad: 8
+  }];
+
+  Plotly.react('limitPlot', [
+    { x: fitX, y: linY, mode: 'lines', line: { color: COLORS.blue, width: 2 }, name: 'Linear' },
+    { x: fitX, y: logModelY, mode: 'lines', line: { color: COLORS.green, width: 3 }, name: 'Log model' },
+    { x: fitX, y: trueY, mode: 'lines', line: { color: COLORS.gold, width: 3, dash: 'dash' }, name: 'True DGP' },
+    { x: [xPred], y: [linPred], mode: 'markers', marker: { color: COLORS.blue, size: 10 }, showlegend: false, type: 'scatter' },
+    { x: [xPred], y: [logPred], mode: 'markers', marker: { color: COLORS.green, size: 10 }, showlegend: false, type: 'scatter' },
+    { x: [xPred], y: [truePred], mode: 'markers', marker: { color: COLORS.gold, size: 10 }, showlegend: false, type: 'scatter' }
+  ], layout, { responsive: true, displayModeBar: false });
+}
+
+document.getElementById('limitXSlider').addEventListener('input', function() {
+  renderLimit(parseInt(this.value));
+});
+
+// =====================================================================
+// SIDEBAR: Challenger O-ring
+// =====================================================================
+var challengerData = null;
+
+function prepareChallenger() {
+  // Simplified Challenger O-ring data (based on historical records)
+  // Temperature (F), O-ring damage incidents
+  challengerData = {
+    // Flights WITH damage (what engineers looked at)
+    damaged: {
+      temp: [53, 57, 58, 63, 66, 67, 67, 67, 68, 69, 70, 70, 72, 73, 75, 75, 76, 79],
+      incidents: [3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0]
+    },
+    // Flights WITHOUT damage (excluded from original analysis)
+    nodamage: {
+      temp: [66, 67, 68, 69, 70, 72, 73, 76, 78, 79, 80, 81],
+      incidents: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    }
+  };
+}
+
+function renderChallenger() {
+  if (!challengerData) return;
+  var d = challengerData;
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.xaxis.title = 'Temperature at Launch (\u00B0F)';
+  layout.yaxis.title = 'O-Ring Damage Incidents';
+  layout.title = { text: 'Challenger O-Ring Data', font: { size: 13 } };
+  layout.shapes = [{
+    type: 'line', x0: 31, x1: 31, y0: -0.2, y1: 3.5,
+    line: { color: COLORS.red, width: 2, dash: 'dot' }
+  }];
+  layout.annotations = [{
+    x: 31, y: 3.5, showarrow: true, arrowhead: 2, arrowcolor: COLORS.red,
+    text: 'Launch temp: 31\u00B0F', font: { color: COLORS.red, size: 11 },
+    ax: 60, ay: -20
+  }];
+
+  Plotly.react('challengerPlot', [
+    {
+      x: d.damaged.temp, y: d.damaged.incidents, mode: 'markers',
+      marker: { color: COLORS.red, size: 10 }, name: 'Flights with damage', type: 'scatter'
+    },
+    {
+      x: d.nodamage.temp, y: d.nodamage.incidents, mode: 'markers',
+      marker: { color: COLORS.blue, size: 10, symbol: 'circle-open', line: { width: 2, color: COLORS.blue } },
+      name: 'Flights without damage (excluded)', type: 'scatter'
+    }
+  ], layout, { responsive: true, displayModeBar: false });
+}
+
+// Observe sidebar open
+var challengerRendered = false;
+var observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(m) {
+    if (m.target.classList.contains('open') && !challengerRendered) {
+      challengerRendered = true;
+      setTimeout(renderChallenger, 100);
+    }
+  });
+});
+observer.observe(document.getElementById('sidebarChallenger'), { attributes: true, attributeFilter: ['class'] });
+
+// =====================================================================
+// BOOT
+// =====================================================================
+window.addEventListener('DOMContentLoaded', function() { init(); });
+</script>
+</body>
+</html>

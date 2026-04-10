@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03 &mdash; Why Your Significance Is Wrong | Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+    .checkbox-grid label {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.5rem 0.75rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.95rem; transition: background 0.15s;
+    }
+    .checkbox-grid label:hover { background: rgba(46,94,168,0.12); }
+    .checkbox-grid input[type="checkbox"] { accent-color: var(--blue); width: 18px; height: 18px; }
+    .reg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
+    .reg-table th, .reg-table td {
+      padding: 0.5rem 0.75rem; text-align: right; border-bottom: 1px solid var(--border);
+    }
+    .reg-table th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+    .reg-table td:first-child, .reg-table th:first-child { text-align: left; }
+    .reg-table .sig { color: var(--red); font-weight: 700; }
+    .reg-table .nonsig { color: var(--gray); }
+    .reg-table .econ-yes { color: var(--green); font-weight: 600; }
+    .reg-table .econ-no { color: var(--red); font-weight: 600; }
+    .three-panel { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .three-panel { grid-template-columns: 1fr; } }
+    .power-controls { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: end; }
+    .power-controls .slider-container { flex: 1; min-width: 200px; margin: 0; }
+    .progress-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17,19,23,0.92); z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .progress-overlay .bar-track {
+      width: 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 1rem;
+    }
+    .progress-overlay .bar-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.2s; border-radius: 4px; }
+    .toggle-group { display: flex; gap: 0; margin: 1rem 0; }
+    .toggle-group button {
+      padding: 0.5rem 1.25rem; border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); font-size: 0.9rem; cursor: pointer; font-family: var(--font-sans); font-weight: 600;
+    }
+    .toggle-group button:first-child { border-radius: 6px 0 0 6px; }
+    .toggle-group button:last-child { border-radius: 0 6px 6px 0; }
+    .toggle-group button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .insight-box {
+      padding: 1rem 1.25rem; border-radius: 8px; margin: 1rem 0; font-size: 0.95rem; line-height: 1.6;
+    }
+    .insight-box.red { background: rgba(192,57,43,0.12); border: 1px solid var(--red); }
+    .insight-box.green { background: rgba(39,174,96,0.12); border: 1px solid var(--green); }
+    .insight-box.gold { background: rgba(212,160,23,0.12); border: 1px solid var(--gold); }
+    .gwas-plot { min-height: 250px; }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="top-nav">
+  <a href="../index.html">Index</a>
+  <a href="02_collider.html">&larr; Prev</a>
+  <a href="04_specification.html">Next &rarr;</a>
+  <span class="nav-title">03 &mdash; Why Your Significance Is Wrong</span>
+</nav>
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <h2>Generating data&hellip;</h2>
+  <div class="bar-track"><div class="bar-fill" id="progressBar"></div></div>
+  <p class="text-muted mt-1" id="progressText">Initializing PRNG</p>
+</div>
+
+<div class="page-wrapper">
+
+  <!-- Hero -->
+  <div class="hero" style="padding-top:1.5rem; padding-bottom:1rem;">
+    <h1>Why Your Significance Is <span class="accent">Wrong</span></h1>
+    <p class="hook">Statistical significance is not the same as importance. With enough data, everything is significant&mdash;even noise.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TRAP -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionTrap">
+    <span class="beat-tag trap">Trap</span>
+    <h2>The Regression Table</h2>
+    <p class="text-muted mb-2">We generated 50,000 home sales from a known data-generating process and ran an OLS regression of sale price on all available variables. Every coefficient is statistically significant at \(p &lt; 0.001\).</p>
+
+    <div id="trapTable"></div>
+
+    <div class="trap-widget mt-2">
+      <div class="trap-question">Which variables have a <em>meaningful</em> effect on sale price? Select all that apply.</div>
+      <div class="checkbox-grid" id="trapCheckboxes"></div>
+      <button class="trap-submit" id="trapSubmitBtn" onclick="evaluateTrap()">Check my answer</button>
+      <div class="trap-feedback" id="trapFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- REVEAL -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionReveal" style="display:none;">
+    <span class="beat-tag reveal">Reveal</span>
+    <h2>Statistical vs Economic Significance</h2>
+    <p class="text-muted mb-2">Look at the rightmost column. A variable can be wildly significant in a statistical sense yet economically irrelevant.</p>
+    <div id="revealTable"></div>
+    <div class="insight-box red mt-2">
+      <strong>Zestimate</strong> has \(p &lt; 0.001\) but its coefficient is only <strong>$3 per Zestimate-point</strong>&mdash;economically meaningless for a housing market. Meanwhile, <strong>Bedrooms</strong> adds $47,200 per bedroom but can be statistically insignificant at smaller sample sizes.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DESTROY -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionDestroy" style="display:none;">
+    <span class="beat-tag destroy">Destroy</span>
+    <h2>The \(n\)-Bomb: Everything Becomes Significant</h2>
+    <p class="text-muted mb-2">Drag the slider. The coefficient stays flat, but the standard error shrinks as \(1/\sqrt{n}\), inflating the t-statistic.</p>
+
+    <div class="slider-container">
+      <label>Sample size \(n\) <span class="slider-value" id="nSliderVal">50000</span></label>
+      <input type="range" id="nSlider" min="0" max="4" step="1" value="4">
+    </div>
+
+    <div class="three-panel">
+      <div class="viz-plot" id="plotCoef" style="min-height:300px;"></div>
+      <div class="viz-plot" id="plotSE" style="min-height:300px;"></div>
+      <div class="viz-plot" id="plotT" style="min-height:300px;"></div>
+    </div>
+    <p class="text-muted mt-2" style="font-size:0.9rem;">The dashed red line at \(t=1.96\) marks the conventional 5% threshold. With \(n=50{,}000\), even a $3 effect crosses it easily.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- REPAIR -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionRepair" style="display:none;">
+    <span class="beat-tag repair">Repair</span>
+    <h2>Effect Size and Confidence Intervals</h2>
+    <p class="text-muted mb-2">Toggle between the p-value view and the effect-size view. The latter replaces the binary significant/not question with a range of plausible effect magnitudes.</p>
+
+    <div class="toggle-group">
+      <button class="active" id="btnPView" onclick="setView('p')">p-value View</button>
+      <button id="btnEView" onclick="setView('e')">Effect-size View</button>
+    </div>
+
+    <div id="repairPlot" class="viz-plot" style="min-height:380px;"></div>
+
+    <h3 class="mt-3">Power Analysis</h3>
+    <p class="text-muted mb-2">How large must \(n\) be to detect a given true effect? Adjust the true effect size below.</p>
+
+    <div class="power-controls">
+      <div class="slider-container">
+        <label>True effect size ($) <span class="slider-value" id="effectVal">50</span></label>
+        <input type="range" id="effectSlider" min="1" max="200" step="1" value="50">
+      </div>
+      <div class="slider-container">
+        <label>Noise \(\sigma\) <span class="slider-value" id="sigmaVal">100</span></label>
+        <input type="range" id="sigmaSlider" min="10" max="500" step="10" value="100">
+      </div>
+    </div>
+    <div id="powerPlot" class="viz-plot mt-2" style="min-height:340px;"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- LIMIT -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="sectionLimit" style="display:none;">
+    <span class="beat-tag limit">Limit</span>
+    <h2>The Other Side: Type II Error</h2>
+    <p class="text-muted mb-2">With small \(n\), even large effects can be statistically insignificant. Use the slider to see how the Type II error rate (\(\beta\)) changes.</p>
+
+    <div class="slider-container">
+      <label>Sample size \(n\) <span class="slider-value" id="type2NVal">30</span></label>
+      <input type="range" id="type2NSlider" min="10" max="500" step="5" value="30">
+    </div>
+    <div id="type2Plot" class="viz-plot" style="min-height:360px;"></div>
+    <div class="insight-box gold mt-2">
+      <strong>Absence of evidence is not evidence of absence.</strong> Failing to reject \(H_0\) does not mean the effect is zero&mdash;it may mean you lacked the power to detect it.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SIDEBAR -->
+  <!-- ============================================================ -->
+  <div class="sidebar-collapsible" id="sidebarGWAS">
+    <button class="sidebar-toggle" onclick="this.parentElement.classList.toggle('open')">
+      Sidebar: Genome-wide Association Studies &mdash; 1M Tests on Noise
+    </button>
+    <div class="sidebar-content">
+      <p class="text-muted mb-2">In GWAS, researchers test ~1 million genetic variants for association with a trait. At \(\alpha=0.05\), you expect 50,000 false positives from pure noise. The Bonferroni correction sets \(\alpha^* = 0.05/1{,}000{,}000 = 5 \times 10^{-8}\).</p>
+      <p class="text-muted mb-2">Below: we ran 1,000,000 t-tests on pure noise (\(\mu=0, \sigma=1\)). The histogram of p-values is perfectly uniform, yet thousands fall below 0.05.</p>
+      <div id="gwasPlot" class="viz-plot gwas-plot"></div>
+      <p class="text-muted mt-1" style="font-size:0.85rem;">The red line marks \(\alpha=0.05\). The green line marks the Bonferroni-corrected threshold \(5 \times 10^{-8}\) (not visible at this scale&mdash;because it works).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BRIDGE -->
+  <!-- ============================================================ -->
+  <div class="bridge-section">
+    <p class="bridge-text">You know what is significant and what matters. But is your model even the right shape?</p>
+    <a class="bridge-link" href="04_specification.html">04 &mdash; Why Your Model Is Wrong &rarr;</a>
+  </div>
+
+</div><!-- /page-wrapper -->
+
+<script>
+// =====================================================================
+// SEEDED PRNG (xoshiro128**)
+// =====================================================================
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+var rng = mulberry32(42);
+
+function rnorm() {
+  var u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// =====================================================================
+// DGP
+// Y = 50 + 8*log(X1) + 3*X2 + 2*U + eps
+// U ~ N(0,1), X1 = 2 + 0.5*U + eta1, X2 = 3 + 0.5*U + eta2
+// X3 = 0.9*Y + eta3, eps ~ N(0, 0.5*X1), eta ~ N(0,0.3)
+// =====================================================================
+function generateData(n) {
+  var Y = new Float64Array(n);
+  var X1 = new Float64Array(n);
+  var X2 = new Float64Array(n);
+  var X3 = new Float64Array(n);
+  var U = new Float64Array(n);
+  // Also generate a "Zestimate" variable: small true effect + noise
+  // Zestimate = 100 + 0.001*Y + noise => near-zero causal effect but correlated
+  var Zest = new Float64Array(n);
+
+  for (var i = 0; i < n; i++) {
+    U[i] = rnorm();
+    var eta1 = rnorm() * 0.3;
+    var eta2 = rnorm() * 0.3;
+    X1[i] = 2.0 + 0.5 * U[i] + eta1;
+    if (X1[i] <= 0) X1[i] = 0.01;
+    X2[i] = 3.0 + 0.5 * U[i] + eta2;
+    var eps = rnorm() * (0.5 * Math.abs(X1[i]));
+    Y[i] = 50 + 8 * Math.log(X1[i]) + 3 * X2[i] + 2 * U[i] + eps;
+    var eta3 = rnorm() * 0.3;
+    X3[i] = 0.9 * Y[i] + eta3;
+    // Zestimate: tiny true effect ($3 per point) + large noise
+    Zest[i] = 100 + 0.01 * Y[i] + rnorm() * 50;
+  }
+  return { Y: Y, X1: X1, X2: X2, X3: X3, U: U, Zest: Zest, n: n };
+}
+
+// =====================================================================
+// OLS via normal equations  (X'X)^-1 X'Y
+// Returns { beta, se, t, p, r2 }
+// =====================================================================
+function ols(Y, Xmat) {
+  // Xmat: array of arrays, each inner array is a column (excluding intercept)
+  var n = Y.length;
+  var k = Xmat.length + 1; // +1 for intercept
+  // Build design matrix as row-major
+  var X = [];
+  for (var i = 0; i < n; i++) {
+    var row = [1];
+    for (var j = 0; j < Xmat.length; j++) row.push(Xmat[j][i]);
+    X.push(row);
+  }
+  // X'X
+  var XtX = [];
+  for (var a = 0; a < k; a++) {
+    XtX[a] = [];
+    for (var b = 0; b < k; b++) {
+      var s = 0;
+      for (var i = 0; i < n; i++) s += X[i][a] * X[i][b];
+      XtX[a][b] = s;
+    }
+  }
+  // X'Y
+  var XtY = [];
+  for (var a = 0; a < k; a++) {
+    var s = 0;
+    for (var i = 0; i < n; i++) s += X[i][a] * Y[i];
+    XtY[a] = s;
+  }
+  // Invert XtX (Gauss-Jordan)
+  var aug = [];
+  for (var a = 0; a < k; a++) {
+    aug[a] = [];
+    for (var b = 0; b < k; b++) aug[a][b] = XtX[a][b];
+    for (var b = 0; b < k; b++) aug[a][k + b] = (a === b) ? 1 : 0;
+  }
+  for (var col = 0; col < k; col++) {
+    var maxRow = col;
+    for (var row = col + 1; row < k; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    }
+    var tmp = aug[col]; aug[col] = aug[maxRow]; aug[maxRow] = tmp;
+    var piv = aug[col][col];
+    for (var b = 0; b < 2 * k; b++) aug[col][b] /= piv;
+    for (var row = 0; row < k; row++) {
+      if (row === col) continue;
+      var f = aug[row][col];
+      for (var b = 0; b < 2 * k; b++) aug[row][b] -= f * aug[col][b];
+    }
+  }
+  var inv = [];
+  for (var a = 0; a < k; a++) {
+    inv[a] = [];
+    for (var b = 0; b < k; b++) inv[a][b] = aug[a][k + b];
+  }
+  // beta = inv * XtY
+  var beta = [];
+  for (var a = 0; a < k; a++) {
+    var s = 0;
+    for (var b = 0; b < k; b++) s += inv[a][b] * XtY[b];
+    beta[a] = s;
+  }
+  // residuals
+  var resid = new Float64Array(n);
+  var ssRes = 0, yMean = 0;
+  for (var i = 0; i < n; i++) yMean += Y[i];
+  yMean /= n;
+  var ssTot = 0;
+  for (var i = 0; i < n; i++) {
+    var yhat = 0;
+    for (var j = 0; j < k; j++) yhat += X[i][j] * beta[j];
+    resid[i] = Y[i] - yhat;
+    ssRes += resid[i] * resid[i];
+    ssTot += (Y[i] - yMean) * (Y[i] - yMean);
+  }
+  var sigma2 = ssRes / (n - k);
+  var se = [];
+  for (var a = 0; a < k; a++) se[a] = Math.sqrt(sigma2 * inv[a][a]);
+  var t = [];
+  for (var a = 0; a < k; a++) t[a] = beta[a] / se[a];
+  // p-value from t-distribution (approx with normal for large n)
+  var p = [];
+  for (var a = 0; a < k; a++) p[a] = 2 * (1 - normalCDF(Math.abs(t[a])));
+  var r2 = 1 - ssRes / ssTot;
+  return { beta: beta, se: se, t: t, p: p, r2: r2, n: n, k: k };
+}
+
+function normalCDF(x) {
+  var a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+  var a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
+  var sign = 1;
+  if (x < 0) { sign = -1; x = -x; }
+  var t = 1.0 / (1.0 + p * x);
+  var y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x / 2);
+  return 0.5 * (1.0 + sign * y);
+}
+
+function normalInv(p) {
+  // Rational approximation (Abramowitz & Stegun 26.2.23)
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  if (p < 0.5) return -normalInv(1 - p);
+  var t = Math.sqrt(-2 * Math.log(1 - p));
+  var c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+  var d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+  return t - (c0 + c1 * t + c2 * t * t) / (1 + d1 * t + d2 * t * t + d3 * t * t * t);
+}
+
+function formatP(p) {
+  if (p < 0.001) return '<0.001';
+  return p.toFixed(3);
+}
+
+// =====================================================================
+// GLOBAL DATA / PRECOMPUTED RESULTS
+// =====================================================================
+var plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(26,29,35,1)',
+  font: { color: '#e8e8e8', family: 'Inter, sans-serif' },
+  margin: { t: 40, r: 20, b: 50, l: 60 },
+  xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+  yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' }
+};
+
+var COLORS = { blue: '#2E5EA8', gold: '#D4A017', red: '#C0392B', green: '#27AE60', gray: '#7F8C8D' };
+var SAMPLE_SIZES = [100, 500, 1000, 5000, 50000];
+var precomputed = {}; // keyed by n
+var fullData = null;
+var trapRevealed = false;
+
+// Variable names for regression
+var varNames = ['Intercept', 'log(LivingArea)', 'Bedrooms', 'X3 (Collider)', 'Zestimate'];
+var varDescriptions = ['', 'Log of living area (sqft)', 'Number of bedrooms', 'Post-treatment variable', 'Online price estimate'];
+
+// =====================================================================
+// INITIALIZATION
+// =====================================================================
+async function init() {
+  var bar = document.getElementById('progressBar');
+  var txt = document.getElementById('progressText');
+
+  // Generate full 50k dataset
+  txt.textContent = 'Generating 50,000 observations...';
+  bar.style.width = '10%';
+  await sleep(50);
+
+  rng = mulberry32(42); // re-seed
+  fullData = generateData(50000);
+
+  // Precompute OLS for each sample size
+  for (var si = 0; si < SAMPLE_SIZES.length; si++) {
+    var n = SAMPLE_SIZES[si];
+    txt.textContent = 'Running OLS for n=' + n + '...';
+    bar.style.width = (20 + si * 16) + '%';
+    await sleep(20);
+
+    // Use first n observations
+    var Y = fullData.Y.slice(0, n);
+    var logX1 = new Float64Array(n);
+    for (var i = 0; i < n; i++) logX1[i] = Math.log(fullData.X1[i]);
+    var X2 = fullData.X2.slice(0, n);
+    var X3 = fullData.X3.slice(0, n);
+    var Zest = fullData.Zest.slice(0, n);
+
+    var res = ols(Array.from(Y), [Array.from(logX1), Array.from(X2), Array.from(X3), Array.from(Zest)]);
+    precomputed[n] = res;
+  }
+
+  // GWAS simulation
+  txt.textContent = 'Simulating 1M GWAS tests...';
+  bar.style.width = '90%';
+  await sleep(20);
+  precomputeGWAS();
+
+  bar.style.width = '100%';
+  txt.textContent = 'Done!';
+  await sleep(200);
+  document.getElementById('progressOverlay').style.display = 'none';
+
+  renderTrap();
+}
+
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+// =====================================================================
+// TRAP
+// =====================================================================
+function renderTrap() {
+  var res = precomputed[50000];
+  // Build table
+  var html = '<table class="reg-table"><thead><tr><th>Variable</th><th>Coefficient</th><th>Std Error</th><th>t-stat</th><th>p-value</th></tr></thead><tbody>';
+  for (var i = 0; i < varNames.length; i++) {
+    var pClass = res.p[i] < 0.05 ? 'sig' : 'nonsig';
+    html += '<tr><td>' + varNames[i] + '</td>';
+    html += '<td>' + res.beta[i].toFixed(2) + '</td>';
+    html += '<td>' + res.se[i].toFixed(4) + '</td>';
+    html += '<td>' + res.t[i].toFixed(2) + '</td>';
+    html += '<td class="' + pClass + '">' + formatP(res.p[i]) + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  html += '<p class="text-muted mt-1" style="font-size:0.85rem;">\\(R^2 = ' + res.r2.toFixed(4) + '\\), \\(n = 50{,}000\\). All p-values \\(&lt; 0.001\\).</p>';
+  document.getElementById('trapTable').innerHTML = html;
+  if (window.MathJax) MathJax.typeset();
+
+  // Build checkboxes (exclude intercept)
+  var chtml = '';
+  for (var i = 1; i < varNames.length; i++) {
+    chtml += '<label><input type="checkbox" value="' + i + '"> ' + varNames[i] + ' <span class="text-muted" style="font-size:0.8rem;">(' + varDescriptions[i] + ')</span></label>';
+  }
+  document.getElementById('trapCheckboxes').innerHTML = chtml;
+}
+
+function evaluateTrap() {
+  var checks = document.querySelectorAll('#trapCheckboxes input[type="checkbox"]');
+  var selected = [];
+  checks.forEach(function(c) { if (c.checked) selected.push(parseInt(c.value)); });
+
+  var fb = document.getElementById('trapFeedback');
+  // Correct answer: log(LivingArea) = 1, Bedrooms = 2 are meaningful
+  // X3 (collider) is bad control, Zestimate is economically meaningless
+  var correct = selected.length === 2 && selected.indexOf(1) !== -1 && selected.indexOf(2) !== -1;
+
+  if (correct) {
+    fb.className = 'trap-feedback correct';
+    fb.innerHTML = '<strong>Correct!</strong> Only living area and bedrooms have economically meaningful effects. Zestimate is statistically significant but economically trivial, and X3 is a collider (post-treatment variable).';
+  } else {
+    fb.className = 'trap-feedback incorrect';
+    if (selected.indexOf(4) !== -1) {
+      fb.innerHTML = '<strong>Trapped!</strong> Zestimate has p&lt;0.001 but its coefficient is only ~$3 per point&mdash;economically meaningless. You fell for the p-value.';
+    } else if (selected.indexOf(3) !== -1) {
+      fb.innerHTML = '<strong>Not quite.</strong> X3 is a collider (it depends on Y). Including it biases your other estimates. And check the economic magnitude of each coefficient.';
+    } else {
+      fb.innerHTML = '<strong>Not quite.</strong> Think about whether the <em>size</em> of the coefficient matters for real-world decisions, not just whether it is statistically different from zero.';
+    }
+  }
+  fb.style.display = 'block';
+  trapRevealed = true;
+
+  // Reveal subsequent sections
+  document.getElementById('sectionReveal').style.display = '';
+  document.getElementById('sectionDestroy').style.display = '';
+  document.getElementById('sectionRepair').style.display = '';
+  document.getElementById('sectionLimit').style.display = '';
+  renderReveal();
+  renderDestroy(4);
+  renderRepair();
+  renderType2();
+  document.getElementById('sectionReveal').scrollIntoView({ behavior: 'smooth' });
+}
+
+// =====================================================================
+// REVEAL
+// =====================================================================
+function renderReveal() {
+  var res = precomputed[50000];
+  // Economic significance thresholds (housing context)
+  var econSig = [false, true, true, false, false]; // intercept, logX1, X2, X3, Zest
+  var econLabels = ['--', 'Yes: ~$8 per 1% area', 'Yes: $3 per unit', 'Biased (collider)', 'No: ~$3 per point'];
+
+  var html = '<table class="reg-table"><thead><tr><th>Variable</th><th>Coefficient</th><th>Std Error</th><th>t-stat</th><th>p-value</th><th>Economic Significance</th></tr></thead><tbody>';
+  for (var i = 0; i < varNames.length; i++) {
+    var pClass = res.p[i] < 0.05 ? 'sig' : 'nonsig';
+    var econClass = econSig[i] ? 'econ-yes' : 'econ-no';
+    html += '<tr><td>' + varNames[i] + '</td>';
+    html += '<td>' + res.beta[i].toFixed(2) + '</td>';
+    html += '<td>' + res.se[i].toFixed(4) + '</td>';
+    html += '<td>' + res.t[i].toFixed(2) + '</td>';
+    html += '<td class="' + pClass + '">' + formatP(res.p[i]) + '</td>';
+    html += '<td class="' + econClass + '">' + econLabels[i] + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('revealTable').innerHTML = html;
+  if (window.MathJax) MathJax.typeset();
+}
+
+// =====================================================================
+// DESTROY: Three-panel display
+// =====================================================================
+function renderDestroy(sliderIdx) {
+  var n = SAMPLE_SIZES[sliderIdx];
+  document.getElementById('nSliderVal').textContent = n.toLocaleString();
+
+  // Collect data for Zestimate variable (index 4)
+  var varIdx = 4; // Zestimate
+  var betas = [], ses = [], ts = [], ns = [];
+  for (var si = 0; si < SAMPLE_SIZES.length; si++) {
+    var r = precomputed[SAMPLE_SIZES[si]];
+    betas.push(r.beta[varIdx]);
+    ses.push(r.se[varIdx]);
+    ts.push(r.t[varIdx]);
+    ns.push(SAMPLE_SIZES[si]);
+  }
+
+  var layoutBase = JSON.parse(JSON.stringify(plotlyLayout));
+  layoutBase.xaxis.title = 'Sample size (n)';
+  layoutBase.xaxis.type = 'log';
+
+  // Panel 1: Coefficient
+  var l1 = JSON.parse(JSON.stringify(layoutBase));
+  l1.title = { text: 'Coefficient (Zestimate)', font: { size: 14 } };
+  l1.yaxis.title = 'Coefficient ($)';
+  Plotly.react('plotCoef', [{
+    x: ns, y: betas, mode: 'lines+markers', marker: { color: COLORS.blue, size: 10 },
+    line: { color: COLORS.blue, width: 3 }, name: 'Coef'
+  }, {
+    x: ns, y: ns.map(function() { return betas[betas.length-1]; }),
+    mode: 'lines', line: { color: COLORS.gold, dash: 'dash', width: 2 }, name: 'True (~$3)'
+  }], l1, { responsive: true, displayModeBar: false });
+
+  // Panel 2: SE
+  var l2 = JSON.parse(JSON.stringify(layoutBase));
+  l2.title = { text: 'Standard Error', font: { size: 14 } };
+  l2.yaxis.title = 'SE';
+  Plotly.react('plotSE', [{
+    x: ns, y: ses, mode: 'lines+markers', marker: { color: COLORS.red, size: 10 },
+    line: { color: COLORS.red, width: 3 }, name: 'SE'
+  }], l2, { responsive: true, displayModeBar: false });
+
+  // Panel 3: t-stat
+  var l3 = JSON.parse(JSON.stringify(layoutBase));
+  l3.title = { text: 't-statistic', font: { size: 14 } };
+  l3.yaxis.title = '|t|';
+  Plotly.react('plotT', [{
+    x: ns, y: ts.map(Math.abs), mode: 'lines+markers', marker: { color: COLORS.green, size: 10 },
+    line: { color: COLORS.green, width: 3 }, name: '|t|'
+  }, {
+    x: [ns[0], ns[ns.length-1]], y: [1.96, 1.96],
+    mode: 'lines', line: { color: COLORS.red, dash: 'dash', width: 2 }, name: 'Critical (1.96)'
+  }], l3, { responsive: true, displayModeBar: false });
+
+  // Highlight current n
+  var highlightIdx = sliderIdx;
+  Plotly.react('plotCoef', [{
+    x: ns, y: betas, mode: 'lines+markers',
+    marker: { color: ns.map(function(_, i) { return i === highlightIdx ? '#fff' : COLORS.blue; }), size: ns.map(function(_, i) { return i === highlightIdx ? 14 : 8; }) },
+    line: { color: COLORS.blue, width: 3 }, name: 'Coef'
+  }, {
+    x: ns, y: ns.map(function() { return betas[betas.length-1]; }),
+    mode: 'lines', line: { color: COLORS.gold, dash: 'dash', width: 2 }, name: 'True (~$3)'
+  }], l1, { responsive: true, displayModeBar: false });
+
+  Plotly.react('plotSE', [{
+    x: ns, y: ses, mode: 'lines+markers',
+    marker: { color: ns.map(function(_, i) { return i === highlightIdx ? '#fff' : COLORS.red; }), size: ns.map(function(_, i) { return i === highlightIdx ? 14 : 8; }) },
+    line: { color: COLORS.red, width: 3 }, name: 'SE'
+  }], l2, { responsive: true, displayModeBar: false });
+
+  Plotly.react('plotT', [{
+    x: ns, y: ts.map(Math.abs), mode: 'lines+markers',
+    marker: { color: ns.map(function(_, i) { return i === highlightIdx ? '#fff' : COLORS.green; }), size: ns.map(function(_, i) { return i === highlightIdx ? 14 : 8; }) },
+    line: { color: COLORS.green, width: 3 }, name: '|t|'
+  }, {
+    x: [ns[0], ns[ns.length-1]], y: [1.96, 1.96],
+    mode: 'lines', line: { color: COLORS.red, dash: 'dash', width: 2 }, name: 'Critical (1.96)'
+  }], l3, { responsive: true, displayModeBar: false });
+}
+
+document.getElementById('nSlider').addEventListener('input', function() {
+  renderDestroy(parseInt(this.value));
+});
+
+// =====================================================================
+// REPAIR: p-value vs effect-size view + power analysis
+// =====================================================================
+var currentView = 'p';
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('btnPView').classList.toggle('active', v === 'p');
+  document.getElementById('btnEView').classList.toggle('active', v === 'e');
+  renderRepair();
+}
+
+function renderRepair() {
+  var res = precomputed[50000];
+  var names = varNames.slice(1); // skip intercept
+  var betas = res.beta.slice(1);
+  var ses = res.se.slice(1);
+  var ps = res.p.slice(1);
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.yaxis.title = '';
+  layout.xaxis = { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' };
+  layout.margin.l = 140;
+
+  if (currentView === 'p') {
+    // Bar chart of -log10(p)
+    var logP = ps.map(function(p) { return -Math.log10(Math.max(p, 1e-300)); });
+    layout.title = { text: '-log10(p-value) by Variable', font: { size: 14 } };
+    layout.xaxis.title = '-log10(p)';
+    Plotly.react('repairPlot', [{
+      y: names, x: logP, type: 'bar', orientation: 'h',
+      marker: { color: logP.map(function(lp) { return lp > -Math.log10(0.05) ? COLORS.red : COLORS.gray; }) }
+    }, {
+      y: [names[0], names[names.length-1]], x: [-Math.log10(0.05), -Math.log10(0.05)],
+      mode: 'lines', line: { color: COLORS.gold, dash: 'dash', width: 2 }, name: 'alpha=0.05',
+      type: 'scatter'
+    }], layout, { responsive: true, displayModeBar: false });
+  } else {
+    // Coefficient + 95% CI
+    layout.title = { text: 'Effect Size with 95% CI', font: { size: 14 } };
+    layout.xaxis.title = 'Coefficient (dollars)';
+    var lower = betas.map(function(b, i) { return b - 1.96 * ses[i]; });
+    var upper = betas.map(function(b, i) { return b + 1.96 * ses[i]; });
+    Plotly.react('repairPlot', [{
+      y: names, x: betas, error_x: {
+        type: 'data', symmetric: false,
+        array: upper.map(function(u, i) { return u - betas[i]; }),
+        arrayminus: betas.map(function(b, i) { return b - lower[i]; }),
+        color: COLORS.blue, thickness: 2, width: 6
+      },
+      mode: 'markers', marker: { color: COLORS.blue, size: 10 }, type: 'scatter',
+      name: 'OLS Estimate'
+    }, {
+      y: [names[0], names[names.length-1]], x: [0, 0],
+      mode: 'lines', line: { color: COLORS.gray, dash: 'dot', width: 1 }, name: 'Zero'
+    }], layout, { responsive: true, displayModeBar: false });
+  }
+
+  // Power curve
+  renderPower();
+}
+
+function renderPower() {
+  var trueEffect = parseFloat(document.getElementById('effectSlider').value);
+  var sigma = parseFloat(document.getElementById('sigmaSlider').value);
+  document.getElementById('effectVal').textContent = trueEffect;
+  document.getElementById('sigmaVal').textContent = sigma;
+
+  var ns = [];
+  for (var n = 10; n <= 2000; n += 10) ns.push(n);
+  var power = ns.map(function(n) {
+    var se = sigma / Math.sqrt(n);
+    var ncp = trueEffect / se; // non-centrality parameter
+    // Power = P(|Z + ncp| > 1.96)  approx= 1 - Phi(1.96 - ncp) + Phi(-1.96 - ncp)
+    return 1 - normalCDF(1.96 - ncp) + normalCDF(-1.96 - ncp);
+  });
+
+  // Find n for 80% power
+  var n80 = null;
+  for (var i = 0; i < power.length; i++) {
+    if (power[i] >= 0.8) { n80 = ns[i]; break; }
+  }
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.title = { text: 'Power Curve (alpha=0.05)', font: { size: 14 } };
+  layout.xaxis.title = 'Sample size (n)';
+  layout.yaxis.title = 'Power';
+  layout.yaxis.range = [0, 1.05];
+
+  var traces = [{
+    x: ns, y: power, mode: 'lines', line: { color: COLORS.green, width: 3 }, name: 'Power'
+  }, {
+    x: [ns[0], ns[ns.length-1]], y: [0.8, 0.8],
+    mode: 'lines', line: { color: COLORS.gold, dash: 'dash', width: 2 }, name: '80% power'
+  }];
+
+  if (n80) {
+    traces.push({
+      x: [n80], y: [0.8], mode: 'markers+text', marker: { color: COLORS.gold, size: 12 },
+      text: ['n=' + n80], textposition: 'top right', textfont: { color: COLORS.gold, size: 12 },
+      name: 'n for 80%', showlegend: false
+    });
+  }
+
+  Plotly.react('powerPlot', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+document.getElementById('effectSlider').addEventListener('input', renderPower);
+document.getElementById('sigmaSlider').addEventListener('input', renderPower);
+
+// =====================================================================
+// LIMIT: Type II error
+// =====================================================================
+function renderType2() {
+  var n = parseInt(document.getElementById('type2NSlider').value);
+  document.getElementById('type2NVal').textContent = n;
+
+  // Show distributions under H0 and H1 for a moderate effect
+  var trueEffect = 50; // $50 true effect
+  var sigma = 100;
+  var se = sigma / Math.sqrt(n);
+  var critVal = 1.96 * se;
+
+  // Null distribution: N(0, se^2)
+  // Alt distribution: N(trueEffect, se^2)
+  var xMin = -3 * se + trueEffect;
+  var xMax = 3 * se + trueEffect;
+  if (-3 * se < xMin) xMin = -3 * se;
+  var xs = [];
+  for (var x = xMin; x <= xMax; x += (xMax - xMin) / 300) xs.push(x);
+
+  var nullPDF = xs.map(function(x) {
+    var z = x / se;
+    return Math.exp(-z * z / 2) / (se * Math.sqrt(2 * Math.PI));
+  });
+  var altPDF = xs.map(function(x) {
+    var z = (x - trueEffect) / se;
+    return Math.exp(-z * z / 2) / (se * Math.sqrt(2 * Math.PI));
+  });
+
+  var beta = normalCDF((critVal - trueEffect) / se) - normalCDF((-critVal - trueEffect) / se);
+  var power = 1 - beta;
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.title = { text: 'Type II Error (true effect=$50, n=' + n + ')', font: { size: 14 } };
+  layout.xaxis.title = 'Estimated effect ($)';
+  layout.yaxis.title = 'Density';
+  layout.annotations = [{
+    x: 0.98, y: 0.95, xref: 'paper', yref: 'paper', showarrow: false,
+    text: 'Power = ' + (power * 100).toFixed(1) + '%<br>Type II rate = ' + (beta * 100).toFixed(1) + '%',
+    font: { color: power > 0.8 ? COLORS.green : COLORS.red, size: 14 },
+    align: 'right', bgcolor: 'rgba(26,29,35,0.8)', borderpad: 6
+  }];
+
+  Plotly.react('type2Plot', [
+    { x: xs, y: nullPDF, mode: 'lines', line: { color: COLORS.gray, width: 2 }, name: 'H0 (no effect)', fill: 'tozeroy', fillcolor: 'rgba(127,140,141,0.15)' },
+    { x: xs, y: altPDF, mode: 'lines', line: { color: COLORS.green, width: 2 }, name: 'H1 (true effect)', fill: 'tozeroy', fillcolor: 'rgba(39,174,96,0.15)' },
+    { x: [critVal, critVal], y: [0, Math.max.apply(null, nullPDF)], mode: 'lines', line: { color: COLORS.red, dash: 'dash', width: 2 }, name: 'Critical value' },
+    { x: [-critVal, -critVal], y: [0, Math.max.apply(null, nullPDF)], mode: 'lines', line: { color: COLORS.red, dash: 'dash', width: 2 }, showlegend: false }
+  ], layout, { responsive: true, displayModeBar: false });
+}
+
+document.getElementById('type2NSlider').addEventListener('input', renderType2);
+
+// =====================================================================
+// GWAS SIDEBAR
+// =====================================================================
+var gwasData = null;
+function precomputeGWAS() {
+  // Simulate 100k t-tests on pure noise (1M is too slow in browser; we'll extrapolate visually)
+  var nTests = 100000;
+  var pvals = new Float64Array(nTests);
+  for (var i = 0; i < nTests; i++) {
+    // Each test: 30 samples from N(0,1), test if mean != 0
+    var sum = 0, sum2 = 0, m = 30;
+    for (var j = 0; j < m; j++) {
+      var x = rnorm();
+      sum += x; sum2 += x * x;
+    }
+    var mean = sum / m;
+    var sd = Math.sqrt((sum2 - sum * sum / m) / (m - 1));
+    var t = mean / (sd / Math.sqrt(m));
+    pvals[i] = 2 * (1 - normalCDF(Math.abs(t)));
+  }
+  gwasData = pvals;
+}
+
+function renderGWAS() {
+  if (!gwasData) return;
+  // Histogram of p-values in 50 bins
+  var nBins = 50;
+  var counts = new Array(nBins).fill(0);
+  for (var i = 0; i < gwasData.length; i++) {
+    var bin = Math.min(Math.floor(gwasData[i] * nBins), nBins - 1);
+    counts[bin]++;
+  }
+  var xs = [];
+  for (var i = 0; i < nBins; i++) xs.push((i + 0.5) / nBins);
+
+  var falsePos = 0;
+  for (var i = 0; i < gwasData.length; i++) if (gwasData[i] < 0.05) falsePos++;
+
+  var layout = JSON.parse(JSON.stringify(plotlyLayout));
+  layout.title = { text: 'p-value Distribution: 100K Tests on Pure Noise', font: { size: 13 } };
+  layout.xaxis.title = 'p-value';
+  layout.yaxis.title = 'Count';
+  layout.annotations = [{
+    x: 0.5, y: 1.0, xref: 'paper', yref: 'paper', showarrow: false,
+    text: falsePos.toLocaleString() + ' false positives at alpha=0.05 (expected: ' + Math.round(gwasData.length * 0.05).toLocaleString() + ')',
+    font: { color: COLORS.red, size: 11 }, bgcolor: 'rgba(26,29,35,0.8)', borderpad: 4
+  }];
+  layout.shapes = [{
+    type: 'line', x0: 0.05, x1: 0.05, y0: 0, y1: Math.max.apply(null, counts) * 1.1,
+    line: { color: COLORS.red, width: 2, dash: 'dash' }
+  }];
+
+  Plotly.react('gwasPlot', [{
+    x: xs, y: counts, type: 'bar',
+    marker: { color: xs.map(function(x) { return x < 0.05 ? COLORS.red : COLORS.blue; }) },
+    width: 1 / nBins * 0.9
+  }], layout, { responsive: true, displayModeBar: false });
+}
+
+// Observe sidebar open to render GWAS
+var gwasRendered = false;
+var observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(m) {
+    if (m.target.classList.contains('open') && !gwasRendered) {
+      gwasRendered = true;
+      setTimeout(renderGWAS, 100);
+    }
+  });
+});
+observer.observe(document.getElementById('sidebarGWAS'), { attributes: true, attributeFilter: ['class'] });
+
+// =====================================================================
+// BOOT
+// =====================================================================
+window.addEventListener('DOMContentLoaded', function() { init(); });
+</script>
+</body>
+</html>
