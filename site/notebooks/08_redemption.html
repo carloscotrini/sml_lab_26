@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Redemption — Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .balance-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.85rem; margin: 1rem 0; }
+    .balance-table th, .balance-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); text-align: right; }
+    .balance-table th { color: var(--text-muted); font-weight: 600; }
+    .balance-table th:first-child, .balance-table td:first-child { text-align: left; }
+    .traffic-light { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
+    .traffic-light.green { background: #27AE60; box-shadow: 0 0 6px rgba(39,174,96,0.5); }
+    .traffic-light.red { background: #C0392B; box-shadow: 0 0 6px rgba(192,57,43,0.5); }
+    .traffic-light.yellow { background: #D4A017; box-shadow: 0 0 6px rgba(212,160,23,0.5); }
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0; }
+    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+    .dashboard-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+    .dashboard-card h3 { margin-bottom: 0.75rem; font-size: 1.05rem; }
+    .dashboard-card .check-row { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .dashboard-card .check-row:last-child { border-bottom: none; }
+    .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin: 2rem 0; }
+    .progress-bar .fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.3s; }
+    .estimate-big { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; }
+    .comparison-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+    .quote-block { font-style: italic; font-size: 1.15rem; color: var(--gold); text-align: center; margin: 2rem 1rem; padding: 1.5rem; border-left: 3px solid var(--gold); background: rgba(212,160,23,0.06); border-radius: 0 8px 8px 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">&larr; Back to Index</a>
+    <a href="07_real_world.html">&larr; Prev</a>
+    <span class="nav-title">08 &mdash; The Redemption</span>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+
+    <!-- ============================================================
+         SETUP
+         ============================================================ -->
+    <section class="beat-section" id="setup">
+      <span class="beat-tag formalize">Setup</span>
+      <h2>Regression Discontinuity: The Scholarship Cutoff</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        A university awards scholarships to students who score above <strong>70</strong> on an entrance exam.
+        Students just below the cutoff are nearly identical to students just above it -- the only difference
+        is the scholarship. This "sharp cutoff" creates a natural experiment.
+      </p>
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+        We generate data where test scores smoothly predict future earnings, plus a genuine causal jump
+        of <strong style="color:var(--gold);">$5,000</strong> at the cutoff from the scholarship.
+      </p>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="rdd-plot" style="min-height:450px;"></div>
+        <div class="summary-panel" id="rdd-summary">
+          <h3>RDD Estimate</h3>
+          <div class="param-row">
+            <span class="param-label">True Effect</span>
+            <span class="param-value truth" id="rdd-truth">$5,000</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Estimated Effect</span>
+            <span class="param-value ols" id="rdd-est">...</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">SE</span>
+            <span class="param-value" id="rdd-se">...</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">95% CI</span>
+            <span class="param-value" id="rdd-ci">...</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Bandwidth</span>
+            <span class="param-value ols" id="rdd-bw">10</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">N in window</span>
+            <span class="param-value" id="rdd-nwin">...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DESTROY: Bandwidth slider
+         ============================================================ -->
+    <section class="beat-section" id="bandwidth">
+      <span class="beat-tag destroy">Destroy</span>
+      <h2>The Bias-Variance Tradeoff: Bandwidth</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        Drag the slider to change how much data you use around the cutoff.
+        Narrow bandwidth = fewer observations, noisier but less biased.
+        Wide bandwidth = more observations, smoother but may include bias from curvature.
+      </p>
+
+      <div class="slider-container">
+        <label>Bandwidth (test score units)
+          <span class="slider-value" id="bw-val">10</span>
+        </label>
+        <input type="range" id="bw-slider" min="1" max="25" step="0.5" value="10">
+      </div>
+
+      <div class="two-col mt-2">
+        <div class="viz-plot" id="bw-est-plot" style="min-height:300px;"></div>
+        <div class="viz-plot" id="bw-ci-plot" style="min-height:300px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         REPAIR: Balance at the cutoff
+         ============================================================ -->
+    <section class="beat-section" id="repair">
+      <span class="beat-tag repair">Repair</span>
+      <h2>Why This Works: Balance at the Cutoff</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        The RDD works because at the cutoff, assignment to treatment is essentially random.
+        Students scoring 69.5 and 70.5 are nearly identical in all pre-treatment characteristics.
+        Below: covariate means for students just above vs. just below the cutoff (within 2 points).
+      </p>
+
+      <table class="balance-table" id="balance-table">
+        <thead>
+          <tr>
+            <th>Covariate</th>
+            <th>Below Cutoff (68-70)</th>
+            <th>Above Cutoff (70-72)</th>
+            <th>Difference</th>
+            <th>p-value</th>
+          </tr>
+        </thead>
+        <tbody id="balance-tbody"></tbody>
+      </table>
+
+      <div class="comparison-box" style="text-align:center;">
+        <p style="color:var(--green); font-weight:600; font-size:1.1rem;">
+          The design makes the regression trustworthy.
+        </p>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-top:0.5rem;">
+          No omitted variable bias. No selection bias. The cutoff does what randomization does:
+          it makes the treated and untreated groups comparable.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FINAL DASHBOARD
+         ============================================================ -->
+    <section class="beat-section" id="dashboard">
+      <span class="beat-tag formalize">Dashboard</span>
+      <h2>Final Comparison: NB7 vs NB8</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+        Same estimator (OLS). Same tool. Completely different credibility.
+        The difference is the <strong>research design</strong>, not the statistical method.
+      </p>
+
+      <div class="dashboard-grid">
+        <div class="dashboard-card" style="border-color: var(--red);">
+          <h3 style="color:var(--red);">NB7: Observational Study</h3>
+          <div class="check-row">
+            <span>Selection on treatment</span>
+            <span><span class="traffic-light red"></span>FAIL</span>
+          </div>
+          <div class="check-row">
+            <span>Unobserved confounders</span>
+            <span><span class="traffic-light red"></span>FAIL</span>
+          </div>
+          <div class="check-row">
+            <span>Correct sign of effect</span>
+            <span><span class="traffic-light red"></span>FAIL</span>
+          </div>
+          <div class="check-row">
+            <span>R-squared looks good</span>
+            <span><span class="traffic-light yellow"></span>MISLEADING</span>
+          </div>
+          <div class="check-row">
+            <span>VIFs under threshold</span>
+            <span><span class="traffic-light yellow"></span>IRRELEVANT</span>
+          </div>
+          <div class="check-row">
+            <span><strong>Verdict</strong></span>
+            <span style="color:var(--red); font-weight:700;">FRAGILE</span>
+          </div>
+        </div>
+
+        <div class="dashboard-card" style="border-color: var(--green);">
+          <h3 style="color:var(--green);">NB8: Regression Discontinuity</h3>
+          <div class="check-row">
+            <span>Treatment assignment</span>
+            <span><span class="traffic-light green"></span>Quasi-random</span>
+          </div>
+          <div class="check-row">
+            <span>Balance at cutoff</span>
+            <span><span class="traffic-light green"></span>PASS</span>
+          </div>
+          <div class="check-row">
+            <span>Correct sign of effect</span>
+            <span><span class="traffic-light green"></span>PASS</span>
+          </div>
+          <div class="check-row">
+            <span>Sensitivity to bandwidth</span>
+            <span><span class="traffic-light green"></span>Robust</span>
+          </div>
+          <div class="check-row">
+            <span>Causal interpretation</span>
+            <span><span class="traffic-light green"></span>LOCAL ATE</span>
+          </div>
+          <div class="check-row">
+            <span><strong>Verdict</strong></span>
+            <span style="color:var(--green); font-weight:700;">CREDIBLE</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sidebar: Maimonides' Rule -->
+    <div class="sidebar-collapsible" id="maimonides-sidebar">
+      <button class="sidebar-toggle">Sidebar: Maimonides' Rule -- Class Size and Achievement</button>
+      <div class="sidebar-content">
+        <p style="margin-bottom:0.75rem;">
+          In Israel, a rule dating back to the philosopher Maimonides caps class sizes at 40 students.
+          When enrollment hits 41, the school must split into two classes of about 20.
+          <strong>Angrist and Lavy (1999)</strong> exploited this discontinuity to estimate the causal effect
+          of class size on student achievement.
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          Schools with 40 students have one class of 40. Schools with 41 students suddenly have two
+          classes of ~20. The students on either side of this enrollment cutoff are essentially identical
+          -- but their class sizes differ dramatically.
+        </p>
+        <p style="margin-bottom:1rem;">
+          The result: smaller classes significantly improved test scores. This finding would have been
+          impossible to establish cleanly from observational data alone, since richer schools tend to
+          have both smaller classes and higher-achieving students (confounding).
+        </p>
+        <div class="viz-plot" id="maimonides-plot" style="min-height:300px;"></div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:0.5rem;">
+          Simulated illustration of the Maimonides discontinuity. At enrollment = 40, class size drops sharply.
+        </p>
+      </div>
+    </div>
+
+    <!-- Closing quote -->
+    <div class="quote-block">
+      "This doesn't mean you should stop using regression. It means you're finally ready to start."
+    </div>
+
+    <!-- Bridge (final page, link back) -->
+    <section class="bridge-section">
+      <p class="bridge-text">You have completed the Regression Autopsy.</p>
+      <a href="../index.html" class="bridge-link">&larr; Return to Index</a>
+    </section>
+
+  </div>
+
+  <script>
+    // ============================================================
+    // Seeded PRNG
+    // ============================================================
+    function seededRandom(seed) {
+      let s = [seed | 0, (seed * 2654435761) | 0, (seed * 340573321) | 0, (seed * 1013904223) | 0];
+      if (s[0] === 0 && s[1] === 0 && s[2] === 0 && s[3] === 0) s[0] = 1;
+      function next() {
+        let t = s[3]; t ^= t << 11; t ^= t >>> 8;
+        s[3] = s[2]; s[2] = s[1]; s[1] = s[0];
+        t ^= s[0]; t ^= s[0] >>> 19; s[0] = t;
+        return (t >>> 0) / 4294967296;
+      }
+      for (let i = 0; i < 20; i++) next();
+      return next;
+    }
+    function randn(rng) {
+      let u1; do { u1 = rng(); } while (u1 === 0);
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * rng());
+    }
+
+    // ============================================================
+    // OLS
+    // ============================================================
+    function ols(y, X) {
+      const n = y.length, p = X[0].length;
+      const XtX = Array.from({length: p}, () => new Float64Array(p));
+      const Xty = new Float64Array(p);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < p; j++) {
+          Xty[j] += X[i][j] * y[i];
+          for (let k = j; k < p; k++) XtX[j][k] += X[i][j] * X[i][k];
+        }
+      }
+      for (let j = 0; j < p; j++) for (let k = 0; k < j; k++) XtX[j][k] = XtX[k][j];
+      const aug = Array.from({length: p}, (_, i) => {
+        const row = new Float64Array(2 * p);
+        for (let j = 0; j < p; j++) row[j] = XtX[i][j];
+        row[p + i] = 1;
+        return row;
+      });
+      for (let col = 0; col < p; col++) {
+        let maxR = col;
+        for (let r = col + 1; r < p; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[maxR][col])) maxR = r;
+        [aug[col], aug[maxR]] = [aug[maxR], aug[col]];
+        const piv = aug[col][col];
+        for (let j = 0; j < 2 * p; j++) aug[col][j] /= piv;
+        for (let r = 0; r < p; r++) {
+          if (r === col) continue;
+          const f = aug[r][col];
+          for (let j = 0; j < 2 * p; j++) aug[r][j] -= f * aug[col][j];
+        }
+      }
+      const inv = Array.from({length: p}, (_, i) => aug[i].slice(p, 2 * p));
+      const beta = new Float64Array(p);
+      for (let j = 0; j < p; j++) for (let k = 0; k < p; k++) beta[j] += inv[j][k] * Xty[k];
+      const resid = new Float64Array(n);
+      let ssr = 0, yMean = 0;
+      for (let i = 0; i < n; i++) {
+        let yh = 0;
+        for (let j = 0; j < p; j++) yh += X[i][j] * beta[j];
+        resid[i] = y[i] - yh;
+        ssr += resid[i] ** 2;
+        yMean += y[i];
+      }
+      yMean /= n;
+      let sst = 0;
+      for (let i = 0; i < n; i++) sst += (y[i] - yMean) ** 2;
+      const sigma2 = ssr / (n - p);
+      const se = new Float64Array(p);
+      for (let j = 0; j < p; j++) se[j] = Math.sqrt(sigma2 * inv[j][j]);
+      return { coefficients: Array.from(beta), se: Array.from(se), r2: 1 - ssr / sst, residuals: Array.from(resid) };
+    }
+
+    // ============================================================
+    // Dark Plotly layout
+    // ============================================================
+    const darkLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: '#1a1d23',
+      font: { color: '#e8e8e8', family: 'Inter, system-ui, sans-serif' },
+      xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      margin: { t: 40, r: 20, b: 50, l: 65 },
+    };
+
+    // ============================================================
+    // Generate RDD Data
+    // ============================================================
+    const CUTOFF = 70;
+    const TRUE_EFFECT = 5000;
+    const N = 2000;
+    const rng = seededRandom(42);
+
+    const scores = [], earnings = [], treated = [];
+    const parentIncome = [], gpa = [], motivation = [];
+
+    for (let i = 0; i < N; i++) {
+      const score = 40 + 40 * rng() + 5 * randn(rng); // roughly 40-85 range
+      const clampedScore = Math.max(30, Math.min(100, score));
+      const t = clampedScore >= CUTOFF ? 1 : 0;
+
+      // Pre-treatment covariates (smooth through cutoff)
+      const pInc = 50000 + 300 * clampedScore + 5000 * randn(rng);
+      const g = 2.0 + 0.02 * clampedScore + 0.3 * randn(rng);
+      const mot = 0.01 * clampedScore + 0.5 * randn(rng);
+
+      // Outcome: smooth function of score + jump at cutoff
+      const baseEarnings = 30000 + 400 * clampedScore + 2 * (clampedScore - 60) ** 2 * 0.5;
+      const earn = baseEarnings + TRUE_EFFECT * t + 3000 * randn(rng);
+
+      scores.push(clampedScore);
+      earnings.push(earn);
+      treated.push(t);
+      parentIncome.push(pInc);
+      gpa.push(g);
+      motivation.push(mot);
+    }
+
+    // ============================================================
+    // RDD estimation function
+    // ============================================================
+    function rddEstimate(bandwidth) {
+      const idx = [];
+      for (let i = 0; i < N; i++) {
+        if (Math.abs(scores[i] - CUTOFF) <= bandwidth) idx.push(i);
+      }
+      if (idx.length < 10) return null;
+
+      // Local linear regression: earnings ~ intercept + (score - cutoff) + treatment + treatment*(score - cutoff)
+      const y = idx.map(i => earnings[i]);
+      const X = idx.map(i => {
+        const c = scores[i] - CUTOFF;
+        const t = treated[i];
+        return [1, c, t, t * c];
+      });
+      const res = ols(y, X);
+      return {
+        estimate: res.coefficients[2], // treatment coefficient
+        se: res.se[2],
+        ci: [res.coefficients[2] - 1.96 * res.se[2], res.coefficients[2] + 1.96 * res.se[2]],
+        nWin: idx.length,
+        coefficients: res.coefficients,
+        idx: idx,
+      };
+    }
+
+    // ============================================================
+    // Main RDD plot
+    // ============================================================
+    function plotRDD(bandwidth) {
+      const result = rddEstimate(bandwidth);
+      if (!result) return;
+
+      // Update summary panel
+      document.getElementById('rdd-est').textContent = '$' + result.estimate.toFixed(0);
+      document.getElementById('rdd-est').style.color = Math.abs(result.estimate - TRUE_EFFECT) < 1500 ? '#27AE60' : '#D4A017';
+      document.getElementById('rdd-se').textContent = '$' + result.se.toFixed(0);
+      document.getElementById('rdd-ci').textContent = '[$' + result.ci[0].toFixed(0) + ', $' + result.ci[1].toFixed(0) + ']';
+      document.getElementById('rdd-bw').textContent = bandwidth.toFixed(1);
+      document.getElementById('rdd-nwin').textContent = result.nWin.toString();
+
+      // Scatter points
+      const belowIdx = [], aboveIdx = [];
+      for (let i = 0; i < N; i++) {
+        if (treated[i] === 0) belowIdx.push(i);
+        else aboveIdx.push(i);
+      }
+
+      // Regression lines within bandwidth
+      const linesBelow = [], linesAbove = [];
+      const xMinB = CUTOFF - bandwidth, xMaxB = CUTOFF;
+      const xMinA = CUTOFF, xMaxA = CUTOFF + bandwidth;
+
+      for (let x = xMinB; x <= xMaxB; x += 0.2) {
+        const c = x - CUTOFF;
+        linesBelow.push({ x: x, y: result.coefficients[0] + result.coefficients[1] * c });
+      }
+      for (let x = xMinA; x <= xMaxA; x += 0.2) {
+        const c = x - CUTOFF;
+        linesAbove.push({ x: x, y: result.coefficients[0] + result.coefficients[1] * c + result.coefficients[2] + result.coefficients[3] * c });
+      }
+
+      // In-window vs out-of-window
+      const inWin = new Set(result.idx);
+
+      Plotly.react('rdd-plot', [
+        // Out-of-window points (faded)
+        {
+          x: belowIdx.filter(i => !inWin.has(i)).map(i => scores[i]),
+          y: belowIdx.filter(i => !inWin.has(i)).map(i => earnings[i]),
+          type: 'scatter', mode: 'markers', name: 'No scholarship (outside)',
+          marker: { color: 'rgba(46,94,168,0.15)', size: 4 },
+        },
+        {
+          x: aboveIdx.filter(i => !inWin.has(i)).map(i => scores[i]),
+          y: aboveIdx.filter(i => !inWin.has(i)).map(i => earnings[i]),
+          type: 'scatter', mode: 'markers', name: 'Scholarship (outside)',
+          marker: { color: 'rgba(39,174,96,0.15)', size: 4 },
+        },
+        // In-window points
+        {
+          x: belowIdx.filter(i => inWin.has(i)).map(i => scores[i]),
+          y: belowIdx.filter(i => inWin.has(i)).map(i => earnings[i]),
+          type: 'scatter', mode: 'markers', name: 'No scholarship',
+          marker: { color: '#2E5EA8', size: 5, opacity: 0.7 },
+        },
+        {
+          x: aboveIdx.filter(i => inWin.has(i)).map(i => scores[i]),
+          y: aboveIdx.filter(i => inWin.has(i)).map(i => earnings[i]),
+          type: 'scatter', mode: 'markers', name: 'Scholarship',
+          marker: { color: '#27AE60', size: 5, opacity: 0.7 },
+        },
+        // Regression lines
+        {
+          x: linesBelow.map(p => p.x), y: linesBelow.map(p => p.y),
+          type: 'scatter', mode: 'lines', name: 'Fit (below)',
+          line: { color: '#2E5EA8', width: 3 },
+        },
+        {
+          x: linesAbove.map(p => p.x), y: linesAbove.map(p => p.y),
+          type: 'scatter', mode: 'lines', name: 'Fit (above)',
+          line: { color: '#27AE60', width: 3 },
+        },
+        // Cutoff line
+        {
+          x: [CUTOFF, CUTOFF], y: [25000, 75000],
+          type: 'scatter', mode: 'lines', name: 'Cutoff',
+          line: { color: '#D4A017', width: 2, dash: 'dash' },
+        },
+        // Gap annotation
+        {
+          x: [CUTOFF, CUTOFF],
+          y: [result.coefficients[0], result.coefficients[0] + result.coefficients[2]],
+          type: 'scatter', mode: 'lines+markers', name: 'Causal effect',
+          line: { color: '#C0392B', width: 3 },
+          marker: { size: 10, symbol: 'diamond', color: '#C0392B' },
+        },
+      ], {
+        ...darkLayout,
+        title: { text: 'Regression Discontinuity: Scholarship Effect on Earnings', font: { size: 14 } },
+        xaxis: { ...darkLayout.xaxis, title: 'Test Score', range: [30, 100] },
+        yaxis: { ...darkLayout.yaxis, title: 'Future Earnings ($)' },
+        showlegend: true,
+        legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.3)', font: { size: 10 } },
+      }, { responsive: true });
+    }
+
+    plotRDD(10);
+
+    // ============================================================
+    // Bandwidth slider + bias-variance plots
+    // ============================================================
+    const bwRange = [];
+    const bwEstimates = [], bwSEs = [], bwCIwidths = [];
+    for (let bw = 1; bw <= 25; bw += 0.5) {
+      const res = rddEstimate(bw);
+      bwRange.push(bw);
+      if (res) {
+        bwEstimates.push(res.estimate);
+        bwSEs.push(res.se);
+        bwCIwidths.push(res.ci[1] - res.ci[0]);
+      } else {
+        bwEstimates.push(null);
+        bwSEs.push(null);
+        bwCIwidths.push(null);
+      }
+    }
+
+    function plotBWDiagnostics(currentBW) {
+      const bwIdx = bwRange.indexOf(currentBW);
+
+      Plotly.react('bw-est-plot', [
+        {
+          x: bwRange, y: bwEstimates,
+          type: 'scatter', mode: 'lines+markers', name: 'Estimate',
+          line: { color: '#2E5EA8', width: 2 },
+          marker: { size: 4 },
+        },
+        {
+          x: [bwRange[0], bwRange[bwRange.length - 1]], y: [TRUE_EFFECT, TRUE_EFFECT],
+          type: 'scatter', mode: 'lines', name: 'Truth',
+          line: { color: '#D4A017', width: 2, dash: 'dash' },
+        },
+        bwIdx >= 0 ? {
+          x: [currentBW], y: [bwEstimates[bwIdx]],
+          type: 'scatter', mode: 'markers', name: 'Current',
+          marker: { size: 14, color: '#C0392B', symbol: 'x', line: { width: 2 } },
+        } : {},
+      ], {
+        ...darkLayout,
+        title: { text: 'Estimated Effect vs Bandwidth', font: { size: 13 } },
+        xaxis: { ...darkLayout.xaxis, title: 'Bandwidth' },
+        yaxis: { ...darkLayout.yaxis, title: 'Estimated Effect ($)' },
+        showlegend: true,
+        legend: { x: 0.6, y: 0.95, bgcolor: 'rgba(0,0,0,0)' },
+      }, { responsive: true });
+
+      Plotly.react('bw-ci-plot', [
+        {
+          x: bwRange, y: bwCIwidths,
+          type: 'scatter', mode: 'lines+markers', name: 'CI Width',
+          line: { color: '#27AE60', width: 2 },
+          marker: { size: 4 },
+        },
+        bwIdx >= 0 ? {
+          x: [currentBW], y: [bwCIwidths[bwIdx]],
+          type: 'scatter', mode: 'markers', name: 'Current',
+          marker: { size: 14, color: '#C0392B', symbol: 'x', line: { width: 2 } },
+        } : {},
+      ], {
+        ...darkLayout,
+        title: { text: '95% CI Width vs Bandwidth', font: { size: 13 } },
+        xaxis: { ...darkLayout.xaxis, title: 'Bandwidth' },
+        yaxis: { ...darkLayout.yaxis, title: 'CI Width ($)' },
+        showlegend: false,
+      }, { responsive: true });
+    }
+
+    plotBWDiagnostics(10);
+
+    document.getElementById('bw-slider').addEventListener('input', function () {
+      const bw = parseFloat(this.value);
+      document.getElementById('bw-val').textContent = bw.toFixed(1);
+      plotRDD(bw);
+      plotBWDiagnostics(bw);
+    });
+
+    // ============================================================
+    // Balance table
+    // ============================================================
+    function mean(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+    function std(arr) { const m = mean(arr); return Math.sqrt(arr.reduce((s, x) => s + (x - m) ** 2, 0) / (arr.length - 1)); }
+
+    const nearBelow = [], nearAbove = [];
+    for (let i = 0; i < N; i++) {
+      if (scores[i] >= 68 && scores[i] < 70) nearBelow.push(i);
+      else if (scores[i] >= 70 && scores[i] < 72) nearAbove.push(i);
+    }
+
+    const covariates = [
+      { name: 'Parent Income', vals: parentIncome, fmt: '$' },
+      { name: 'GPA', vals: gpa, fmt: '' },
+      { name: 'Motivation', vals: motivation, fmt: '' },
+      { name: 'Test Score', vals: scores, fmt: '' },
+    ];
+
+    const balanceTbody = document.getElementById('balance-tbody');
+    covariates.forEach(cov => {
+      const belowVals = nearBelow.map(i => cov.vals[i]);
+      const aboveVals = nearAbove.map(i => cov.vals[i]);
+      const mB = mean(belowVals), mA = mean(aboveVals);
+      const diff = mA - mB;
+      // Simple t-test
+      const seB = std(belowVals) / Math.sqrt(belowVals.length);
+      const seA = std(aboveVals) / Math.sqrt(aboveVals.length);
+      const seDiff = Math.sqrt(seB ** 2 + seA ** 2);
+      const tStat = diff / seDiff;
+      const pVal = 2 * (1 - normalCDF(Math.abs(tStat)));
+
+      const tr = document.createElement('tr');
+      const prefix = cov.fmt === '$' ? '$' : '';
+      const decimals = cov.fmt === '$' ? 0 : 2;
+      tr.innerHTML = '<td>' + cov.name + '</td><td>' + prefix + mB.toFixed(decimals) + '</td><td>'
+        + prefix + mA.toFixed(decimals) + '</td><td>' + (diff >= 0 ? '+' : '') + prefix + diff.toFixed(decimals)
+        + '</td><td style="color:' + (pVal > 0.05 ? '#27AE60' : '#C0392B') + '">' + pVal.toFixed(3) + '</td>';
+      balanceTbody.appendChild(tr);
+    });
+
+    function normalCDF(x) {
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, pp = 0.3275911;
+      const sign = x < 0 ? -1 : 1;
+      x = Math.abs(x) / Math.SQRT2;
+      const t = 1 / (1 + pp * x);
+      const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return 0.5 * (1 + sign * y);
+    }
+
+    // ============================================================
+    // Maimonides mini-plot
+    // ============================================================
+    const maimRng = seededRandom(77);
+    const enrollments = [], classSizes = [], testScores_m = [];
+    for (let e = 20; e <= 80; e++) {
+      const nClasses = Math.ceil(e / 40);
+      const classSize = e / nClasses;
+      for (let rep = 0; rep < 3; rep++) {
+        enrollments.push(e);
+        classSizes.push(classSize + 2 * randn(maimRng));
+        testScores_m.push(80 - 0.3 * classSize + 5 * randn(maimRng));
+      }
+    }
+
+    Plotly.newPlot('maimonides-plot', [
+      {
+        x: enrollments, y: classSizes,
+        type: 'scatter', mode: 'markers', name: 'Class size',
+        marker: { color: '#2E5EA8', size: 5, opacity: 0.6 },
+      },
+      // Theoretical Maimonides rule
+      {
+        x: Array.from({length: 61}, (_, i) => i + 20),
+        y: Array.from({length: 61}, (_, i) => {
+          const e = i + 20;
+          return e / Math.ceil(e / 40);
+        }),
+        type: 'scatter', mode: 'lines', name: "Maimonides' Rule",
+        line: { color: '#D4A017', width: 2 },
+      },
+      // Vertical line at 40
+      {
+        x: [40, 40], y: [10, 45],
+        type: 'scatter', mode: 'lines', name: 'Cutoff (40)',
+        line: { color: '#C0392B', width: 2, dash: 'dash' },
+      },
+    ], {
+      ...darkLayout,
+      title: { text: "Maimonides' Rule: Class Size vs Enrollment", font: { size: 13 } },
+      xaxis: { ...darkLayout.xaxis, title: 'School Enrollment' },
+      yaxis: { ...darkLayout.yaxis, title: 'Average Class Size' },
+      showlegend: true,
+      legend: { x: 0.5, y: 0.95, bgcolor: 'rgba(0,0,0,0)' },
+      height: 300,
+    }, { responsive: true });
+
+    // Sidebar toggles
+    document.querySelectorAll('.sidebar-toggle').forEach(btn => {
+      btn.addEventListener('click', () => btn.parentElement.classList.toggle('open'));
+    });
+
+    // Progress
+    document.getElementById('progress-fill').style.width = '100%';
+  </script>
+
+</body>
+</html>

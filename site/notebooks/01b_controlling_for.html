@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What 'Controlling For' Actually Means — Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .reg-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.85rem; margin: 1rem 0; }
+    .reg-table th, .reg-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+    .reg-table th { color: var(--text-muted); font-weight: 600; }
+    .reg-table th:first-child, .reg-table td:first-child { text-align: left; }
+    .comparison-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+    .match-highlight { color: var(--green); font-weight: 700; font-family: var(--font-mono); }
+    .coeff-display { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; text-align: center; margin: 0.5rem 0; }
+    .fwl-step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 0.75rem 0; }
+    .fwl-step .step-num { font-family: var(--font-mono); color: var(--gold); font-weight: 700; font-size: 1.1rem; }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+    .checkbox-group label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; transition: border-color 0.2s; }
+    .checkbox-group label:hover { border-color: var(--blue); }
+    .checkbox-group input[type="checkbox"] { accent-color: var(--blue); width: 18px; height: 18px; }
+    .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin: 2rem 0; }
+    .progress-bar .fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.3s; }
+    .warning-box { background: rgba(192,57,43,0.1); border: 1px solid var(--red); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; color: var(--red); }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">&larr; Back to Index</a>
+    <a href="01_coefficient.html">&larr; Prev</a>
+    <a href="02_confidence.html">Next &rarr;</a>
+    <span class="nav-title">01b &mdash; What "Controlling For" Actually Means</span>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+
+    <!-- ============================================================
+         TRAP
+         ============================================================ -->
+    <section class="beat-section" id="trap">
+      <span class="beat-tag trap">Trap</span>
+      <h2>What Does "Controlling For" Mean?</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        Here is the DGP (housing prices): \(Y = 50 + 8 \ln(X_1) + 3 X_2 + 2U + \varepsilon\),
+        where \(X_1\) = living area, \(X_2\) = bedrooms, \(U\) = unobserved desirability.
+        Below is the multiple regression output for \(Y\) on \(X_1\) and \(X_2\).
+      </p>
+
+      <div class="comparison-box">
+        <h3 style="color:var(--gold); margin-bottom:0.75rem;">OLS: sale_price ~ living_area + bedrooms</h3>
+        <table class="reg-table">
+          <thead><tr><th>Variable</th><th>Coeff</th><th>SE</th><th>t-stat</th></tr></thead>
+          <tbody id="multi-reg-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="trap-widget" id="trap-quiz">
+        <div class="trap-question">
+          The coefficient on living_area is \(\hat\beta_1\). Which interpretation is correct?
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-a" value="a">
+          <label for="trap-a">A: "Holding bedrooms constant, each unit of living area adds \(\hat\beta_1\) to price"</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-b" value="b">
+          <label for="trap-b">B: "After residualizing both Y and X<sub>1</sub> on bedrooms, the slope of residuals gives \(\hat\beta_1\)"</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-c" value="c">
+          <label for="trap-c">C: "Both A and B mean the same thing"</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-d" value="d">
+          <label for="trap-d">D: "Neither is correct"</label>
+        </div>
+        <button class="trap-submit" id="trap-submit">Submit</button>
+        <div class="trap-feedback" id="trap-feedback"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         REVEAL: FWL Theorem
+         ============================================================ -->
+    <section class="beat-section" id="reveal">
+      <span class="beat-tag reveal">Reveal</span>
+      <h2>The Frisch-Waugh-Lovell Theorem</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        The correct answer is <strong style="color:var(--gold);">B</strong> (and C is close, but B gives the
+        precise mechanical intuition). The <strong>Frisch-Waugh-Lovell (FWL) theorem</strong> tells us
+        exactly what "controlling for" means: it is a two-step residualization procedure.
+      </p>
+
+      <div class="fwl-step">
+        <span class="step-num">Step 1:</span> Regress \(Y\) on the controls (\(X_2\)), save residuals \(e_Y\).
+        <div class="coeff-display" style="color:var(--text-muted);" id="fwl-step1-info">...</div>
+      </div>
+      <div class="fwl-step">
+        <span class="step-num">Step 2:</span> Regress \(X_1\) on the controls (\(X_2\)), save residuals \(e_{X_1}\).
+        <div class="coeff-display" style="color:var(--text-muted);" id="fwl-step2-info">...</div>
+      </div>
+      <div class="fwl-step">
+        <span class="step-num">Step 3:</span> Regress \(e_Y\) on \(e_{X_1}\). The coefficient = the multiple regression coefficient on \(X_1\).
+        <div class="coeff-display" style="color:var(--green);" id="fwl-step3-info">...</div>
+      </div>
+
+      <div class="comparison-box" style="text-align:center;">
+        <h3 style="color:var(--gold);">Coefficient Match</h3>
+        <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap;">
+          <div>
+            <p style="color:var(--text-muted); font-size:0.85rem;">Multiple Regression</p>
+            <div class="coeff-display" style="color:var(--blue);" id="multi-coeff">...</div>
+          </div>
+          <div style="font-size:2rem; color:var(--green); align-self:center;">=</div>
+          <div>
+            <p style="color:var(--text-muted); font-size:0.85rem;">FWL (residual regression)</p>
+            <div class="coeff-display" style="color:var(--green);" id="fwl-coeff">...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side by side scatter plots -->
+      <h3 class="mt-3">Visual: Original vs Partial Regression Plot</h3>
+      <div class="two-col">
+        <div class="viz-plot" id="original-scatter" style="min-height:380px;"></div>
+        <div class="viz-plot" id="partial-scatter" style="min-height:380px;"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         INTERACTIVE: Control Selection
+         ============================================================ -->
+    <section class="beat-section" id="interactive">
+      <span class="beat-tag formalize">Interactive</span>
+      <h2>Try It Yourself: Choose Controls</h2>
+
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        Select which variables to include as controls alongside \(X_1\) (living area).
+        For each combination, the full regression coefficient and the FWL coefficient are shown side by side.
+        They always match -- because the FWL theorem is an algebraic identity.
+      </p>
+
+      <div class="checkbox-group" id="control-checkboxes">
+        <label>
+          <input type="checkbox" id="ctrl-x2" checked>
+          X<sub>2</sub> (Bedrooms)
+        </label>
+        <label>
+          <input type="checkbox" id="ctrl-x3">
+          X<sub>3</sub> (Zestimate -- bad control!)
+        </label>
+      </div>
+
+      <div id="bad-control-warning" class="warning-box" style="display:none;">
+        Warning: X<sub>3</sub> (Zestimate) is a post-treatment variable (\(X_3 = 0.9 Y + \eta_3\)).
+        Including it as a control distorts the coefficient on X<sub>1</sub> because you are
+        "controlling away" variation in Y that X<sub>1</sub> legitimately explains.
+      </div>
+
+      <div class="comparison-box" style="text-align:center;">
+        <h3 style="color:var(--gold);">Coefficient on X<sub>1</sub> (living_area)</h3>
+        <div style="display:flex; justify-content:center; gap:2rem; flex-wrap:wrap; margin:1rem 0;">
+          <div>
+            <p style="color:var(--text-muted); font-size:0.85rem;">Full Regression</p>
+            <div class="coeff-display" id="interactive-full-coeff" style="color:var(--blue);">...</div>
+          </div>
+          <div style="font-size:2rem; color:var(--green); align-self:center;">=</div>
+          <div>
+            <p style="color:var(--text-muted); font-size:0.85rem;">FWL Coefficient</p>
+            <div class="coeff-display" id="interactive-fwl-coeff" style="color:var(--green);">...</div>
+          </div>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.85rem;" id="truth-comparison">
+          True coefficient on log(X<sub>1</sub>): <span style="color:var(--gold); font-weight:700;">8.000</span>
+        </p>
+      </div>
+
+      <h3 class="mt-2">Partial Regression Plot (updates with controls)</h3>
+      <div class="two-col">
+        <div class="viz-plot" id="interactive-original" style="min-height:380px;"></div>
+        <div class="viz-plot" id="interactive-partial" style="min-height:380px;"></div>
+      </div>
+    </section>
+
+    <!-- FWL math sidebar -->
+    <div class="sidebar-collapsible" id="fwl-math-sidebar">
+      <button class="sidebar-toggle">Mathematical Details: FWL Theorem</button>
+      <div class="sidebar-content">
+        <p style="margin-bottom:0.75rem;">
+          Consider the regression \(Y = X_1 \beta_1 + X_2 \beta_2 + \varepsilon\). The FWL theorem states:
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          \[\hat{\beta}_1 = (M_2 X_1)' (M_2 X_1))^{-1} (M_2 X_1)' (M_2 Y)\]
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          where \(M_2 = I - X_2(X_2'X_2)^{-1}X_2'\) is the residual-maker matrix for \(X_2\).
+          In other words, \(\hat{\beta}_1\) from the full regression equals the coefficient from
+          regressing the residuals of \(Y\) on \(X_2\) against the residuals of \(X_1\) on \(X_2\).
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          <strong>Why this matters:</strong> "Controlling for \(X_2\)" literally means "removing the
+          linear influence of \(X_2\) from both sides of the equation, then looking at what remains."
+          The partial regression plot visualizes exactly this.
+        </p>
+        <p>
+          <strong>Danger of bad controls:</strong> When you include \(X_3 = 0.9Y + \eta_3\),
+          the residual-maker \(M_3\) removes most of the variation in \(Y\), leaving only noise.
+          The coefficient on \(X_1\) collapses toward zero -- not because \(X_1\) does not matter,
+          but because you controlled away the outcome.
+        </p>
+      </div>
+    </div>
+
+    <!-- Bridge -->
+    <section class="bridge-section">
+      <p class="bridge-text">"Now that you know what 'controlling for' really means, let's see what happens to your confidence intervals."</p>
+      <a href="02_confidence.html" class="bridge-link">Next: The Confidence Interval Delusion &rarr;</a>
+    </section>
+
+  </div>
+
+  <script>
+    // ============================================================
+    // PRNG + OLS (self-contained)
+    // ============================================================
+    function seededRandom(seed) {
+      let s = [seed | 0, (seed * 2654435761) | 0, (seed * 340573321) | 0, (seed * 1013904223) | 0];
+      if (s[0] === 0 && s[1] === 0 && s[2] === 0 && s[3] === 0) s[0] = 1;
+      function next() {
+        let t = s[3]; t ^= t << 11; t ^= t >>> 8;
+        s[3] = s[2]; s[2] = s[1]; s[1] = s[0];
+        t ^= s[0]; t ^= s[0] >>> 19; s[0] = t;
+        return (t >>> 0) / 4294967296;
+      }
+      for (let i = 0; i < 20; i++) next();
+      return next;
+    }
+    function randn(rng) {
+      let u1; do { u1 = rng(); } while (u1 === 0);
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * rng());
+    }
+
+    function ols(y, X) {
+      const n = y.length, p = X[0].length;
+      const XtX = Array.from({length: p}, () => new Float64Array(p));
+      const Xty = new Float64Array(p);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < p; j++) {
+          Xty[j] += X[i][j] * y[i];
+          for (let k = j; k < p; k++) XtX[j][k] += X[i][j] * X[i][k];
+        }
+      }
+      for (let j = 0; j < p; j++) for (let k = 0; k < j; k++) XtX[j][k] = XtX[k][j];
+      const aug = Array.from({length: p}, (_, i) => {
+        const row = new Float64Array(2 * p);
+        for (let j = 0; j < p; j++) row[j] = XtX[i][j];
+        row[p + i] = 1;
+        return row;
+      });
+      for (let col = 0; col < p; col++) {
+        let maxR = col;
+        for (let r = col + 1; r < p; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[maxR][col])) maxR = r;
+        [aug[col], aug[maxR]] = [aug[maxR], aug[col]];
+        const piv = aug[col][col];
+        if (Math.abs(piv) < 1e-14) return null;
+        for (let j = 0; j < 2 * p; j++) aug[col][j] /= piv;
+        for (let r = 0; r < p; r++) {
+          if (r === col) continue;
+          const f = aug[r][col];
+          for (let j = 0; j < 2 * p; j++) aug[r][j] -= f * aug[col][j];
+        }
+      }
+      const inv = Array.from({length: p}, (_, i) => aug[i].slice(p, 2 * p));
+      const beta = new Float64Array(p);
+      for (let j = 0; j < p; j++) for (let k = 0; k < p; k++) beta[j] += inv[j][k] * Xty[k];
+      const resid = new Float64Array(n);
+      let ssr = 0, yMean = 0;
+      for (let i = 0; i < n; i++) {
+        let yh = 0;
+        for (let j = 0; j < p; j++) yh += X[i][j] * beta[j];
+        resid[i] = y[i] - yh;
+        ssr += resid[i] ** 2;
+        yMean += y[i];
+      }
+      yMean /= n;
+      let sst = 0;
+      for (let i = 0; i < n; i++) sst += (y[i] - yMean) ** 2;
+      const sigma2 = ssr / (n - p);
+      const se = new Float64Array(p);
+      for (let j = 0; j < p; j++) se[j] = Math.sqrt(Math.max(0, sigma2 * inv[j][j]));
+      const tStats = Array.from(beta).map((b, j) => se[j] > 0 ? b / se[j] : 0);
+      return { coefficients: Array.from(beta), se: Array.from(se), tStats, r2: 1 - ssr / sst, residuals: Array.from(resid) };
+    }
+
+    // ============================================================
+    // Dark Plotly layout
+    // ============================================================
+    const darkLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: '#1a1d23',
+      font: { color: '#e8e8e8', family: 'Inter, system-ui, sans-serif' },
+      xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      margin: { t: 40, r: 20, b: 50, l: 60 },
+    };
+
+    // ============================================================
+    // Generate DGP data
+    // ============================================================
+    const N = 500;
+    const rng = seededRandom(42);
+    const SIGMA_ETA = 0.5;
+
+    const dataY = [], dataX1 = [], dataX2 = [], dataX3 = [], dataU = [];
+    const dataLogX1 = [];
+
+    for (let i = 0; i < N; i++) {
+      const U = randn(rng);
+      const eta1 = SIGMA_ETA * randn(rng);
+      const eta2 = SIGMA_ETA * randn(rng);
+      const X1 = 2.0 + 0.5 * U + eta1;
+      const X2 = 3.0 + 0.5 * U + eta2;
+      const eps = 0.5 * Math.abs(X1) * randn(rng);
+      const logX1 = Math.log(Math.max(X1, 0.01));
+      const Y = 50 + 8 * logX1 + 3 * X2 + 2 * U + eps;
+      const eta3 = SIGMA_ETA * randn(rng);
+      const X3 = 0.9 * Y + eta3;
+
+      dataY.push(Y);
+      dataX1.push(X1);
+      dataLogX1.push(logX1);
+      dataX2.push(X2);
+      dataX3.push(X3);
+      dataU.push(U);
+    }
+
+    // ============================================================
+    // TRAP: Multiple regression (Y on logX1, X2)
+    // ============================================================
+    const Xmulti = dataY.map((_, i) => [1, dataLogX1[i], dataX2[i]]);
+    const multiRes = ols(dataY, Xmulti);
+    const varNames = ['Intercept', 'log(living_area)', 'Bedrooms'];
+
+    const tbody = document.getElementById('multi-reg-tbody');
+    varNames.forEach((name, j) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + name + '</td><td>' + multiRes.coefficients[j].toFixed(4) + '</td><td>'
+        + multiRes.se[j].toFixed(4) + '</td><td>' + multiRes.tStats[j].toFixed(2) + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    // Trap quiz
+    document.getElementById('trap-submit').addEventListener('click', () => {
+      const sel = document.querySelector('input[name="trap-q"]:checked');
+      const fb = document.getElementById('trap-feedback');
+      if (!sel) return;
+      if (sel.value === 'b') {
+        fb.className = 'trap-feedback correct';
+        fb.textContent = 'Correct! The Frisch-Waugh-Lovell theorem tells us that "controlling for" literally means '
+          + 'residualizing both sides on the controls, then running a simple regression on the residuals. '
+          + 'Interpretation A is a convenient shorthand, but B is what OLS actually computes.';
+      } else if (sel.value === 'c') {
+        fb.className = 'trap-feedback incorrect';
+        fb.textContent = 'Close! A and B give the same number, but the intuition of B is far more revealing. '
+          + '"Holding X2 constant" is a verbal shorthand; "residualizing on X2" is the actual algebra OLS performs. '
+          + 'The FWL theorem makes this precise.';
+      } else {
+        fb.className = 'trap-feedback incorrect';
+        fb.textContent = 'Not quite. The key insight is the Frisch-Waugh-Lovell theorem: the coefficient from '
+          + 'multiple regression equals the coefficient you get by regressing residuals on residuals. '
+          + 'Read on to see this demonstrated.';
+      }
+    });
+
+    // ============================================================
+    // REVEAL: FWL step by step
+    // ============================================================
+    // Step 1: regress Y on X2
+    const X_step1 = dataY.map((_, i) => [1, dataX2[i]]);
+    const step1Res = ols(dataY, X_step1);
+    const eY = step1Res.residuals;
+    document.getElementById('fwl-step1-info').textContent = 'Residuals e_Y have mean ' +
+      (eY.reduce((a, b) => a + b, 0) / N).toFixed(6) + ', SD = ' +
+      Math.sqrt(eY.reduce((a, b) => a + b * b, 0) / N).toFixed(3);
+
+    // Step 2: regress logX1 on X2
+    const X_step2 = dataLogX1.map((_, i) => [1, dataX2[i]]);
+    const step2Res = ols(dataLogX1, X_step2);
+    const eX1 = step2Res.residuals;
+    document.getElementById('fwl-step2-info').textContent = 'Residuals e_X1 have mean ' +
+      (eX1.reduce((a, b) => a + b, 0) / N).toFixed(6) + ', SD = ' +
+      Math.sqrt(eX1.reduce((a, b) => a + b * b, 0) / N).toFixed(3);
+
+    // Step 3: regress eY on eX1
+    const X_step3 = eY.map((_, i) => [1, eX1[i]]);
+    const step3Res = ols(eY, X_step3);
+    const fwlCoeff = step3Res.coefficients[1];
+    document.getElementById('fwl-step3-info').textContent = 'Coefficient = ' + fwlCoeff.toFixed(6);
+
+    // Show match
+    document.getElementById('multi-coeff').textContent = multiRes.coefficients[1].toFixed(6);
+    document.getElementById('fwl-coeff').textContent = fwlCoeff.toFixed(6);
+
+    // ============================================================
+    // Scatter plots: original vs partial regression
+    // ============================================================
+    // Simple linear fit for plotting
+    function fitLine(x, y) {
+      const n = x.length;
+      let sx = 0, sy = 0, sxy = 0, sxx = 0;
+      for (let i = 0; i < n; i++) { sx += x[i]; sy += y[i]; sxy += x[i] * y[i]; sxx += x[i] * x[i]; }
+      const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+      const intercept = (sy - slope * sx) / n;
+      const xmin = Math.min(...x), xmax = Math.max(...x);
+      return { x: [xmin, xmax], y: [intercept + slope * xmin, intercept + slope * xmax], slope, intercept };
+    }
+
+    const origLine = fitLine(dataLogX1, dataY);
+    Plotly.newPlot('original-scatter', [
+      {
+        x: dataLogX1, y: dataY,
+        type: 'scatter', mode: 'markers', name: 'Data',
+        marker: { color: '#2E5EA8', size: 4, opacity: 0.5 },
+      },
+      {
+        x: origLine.x, y: origLine.y,
+        type: 'scatter', mode: 'lines', name: 'OLS fit (bivariate)',
+        line: { color: '#D4A017', width: 2 },
+      },
+    ], {
+      ...darkLayout,
+      title: { text: 'Original: Y vs log(X1)', font: { size: 13 } },
+      xaxis: { ...darkLayout.xaxis, title: 'log(X1)' },
+      yaxis: { ...darkLayout.yaxis, title: 'Y (sale price)' },
+      showlegend: false,
+    }, { responsive: true });
+
+    const partialLine = fitLine(eX1, eY);
+    Plotly.newPlot('partial-scatter', [
+      {
+        x: eX1, y: eY,
+        type: 'scatter', mode: 'markers', name: 'Residuals',
+        marker: { color: '#27AE60', size: 4, opacity: 0.5 },
+      },
+      {
+        x: partialLine.x, y: partialLine.y,
+        type: 'scatter', mode: 'lines', name: 'FWL slope = ' + fwlCoeff.toFixed(4),
+        line: { color: '#D4A017', width: 2 },
+      },
+    ], {
+      ...darkLayout,
+      title: { text: 'Partial Regression: e_Y vs e_X1', font: { size: 13 } },
+      xaxis: { ...darkLayout.xaxis, title: 'e_X1 (residualized log X1)' },
+      yaxis: { ...darkLayout.yaxis, title: 'e_Y (residualized Y)' },
+      showlegend: false,
+    }, { responsive: true });
+
+    // ============================================================
+    // INTERACTIVE: control selection
+    // ============================================================
+    function updateInteractive() {
+      const useX2 = document.getElementById('ctrl-x2').checked;
+      const useX3 = document.getElementById('ctrl-x3').checked;
+
+      // Show/hide bad control warning
+      document.getElementById('bad-control-warning').style.display = useX3 ? 'block' : 'none';
+
+      // Build design matrix: [1, logX1, ...controls]
+      const controlCols = [];
+      const controlNames = [];
+      if (useX2) { controlCols.push(dataX2); controlNames.push('X2'); }
+      if (useX3) { controlCols.push(dataX3); controlNames.push('X3'); }
+
+      // Full regression
+      const Xfull = dataY.map((_, i) => {
+        const row = [1, dataLogX1[i]];
+        for (const col of controlCols) row.push(col[i]);
+        return row;
+      });
+      const fullRes = ols(dataY, Xfull);
+      if (!fullRes) {
+        document.getElementById('interactive-full-coeff').textContent = 'Singular';
+        document.getElementById('interactive-fwl-coeff').textContent = 'Singular';
+        return;
+      }
+      const fullCoeff = fullRes.coefficients[1];
+
+      // FWL: residualize Y on controls, residualize logX1 on controls
+      let eY_int, eX1_int;
+      if (controlCols.length === 0) {
+        // No controls: FWL is just simple regression
+        const yBar = dataY.reduce((a, b) => a + b, 0) / N;
+        const xBar = dataLogX1.reduce((a, b) => a + b, 0) / N;
+        eY_int = dataY.map(y => y - yBar);
+        eX1_int = dataLogX1.map(x => x - xBar);
+      } else {
+        const Xctrl = dataY.map((_, i) => {
+          const row = [1];
+          for (const col of controlCols) row.push(col[i]);
+          return row;
+        });
+        const resY = ols(dataY, Xctrl);
+        const resX1 = ols(dataLogX1, Xctrl);
+        eY_int = resY.residuals;
+        eX1_int = resX1.residuals;
+      }
+
+      // FWL regression
+      const Xfwl = eY_int.map((_, i) => [1, eX1_int[i]]);
+      const fwlRes = ols(eY_int, Xfwl);
+      const fwlCoeffInt = fwlRes.coefficients[1];
+
+      document.getElementById('interactive-full-coeff').textContent = fullCoeff.toFixed(6);
+      document.getElementById('interactive-fwl-coeff').textContent = fwlCoeffInt.toFixed(6);
+
+      // Color based on how close to truth (8.0)
+      const fullColor = Math.abs(fullCoeff - 8) < 2 ? '#2E5EA8' : '#C0392B';
+      const fwlColor = Math.abs(fwlCoeffInt - 8) < 2 ? '#27AE60' : '#C0392B';
+      document.getElementById('interactive-full-coeff').style.color = fullColor;
+      document.getElementById('interactive-fwl-coeff').style.color = fwlColor;
+
+      // Update plots
+      const origLineI = fitLine(dataLogX1, dataY);
+      Plotly.react('interactive-original', [
+        {
+          x: dataLogX1, y: dataY,
+          type: 'scatter', mode: 'markers',
+          marker: { color: '#2E5EA8', size: 4, opacity: 0.5 },
+        },
+        {
+          x: origLineI.x, y: origLineI.y,
+          type: 'scatter', mode: 'lines',
+          line: { color: '#D4A017', width: 2 },
+        },
+      ], {
+        ...darkLayout,
+        title: { text: 'Y vs log(X1) [controls: ' + (controlNames.length ? controlNames.join(', ') : 'none') + ']', font: { size: 12 } },
+        xaxis: { ...darkLayout.xaxis, title: 'log(X1)' },
+        yaxis: { ...darkLayout.yaxis, title: 'Y' },
+        showlegend: false,
+      }, { responsive: true });
+
+      const partLineI = fitLine(eX1_int, eY_int);
+      Plotly.react('interactive-partial', [
+        {
+          x: eX1_int, y: eY_int,
+          type: 'scatter', mode: 'markers',
+          marker: { color: useX3 ? '#C0392B' : '#27AE60', size: 4, opacity: 0.5 },
+        },
+        {
+          x: partLineI.x, y: partLineI.y,
+          type: 'scatter', mode: 'lines',
+          line: { color: '#D4A017', width: 2 },
+        },
+      ], {
+        ...darkLayout,
+        title: { text: 'Partial Regression Plot (FWL coeff = ' + fwlCoeffInt.toFixed(4) + ')', font: { size: 12 } },
+        xaxis: { ...darkLayout.xaxis, title: 'e_X1 (residualized)' },
+        yaxis: { ...darkLayout.yaxis, title: 'e_Y (residualized)' },
+        showlegend: false,
+      }, { responsive: true });
+    }
+
+    document.getElementById('ctrl-x2').addEventListener('change', updateInteractive);
+    document.getElementById('ctrl-x3').addEventListener('change', updateInteractive);
+    updateInteractive();
+
+    // Sidebar toggles
+    document.querySelectorAll('.sidebar-toggle').forEach(btn => {
+      btn.addEventListener('click', () => btn.parentElement.classList.toggle('open'));
+    });
+
+    // Progress
+    document.getElementById('progress-fill').style.width = '100%';
+  </script>
+
+</body>
+</html>

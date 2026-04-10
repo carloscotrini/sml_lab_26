@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Real World — Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .reg-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.85rem; margin: 1rem 0; }
+    .reg-table th, .reg-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+    .reg-table th { color: var(--text-muted); font-weight: 600; text-align: right; }
+    .reg-table th:first-child, .reg-table td:first-child { text-align: left; }
+    .diag-row { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+    .diag-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; flex: 1; min-width: 140px; text-align: center; }
+    .diag-card .diag-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .diag-card .diag-value { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 700; }
+    .diag-card .diag-value.good { color: var(--green); }
+    .diag-card .diag-value.bad { color: var(--red); }
+    .contour-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+    .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin: 2rem 0; }
+    .progress-bar .fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.3s; }
+    .act-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+    .act-number { font-family: var(--font-mono); font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; }
+    .comparison-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin: 1rem 0; }
+    .estimate-big { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">&larr; Back to Index</a>
+    <a href="06_residual.html">&larr; Prev</a>
+    <a href="08_redemption.html">Next &rarr;</a>
+    <span class="nav-title">07 &mdash; The Real World</span>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+
+    <!-- ============================================================
+         ACT 1: FALSE CONFIDENCE
+         ============================================================ -->
+    <section class="beat-section" id="act1">
+      <div class="act-header">
+        <span class="beat-tag trap" style="font-size:0.9rem;">Act 1</span>
+        <h2>False Confidence</h2>
+      </div>
+
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+        A government agency ran a job training program targeting unemployed workers.
+        You have observational data on 2,000 individuals: whether they enrolled in the program,
+        their prior earnings, age, education, and post-program earnings.
+        Let's fit a standard regression and see what the program did.
+      </p>
+
+      <!-- Regression output table -->
+      <div class="comparison-box">
+        <h3 style="color:var(--gold); margin-bottom:0.75rem;">OLS: post_earnings ~ treatment + prior_earnings + age + education</h3>
+        <table class="reg-table" id="act1-table">
+          <thead><tr><th>Variable</th><th>Coeff</th><th>SE</th><th>t-stat</th><th>p-value</th></tr></thead>
+          <tbody id="act1-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Diagnostics -->
+      <div class="diag-row" id="act1-diag"></div>
+
+      <!-- Trap quiz -->
+      <div class="trap-widget" id="act1-quiz">
+        <div class="trap-question">Based on this regression, does the job training program work?</div>
+        <div class="trap-option">
+          <input type="radio" name="act1-q" id="act1-yes" value="yes">
+          <label for="act1-yes">Yes -- the treatment coefficient is significant</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="act1-q" id="act1-no" value="no">
+          <label for="act1-no">No -- the treatment coefficient is negative</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="act1-q" id="act1-cant" value="cant">
+          <label for="act1-cant">Can't tell from this regression alone</label>
+        </div>
+        <button class="trap-submit" id="act1-submit">Submit</button>
+        <div class="trap-feedback" id="act1-feedback"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ACT 2: THE CONFRONTATION
+         ============================================================ -->
+    <section class="beat-section" id="act2">
+      <div class="act-header">
+        <span class="beat-tag reveal" style="font-size:0.9rem;">Act 2</span>
+        <h2>The Confrontation</h2>
+      </div>
+
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+        Now suppose a randomized controlled trial (RCT) was also conducted.
+        A random subset of applicants were assigned to training. The experimental estimate tells
+        a completely different story.
+      </p>
+
+      <div class="two-col">
+        <div class="comparison-box" style="text-align:center;">
+          <h3 style="color:var(--blue);">Observational Estimate</h3>
+          <div class="estimate-big" id="obs-estimate" style="color:var(--red);">...</div>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Selection bias dominates</p>
+        </div>
+        <div class="comparison-box" style="text-align:center;">
+          <h3 style="color:var(--gold);">RCT Estimate</h3>
+          <div class="estimate-big" id="rct-estimate" style="color:var(--green);">...</div>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Random assignment eliminates confounding</p>
+        </div>
+      </div>
+
+      <!-- Density plots -->
+      <h3 class="mt-3" style="color:var(--text);">Pre-treatment Characteristics: Treated vs Control</h3>
+      <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+        The treated and control groups are fundamentally different. No amount of "controlling for"
+        observables can fix what random assignment would have given you for free.
+      </p>
+      <div class="two-col">
+        <div class="viz-plot" id="density-prior-earnings" style="min-height:350px;"></div>
+        <div class="viz-plot" id="density-age" style="min-height:350px;"></div>
+      </div>
+
+      <!-- Propensity score slider -->
+      <div class="slider-container mt-3">
+        <label>Propensity Score Reweighting Bins
+          <span class="slider-value" id="pscore-val">5</span>
+        </label>
+        <input type="range" id="pscore-slider" min="2" max="20" step="1" value="5">
+      </div>
+      <div class="comparison-box" style="text-align:center;">
+        <p style="color:var(--text-muted); font-size:0.9rem;">Reweighted estimate:</p>
+        <div class="estimate-big" id="reweighted-estimate" style="color:var(--blue);">...</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:0.5rem;">
+          Gets closer to the truth, but never reaches it -- unobserved confounders remain.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ACT 3: WISDOM
+         ============================================================ -->
+    <section class="beat-section" id="act3">
+      <div class="act-header">
+        <span class="beat-tag repair" style="font-size:0.9rem;">Act 3</span>
+        <h2>Wisdom: Sensitivity Analysis</h2>
+      </div>
+
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+        How strong would an unobserved confounder need to be to explain away the RCT result?
+        The contour plot below shows combinations of confounder strength (partial \(R^2\) with
+        treatment and with outcome) that would nullify the estimated effect.
+      </p>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="contour-plot" style="min-height:450px;"></div>
+        <div class="summary-panel" id="sensitivity-summary">
+          <h3>Sensitivity Analysis</h3>
+          <div class="param-row">
+            <span class="param-label">RCT Estimate</span>
+            <span class="param-value truth" id="sens-rct">...</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Confounder R^2 (treat)</span>
+            <span class="param-value ols" id="sens-r2treat">0.10</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Confounder R^2 (outcome)</span>
+            <span class="param-value ols" id="sens-r2out">0.10</span>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Bias-Adjusted Estimate</span>
+            <span class="param-value repair" id="sens-adjusted">...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slider-container">
+        <label>Hypothetical Confounder Strength (partial R^2 with treatment)
+          <span class="slider-value" id="conf-strength-val">0.10</span>
+        </label>
+        <input type="range" id="conf-strength-slider" min="0" max="0.5" step="0.01" value="0.10">
+      </div>
+      <div class="slider-container">
+        <label>Hypothetical Confounder Strength (partial R^2 with outcome)
+          <span class="slider-value" id="conf-out-val">0.10</span>
+        </label>
+        <input type="range" id="conf-out-slider" min="0" max="0.5" step="0.01" value="0.10">
+      </div>
+    </section>
+
+    <!-- Sidebar: HRT -->
+    <div class="sidebar-collapsible" id="hrt-sidebar">
+      <button class="sidebar-toggle">Sidebar: Hormone Replacement Therapy -- Observational vs. RCT</button>
+      <div class="sidebar-content">
+        <p style="margin-bottom:0.75rem;">
+          For decades, observational studies suggested that <strong>hormone replacement therapy (HRT)</strong>
+          reduced heart disease risk in postmenopausal women by ~40%.  Millions were prescribed HRT.
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          Then the <strong>Women's Health Initiative</strong> (a large RCT) found the opposite: HRT
+          <em>increased</em> heart disease risk by ~29%. The observational estimate had the wrong sign.
+        </p>
+        <p style="margin-bottom:0.75rem;">
+          Why? Women who chose HRT were systematically healthier, wealthier, and more health-conscious.
+          The "healthy user bias" -- an unobserved confounder -- overwhelmed the treatment effect.
+          No amount of regression controls captured this.
+        </p>
+        <p>
+          This is the same pattern as our simulated job training program: selection bias flipped the sign
+          of the estimated effect. The lesson: <strong>when treatment is not randomly assigned,
+          regression may tell you the opposite of the truth.</strong>
+        </p>
+      </div>
+    </div>
+
+    <!-- Bridge -->
+    <section class="bridge-section">
+      <p class="bridge-text">"Is regression hopeless? No. You just need the right design."</p>
+      <a href="08_redemption.html" class="bridge-link">Next: The Redemption &rarr;</a>
+    </section>
+
+  </div>
+
+  <script>
+    // ============================================================
+    // Seeded PRNG (self-contained)
+    // ============================================================
+    function seededRandom(seed) {
+      let s = [seed | 0, (seed * 2654435761) | 0, (seed * 340573321) | 0, (seed * 1013904223) | 0];
+      if (s[0] === 0 && s[1] === 0 && s[2] === 0 && s[3] === 0) s[0] = 1;
+      function next() {
+        let t = s[3]; t ^= t << 11; t ^= t >>> 8;
+        s[3] = s[2]; s[2] = s[1]; s[1] = s[0];
+        t ^= s[0]; t ^= s[0] >>> 19; s[0] = t;
+        return (t >>> 0) / 4294967296;
+      }
+      for (let i = 0; i < 20; i++) next();
+      return next;
+    }
+    function randn(rng) {
+      let u1; do { u1 = rng(); } while (u1 === 0);
+      return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * rng());
+    }
+
+    // ============================================================
+    // OLS (self-contained)
+    // ============================================================
+    function ols(y, X) {
+      const n = y.length;
+      const p = X[0].length;
+      // X'X
+      const XtX = Array.from({length: p}, () => new Float64Array(p));
+      const Xty = new Float64Array(p);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < p; j++) {
+          Xty[j] += X[i][j] * y[i];
+          for (let k = j; k < p; k++) {
+            XtX[j][k] += X[i][j] * X[i][k];
+          }
+        }
+      }
+      for (let j = 0; j < p; j++) for (let k = 0; k < j; k++) XtX[j][k] = XtX[k][j];
+      // Gauss-Jordan invert
+      const aug = Array.from({length: p}, (_, i) => {
+        const row = new Float64Array(2 * p);
+        for (let j = 0; j < p; j++) row[j] = XtX[i][j];
+        row[p + i] = 1;
+        return row;
+      });
+      for (let col = 0; col < p; col++) {
+        let maxR = col;
+        for (let r = col + 1; r < p; r++) if (Math.abs(aug[r][col]) > Math.abs(aug[maxR][col])) maxR = r;
+        [aug[col], aug[maxR]] = [aug[maxR], aug[col]];
+        const piv = aug[col][col];
+        for (let j = 0; j < 2 * p; j++) aug[col][j] /= piv;
+        for (let r = 0; r < p; r++) {
+          if (r === col) continue;
+          const f = aug[r][col];
+          for (let j = 0; j < 2 * p; j++) aug[r][j] -= f * aug[col][j];
+        }
+      }
+      const inv = Array.from({length: p}, (_, i) => aug[i].slice(p, 2 * p));
+      // beta
+      const beta = new Float64Array(p);
+      for (let j = 0; j < p; j++) for (let k = 0; k < p; k++) beta[j] += inv[j][k] * Xty[k];
+      // residuals
+      const resid = new Float64Array(n);
+      let ssr = 0, yMean = 0;
+      for (let i = 0; i < n; i++) {
+        let yh = 0;
+        for (let j = 0; j < p; j++) yh += X[i][j] * beta[j];
+        resid[i] = y[i] - yh;
+        ssr += resid[i] ** 2;
+        yMean += y[i];
+      }
+      yMean /= n;
+      let sst = 0;
+      for (let i = 0; i < n; i++) sst += (y[i] - yMean) ** 2;
+      const sigma2 = ssr / (n - p);
+      const se = new Float64Array(p);
+      for (let j = 0; j < p; j++) se[j] = Math.sqrt(sigma2 * inv[j][j]);
+      const tStats = beta.map((b, j) => b / se[j]);
+      const pValues = tStats.map(t => 2 * (1 - normalCDF(Math.abs(t))));
+      return { coefficients: Array.from(beta), se: Array.from(se), tStats: Array.from(tStats), pValues, r2: 1 - ssr / sst, residuals: Array.from(resid) };
+    }
+    function normalCDF(x) {
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, pp = 0.3275911;
+      const sign = x < 0 ? -1 : 1;
+      x = Math.abs(x) / Math.SQRT2;
+      const t = 1 / (1 + pp * x);
+      const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return 0.5 * (1 + sign * y);
+    }
+
+    // ============================================================
+    // Plotly dark layout
+    // ============================================================
+    const darkLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: '#1a1d23',
+      font: { color: '#e8e8e8', family: 'Inter, system-ui, sans-serif' },
+      xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+      margin: { t: 40, r: 20, b: 50, l: 60 },
+    };
+
+    // ============================================================
+    // Data Generation: Lalonde-style simulated dataset
+    // ============================================================
+    const N = 2000;
+    const rng = seededRandom(42);
+
+    // Observational data with selection bias
+    const data = { treatment: [], prior_earnings: [], age: [], education: [], post_earnings: [],
+                   motivation: [], // unobserved confounder
+                 };
+
+    for (let i = 0; i < N; i++) {
+      const motivation = randn(rng); // unobserved
+      const age = 30 + 8 * randn(rng);
+      const education = 12 + 2 * randn(rng);
+      const prior_earnings = 20000 + 5000 * motivation + 300 * age + 800 * education + 3000 * randn(rng);
+
+      // Selection bias: low earners more likely to enroll (but also low motivation)
+      const propensity = 1 / (1 + Math.exp(0.5 * motivation + 0.0003 * prior_earnings - 8));
+      const treated = rng() < propensity ? 1 : 0;
+
+      // True treatment effect = +1800
+      const trueEffect = 1800;
+      const post_earnings = 18000 + 0.4 * prior_earnings + 200 * age + 500 * education
+                          + 4000 * motivation + trueEffect * treated + 2000 * randn(rng);
+
+      data.treatment.push(treated);
+      data.prior_earnings.push(prior_earnings);
+      data.age.push(age);
+      data.education.push(education);
+      data.post_earnings.push(post_earnings);
+      data.motivation.push(motivation);
+    }
+
+    // ============================================================
+    // RCT data (random assignment)
+    // ============================================================
+    const rctRng = seededRandom(99);
+    const rctData = { treatment: [], prior_earnings: [], age: [], education: [], post_earnings: [], motivation: [] };
+    for (let i = 0; i < N; i++) {
+      const motivation = randn(rctRng);
+      const age = 30 + 8 * randn(rctRng);
+      const education = 12 + 2 * randn(rctRng);
+      const prior_earnings = 20000 + 5000 * motivation + 300 * age + 800 * education + 3000 * randn(rctRng);
+      const treated = rctRng() < 0.5 ? 1 : 0; // random assignment!
+      const post_earnings = 18000 + 0.4 * prior_earnings + 200 * age + 500 * education
+                          + 4000 * motivation + 1800 * treated + 2000 * randn(rctRng);
+      rctData.treatment.push(treated);
+      rctData.prior_earnings.push(prior_earnings);
+      rctData.age.push(age);
+      rctData.education.push(education);
+      rctData.post_earnings.push(post_earnings);
+      rctData.motivation.push(motivation);
+    }
+
+    // ============================================================
+    // ACT 1: OLS on observational data
+    // ============================================================
+    const y_obs = data.post_earnings;
+    const X_obs = data.post_earnings.map((_, i) => [
+      1, data.treatment[i], data.prior_earnings[i], data.age[i], data.education[i]
+    ]);
+    const obsResult = ols(y_obs, X_obs);
+    const varNames = ['Intercept', 'Treatment', 'Prior Earnings', 'Age', 'Education'];
+
+    const tbody = document.getElementById('act1-tbody');
+    varNames.forEach((name, j) => {
+      const tr = document.createElement('tr');
+      const pStr = obsResult.pValues[j] < 0.001 ? '<0.001' : obsResult.pValues[j].toFixed(3);
+      tr.innerHTML = '<td>' + name + '</td><td>' + obsResult.coefficients[j].toFixed(2) + '</td><td>'
+        + obsResult.se[j].toFixed(2) + '</td><td>' + obsResult.tStats[j].toFixed(2) + '</td><td>' + pStr + '</td>';
+      if (name === 'Treatment') tr.style.color = obsResult.coefficients[j] < 0 ? '#C0392B' : '#27AE60';
+      tbody.appendChild(tr);
+    });
+
+    // VIF computation (simplified: R^2 of each X on others)
+    function computeVIF(Xmat, col) {
+      const n = Xmat.length;
+      const yv = Xmat.map(r => r[col]);
+      const Xv = Xmat.map(r => {
+        const row = [1];
+        for (let j = 1; j < r.length; j++) if (j !== col) row.push(r[j]);
+        return row;
+      });
+      const res = ols(yv, Xv);
+      return 1 / (1 - res.r2);
+    }
+    const vifs = [1, 2, 3, 4].map(c => computeVIF(X_obs, c));
+    const maxVif = Math.max(...vifs);
+
+    const diagDiv = document.getElementById('act1-diag');
+    const diagItems = [
+      { label: 'R-squared', value: obsResult.r2.toFixed(3), good: obsResult.r2 > 0.5 },
+      { label: 'Max VIF', value: maxVif.toFixed(1), good: maxVif < 5 },
+      { label: 'N', value: N.toString(), good: true },
+      { label: 'Treatment SE', value: obsResult.se[1].toFixed(0), good: true },
+    ];
+    diagItems.forEach(d => {
+      const card = document.createElement('div');
+      card.className = 'diag-card';
+      card.innerHTML = '<div class="diag-label">' + d.label + '</div><div class="diag-value ' +
+        (d.good ? 'good' : 'bad') + '">' + d.value + '</div>';
+      diagDiv.appendChild(card);
+    });
+
+    // Trap quiz
+    document.getElementById('act1-submit').addEventListener('click', () => {
+      const sel = document.querySelector('input[name="act1-q"]:checked');
+      const fb = document.getElementById('act1-feedback');
+      if (!sel) return;
+      if (sel.value === 'cant') {
+        fb.className = 'trap-feedback correct';
+        fb.textContent = 'Correct! The negative coefficient is driven by selection bias, not the true effect. '
+          + 'All diagnostics look fine, but the model is answering the wrong question.';
+      } else {
+        fb.className = 'trap-feedback incorrect';
+        fb.textContent = 'Not quite. The diagnostics all look fine -- good R-squared, low VIFs, significant coefficients. '
+          + 'But the treatment coefficient is biased by selection: people who enrolled are systematically different from those who did not.';
+      }
+    });
+
+    // ============================================================
+    // ACT 2: Confrontation
+    // ============================================================
+    document.getElementById('obs-estimate').textContent = '$' + obsResult.coefficients[1].toFixed(0);
+
+    // RCT estimate
+    const y_rct = rctData.post_earnings;
+    const X_rct = rctData.post_earnings.map((_, i) => [
+      1, rctData.treatment[i], rctData.prior_earnings[i], rctData.age[i], rctData.education[i]
+    ]);
+    const rctResult = ols(y_rct, X_rct);
+    document.getElementById('rct-estimate').textContent = '+$' + rctResult.coefficients[1].toFixed(0);
+
+    // Density plots
+    function kernelDensity(vals, nBins, bw) {
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const step = (max - min) / nBins;
+      const xs = [], ys = [];
+      for (let x = min; x <= max; x += step) {
+        xs.push(x);
+        let d = 0;
+        for (const v of vals) d += Math.exp(-0.5 * ((x - v) / bw) ** 2);
+        ys.push(d / (vals.length * bw * Math.sqrt(2 * Math.PI)));
+      }
+      return { x: xs, y: ys };
+    }
+
+    const treatIdx = data.treatment.map((t, i) => t === 1 ? i : -1).filter(i => i >= 0);
+    const ctrlIdx = data.treatment.map((t, i) => t === 0 ? i : -1).filter(i => i >= 0);
+
+    const treatPE = treatIdx.map(i => data.prior_earnings[i]);
+    const ctrlPE = ctrlIdx.map(i => data.prior_earnings[i]);
+    const dTreat = kernelDensity(treatPE, 100, 1500);
+    const dCtrl = kernelDensity(ctrlPE, 100, 1500);
+
+    Plotly.newPlot('density-prior-earnings', [
+      { x: dCtrl.x, y: dCtrl.y, type: 'scatter', mode: 'lines', fill: 'tozeroy', name: 'Control',
+        line: { color: '#2E5EA8' }, fillcolor: 'rgba(46,94,168,0.2)' },
+      { x: dTreat.x, y: dTreat.y, type: 'scatter', mode: 'lines', fill: 'tozeroy', name: 'Treated',
+        line: { color: '#C0392B' }, fillcolor: 'rgba(192,57,43,0.2)' },
+    ], { ...darkLayout, title: { text: 'Prior Earnings Distribution', font: { size: 14 } },
+         xaxis: { ...darkLayout.xaxis, title: 'Prior Earnings ($)' },
+         yaxis: { ...darkLayout.yaxis, title: 'Density' }, showlegend: true,
+         legend: { x: 0.7, y: 0.95, bgcolor: 'rgba(0,0,0,0)' } },
+    { responsive: true });
+
+    const treatAge = treatIdx.map(i => data.age[i]);
+    const ctrlAge = ctrlIdx.map(i => data.age[i]);
+    const dTreatA = kernelDensity(treatAge, 80, 2);
+    const dCtrlA = kernelDensity(ctrlAge, 80, 2);
+
+    Plotly.newPlot('density-age', [
+      { x: dCtrlA.x, y: dCtrlA.y, type: 'scatter', mode: 'lines', fill: 'tozeroy', name: 'Control',
+        line: { color: '#2E5EA8' }, fillcolor: 'rgba(46,94,168,0.2)' },
+      { x: dTreatA.x, y: dTreatA.y, type: 'scatter', mode: 'lines', fill: 'tozeroy', name: 'Treated',
+        line: { color: '#C0392B' }, fillcolor: 'rgba(192,57,43,0.2)' },
+    ], { ...darkLayout, title: { text: 'Age Distribution', font: { size: 14 } },
+         xaxis: { ...darkLayout.xaxis, title: 'Age' },
+         yaxis: { ...darkLayout.yaxis, title: 'Density' }, showlegend: true,
+         legend: { x: 0.7, y: 0.95, bgcolor: 'rgba(0,0,0,0)' } },
+    { responsive: true });
+
+    // Propensity score reweighting
+    function logistic(x) { return 1 / (1 + Math.exp(-x)); }
+
+    function propensityReweight(nBins) {
+      // Fit logistic-ish propensity model using OLS on logit-ish transform
+      // Simple: use prior_earnings, age, education to predict treatment
+      const Xp = data.treatment.map((_, i) => [1, data.prior_earnings[i] / 10000, data.age[i] / 10, data.education[i] / 10]);
+      const pRes = ols(data.treatment, Xp);
+      // Get predicted propensity scores
+      const pscores = Xp.map(row => {
+        let lp = 0;
+        for (let j = 0; j < row.length; j++) lp += row[j] * pRes.coefficients[j];
+        return Math.max(0.01, Math.min(0.99, lp));
+      });
+
+      // Bin and compute within-bin treatment effects
+      const sorted = pscores.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+      const binSize = Math.floor(N / nBins);
+      let totalWeight = 0, weightedEffect = 0;
+
+      for (let b = 0; b < nBins; b++) {
+        const start = b * binSize;
+        const end = b === nBins - 1 ? N : (b + 1) * binSize;
+        const binIdx = sorted.slice(start, end).map(s => s.i);
+
+        let sumT = 0, sumC = 0, nT = 0, nC = 0;
+        for (const i of binIdx) {
+          if (data.treatment[i] === 1) { sumT += data.post_earnings[i]; nT++; }
+          else { sumC += data.post_earnings[i]; nC++; }
+        }
+        if (nT > 0 && nC > 0) {
+          const effect = sumT / nT - sumC / nC;
+          const w = nT;
+          weightedEffect += effect * w;
+          totalWeight += w;
+        }
+      }
+      return totalWeight > 0 ? weightedEffect / totalWeight : 0;
+    }
+
+    function updatePScore() {
+      const nBins = parseInt(document.getElementById('pscore-slider').value);
+      document.getElementById('pscore-val').textContent = nBins;
+      const est = propensityReweight(nBins);
+      const sign = est >= 0 ? '+$' : '-$';
+      document.getElementById('reweighted-estimate').textContent = sign + Math.abs(est).toFixed(0);
+      document.getElementById('reweighted-estimate').style.color = est > 0 ? '#27AE60' : '#C0392B';
+    }
+    document.getElementById('pscore-slider').addEventListener('input', updatePScore);
+    updatePScore();
+
+    // ============================================================
+    // ACT 3: Sensitivity analysis contour plot
+    // ============================================================
+    const rctEst = rctResult.coefficients[1];
+    const rctSE = rctResult.se[1];
+    const residVar = rctResult.residuals.reduce((s, r) => s + r * r, 0) / (N - 5);
+    document.getElementById('sens-rct').textContent = '+$' + rctEst.toFixed(0);
+
+    function biasAdjusted(r2treat, r2outcome) {
+      // Oster (2019)-style bound: bias ~ sqrt(r2treat * r2outcome) * residSD / treatSD
+      const treatSD = Math.sqrt(rctData.treatment.reduce((s, t) => {
+        const m = rctData.treatment.reduce((a, b) => a + b, 0) / N;
+        return s + (t - m) ** 2;
+      }, 0) / N);
+      const biasApprox = Math.sqrt(r2treat * r2outcome) * Math.sqrt(residVar) / treatSD;
+      return rctEst - biasApprox;
+    }
+
+    // Build contour
+    const gridN = 50;
+    const r2Vals = Array.from({length: gridN}, (_, i) => i * 0.5 / (gridN - 1));
+    const zData = r2Vals.map(r2out =>
+      r2Vals.map(r2t => biasAdjusted(r2t, r2out))
+    );
+
+    function plotContour(r2t, r2o) {
+      const adj = biasAdjusted(r2t, r2o);
+      document.getElementById('sens-r2treat').textContent = r2t.toFixed(2);
+      document.getElementById('sens-r2out').textContent = r2o.toFixed(2);
+      document.getElementById('sens-adjusted').textContent = (adj >= 0 ? '+$' : '-$') + Math.abs(adj).toFixed(0);
+      document.getElementById('sens-adjusted').style.color = adj > 0 ? '#27AE60' : '#C0392B';
+
+      Plotly.react('contour-plot', [
+        {
+          x: r2Vals, y: r2Vals, z: zData,
+          type: 'contour',
+          colorscale: [[0, '#C0392B'], [0.3, '#D4A017'], [0.5, '#e8e8e8'], [1, '#27AE60']],
+          contours: { showlabels: true, labelfont: { size: 11, color: '#e8e8e8' }, start: -2000, end: 3000, size: 400 },
+          colorbar: { title: 'Adj. Est.', titlefont: { color: '#e8e8e8' }, tickfont: { color: '#e8e8e8' } },
+          line: { width: 1.5 },
+        },
+        // Zero contour highlight
+        {
+          x: r2Vals, y: r2Vals, z: zData,
+          type: 'contour',
+          contours: { type: 'constraint', operation: '=', value: 0 },
+          line: { color: '#C0392B', width: 3 },
+          showscale: false, name: 'Effect = 0',
+        },
+        // Current point marker
+        {
+          x: [r2t], y: [r2o],
+          type: 'scatter', mode: 'markers',
+          marker: { size: 14, color: '#D4A017', symbol: 'x', line: { width: 2, color: '#fff' } },
+          name: 'Current',
+        },
+      ], {
+        ...darkLayout,
+        title: { text: 'Sensitivity: Bias-Adjusted Treatment Effect', font: { size: 14 } },
+        xaxis: { ...darkLayout.xaxis, title: 'Confounder partial R^2 with Treatment', range: [0, 0.5] },
+        yaxis: { ...darkLayout.yaxis, title: 'Confounder partial R^2 with Outcome', range: [0, 0.5] },
+        showlegend: false,
+      }, { responsive: true });
+    }
+
+    plotContour(0.1, 0.1);
+
+    document.getElementById('conf-strength-slider').addEventListener('input', () => {
+      const r2t = parseFloat(document.getElementById('conf-strength-slider').value);
+      const r2o = parseFloat(document.getElementById('conf-out-slider').value);
+      document.getElementById('conf-strength-val').textContent = r2t.toFixed(2);
+      plotContour(r2t, r2o);
+    });
+    document.getElementById('conf-out-slider').addEventListener('input', () => {
+      const r2t = parseFloat(document.getElementById('conf-strength-slider').value);
+      const r2o = parseFloat(document.getElementById('conf-out-slider').value);
+      document.getElementById('conf-out-val').textContent = r2o.toFixed(2);
+      plotContour(r2t, r2o);
+    });
+
+    // Sidebar toggles
+    document.querySelectorAll('.sidebar-toggle').forEach(btn => {
+      btn.addEventListener('click', () => btn.parentElement.classList.toggle('open'));
+    });
+
+    // Progress
+    document.getElementById('progress-fill').style.width = '100%';
+  </script>
+
+</body>
+</html>
