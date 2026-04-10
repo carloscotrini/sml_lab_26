@@ -690,6 +690,12 @@ Model C has zero training error on every dataset, yet its predictions swing from
 
 \subsection{Endogeneity}
 
+\begin{toystory}[title={Why Every Movie Star's Spouse Seems Boring}]
+Among famous actors, their spouses seem to be unusually un-funny or un-attractive. Does fame make you marry dull people? No---you're only looking at people who are already famous. People become famous either by being extremely talented or by being extremely good-looking (or both). Once you filter for ``is famous,'' the talented-but-plain people and the gorgeous-but-untalented people get mixed together, creating a fake tradeoff that doesn't exist in the general population. By restricting your attention to a group defined by the outcome of the very thing you're studying, you manufactured a relationship from thin air.
+
+This is exactly what collider bias describes: when you control for a variable that is \emph{caused by} the things you're studying, you create a spurious association that didn't exist before---more controls made the answer worse, not better.
+\end{toystory}
+
 \begin{definition}[Endogeneity]
 A regressor $X_j$ is \emph{endogenous} if $\Cov(X_j, \varepsilon) \neq 0$.
 This can arise from omitted variables, measurement error, or simultaneous causation (feedback loops).
@@ -716,6 +722,35 @@ The advice ``control for everything available'' is wrong.
 Controlling for post-treatment variables or colliders \emph{introduces} bias rather than removing it.
 Variable selection for causal inference requires understanding the causal structure, not just statistical association.
 \end{warningbox}
+
+\begin{numermark}[title={Talent, Luck, and the Fame Filter}]
+People have Talent (0 or 1) and Luck (0 or 1), independently assigned. A person is Famous if they have Talent OR Luck (or both).
+
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Type & Talent & Luck & Famous? \\
+\midrule
+I & 0 & 0 & No \\
+II & 0 & 1 & Yes \\
+III & 1 & 0 & Yes \\
+IV & 1 & 1 & Yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Full population:} $P(\text{Talent}=1) = 1/2$, $P(\text{Luck}=1) = 1/2$, and $P(\text{both}) = 1/4 = 1/2 \times 1/2$. Talent and Luck are \textbf{independent}. Correlation $= 0$.
+
+\textbf{Among the Famous only} (drop Type I): If someone is talented (Types III, IV), $P(\text{Lucky}) = 1/2$. If not talented (Type II only), $P(\text{Lucky}) = 1$. Suddenly, knowing a famous person is talented makes them \emph{less} likely to be lucky!
+
+The observation ``famous people are either talented OR lucky but rarely both'' is not evidence that the universe is fair---it is a mathematical artifact of selecting on a collider.
+\end{numermark}
+
+\begin{vizspec}[title={``The Paradox of Conditioning'' --- Collider Explorer}]
+\textbf{Try it:} A scatterplot of Talent vs.\ Luck for 1{,}000 people. All dots are gray; no correlation visible. Toggle ``Condition on Fame'' and watch: most dots fade, the highlighted subset reveals a clear negative slope. A DAG panel alongside animates: a box appears around the Fame node, and a dashed red ``spurious association'' arc draws between Talent and Luck.
+
+\textbf{Slider:} Fame threshold---from 10th to 90th percentile. At low thresholds (most people famous), the spurious correlation is weak. At high thresholds (top 5\%), it becomes extreme.
+\end{vizspec}
 
 \subsection{Instrumental Variables}
 
