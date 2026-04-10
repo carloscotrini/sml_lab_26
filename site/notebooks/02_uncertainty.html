@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notebook 2: Why Your Uncertainty Is Wrong</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+  <style>
+    .progress-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17,19,23,0.92); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .progress-bar-outer {
+      width: 320px; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%; width: 0%; background: var(--blue); border-radius: 5px; transition: width 0.15s;
+    }
+    .progress-label { color: var(--text-muted); margin-bottom: 1rem; font-size: 0.95rem; }
+    .hidden-beat { display: none; }
+    .toggle-group { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .toggle-btn {
+      padding: 0.5rem 1.25rem; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; transition: all 0.2s; font-family: var(--font-sans);
+    }
+    .toggle-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .toggle-btn:hover:not(.active) { border-color: var(--blue); color: var(--text); }
+    .coverage-big {
+      font-size: 2.8rem; font-weight: 700; font-family: var(--font-mono);
+      text-align: center; margin: 0.5rem 0;
+    }
+    .coverage-label { text-align: center; color: var(--text-muted); font-size: 0.95rem; }
+    .formula-box {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1.5rem; margin: 1rem 0;
+    }
+    .formula-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    }
+    @media (max-width: 700px) { .formula-grid { grid-template-columns: 1fr; } }
+    .formula-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1.25rem; text-align: center;
+    }
+    .formula-card h4 { margin-bottom: 0.75rem; font-size: 1rem; }
+    .se-compare-row {
+      display: flex; justify-content: space-between; padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border); font-size: 0.9rem;
+    }
+    .se-compare-row:last-child { border-bottom: none; }
+    .sidebar-mini-plot { min-height: 250px; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="top-nav">
+  <a href="../index.html">Home</a>
+  <a href="01_confounding.html">Prev: Confounding</a>
+  <a href="03_significance.html">Next: Significance</a>
+  <span class="nav-title">Notebook 02 &mdash; Why Your Uncertainty Is Wrong</span>
+</nav>
+
+<!-- Progress overlay -->
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-label" id="progressLabel">Precomputing Monte Carlo simulations...</div>
+  <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+</div>
+
+<div class="page-wrapper">
+
+  <div class="hero" style="padding-bottom:1rem;">
+    <h1>Why Your Uncertainty Is <span class="accent">Wrong</span></h1>
+    <p class="hook">Your point estimate is fine. Your confidence interval is a lie.<br>
+    Heteroscedasticity silently inflates or deflates your standard errors.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 1: TRAP -->
+  <!-- ============================================================ -->
+  <div class="beat-section" id="beat1">
+    <span class="beat-tag trap">Beat 1 &mdash; Trap</span>
+    <h2>A Well-Controlled Regression</h2>
+    <p class="mt-1">We regress \(Y\) on \(\log(X_1)\), \(X_2\), and the confounder \(U\). All controls included. The coefficient on \(\log(X_1)\) should be close to the true value of <strong class="text-gold">8.0</strong>.</p>
+
+    <div class="viz-container mt-2">
+      <div class="viz-plot" id="trapScatter" style="min-height:380px;"></div>
+      <div class="summary-panel">
+        <h3>OLS Results</h3>
+        <div class="param-row"><span class="param-label">True effect</span><span class="param-value truth" id="trapTruth">8.000</span></div>
+        <div class="param-row"><span class="param-label">OLS estimate</span><span class="param-value ols" id="trapEst">--</span></div>
+        <div class="param-row"><span class="param-label">Classical SE</span><span class="param-value" id="trapSE">--</span></div>
+        <div class="param-row"><span class="param-label">95% CI</span><span class="param-value ols" id="trapCI">--</span></div>
+        <div class="param-row"><span class="param-label">n</span><span class="param-value">200</span></div>
+      </div>
+    </div>
+
+    <!-- Quiz -->
+    <div class="trap-widget mt-2">
+      <div class="trap-question">The 95% CI contains the true value. Are you confident the true effect lies in this range?</div>
+      <div class="trap-option"><input type="radio" name="q1" id="q1a" value="yes"><label for="q1a">Yes, confidently &mdash; 95% is 95%</label></div>
+      <div class="trap-option"><input type="radio" name="q1" id="q1b" value="somewhat"><label for="q1b">Somewhat &mdash; it depends on assumptions</label></div>
+      <div class="trap-option"><input type="radio" name="q1" id="q1c" value="no"><label for="q1c">No &mdash; something could be off</label></div>
+      <div class="trap-option"><input type="radio" name="q1" id="q1d" value="cant"><label for="q1d">Can't tell without more information</label></div>
+      <button class="trap-submit" id="trapSubmit">Submit</button>
+      <div class="trap-feedback" id="trapFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 2: REVEAL (hidden until quiz submitted) -->
+  <!-- ============================================================ -->
+  <div class="beat-section hidden-beat" id="beat2">
+    <span class="beat-tag reveal">Beat 2 &mdash; Reveal</span>
+    <h2>The Coverage Lie</h2>
+    <p class="mt-1">We ran <strong>1,000 Monte Carlo replications</strong> of the same DGP, each time computing the classical 95% CI. If everything works, 95% of these intervals should cover the truth.</p>
+
+    <div class="viz-container mt-2">
+      <div class="viz-plot" id="revealPlot" style="min-height:500px;"></div>
+      <div class="summary-panel">
+        <h3>Coverage Report</h3>
+        <div class="coverage-big text-red" id="revealCoverage">--</div>
+        <div class="coverage-label">Actual coverage (should be 95%)</div>
+        <div class="param-row mt-2"><span class="param-label">CIs that miss</span><span class="param-value error" id="revealMiss">--</span></div>
+        <div class="param-row"><span class="param-label">CIs that hit</span><span class="param-value ols" id="revealHit">--</span></div>
+        <p class="text-muted mt-2" style="font-size:0.85rem;">Each horizontal line is one replication's 95% CI. <span class="text-red">Red</span> = misses truth. <span class="text-blue">Blue</span> = covers truth.</p>
+        <p class="text-muted mt-2" style="font-size:0.85rem;">The error variance grows with \(X_1\), violating the homoscedasticity assumption that classical SEs require.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 3: FORMALIZE -->
+  <!-- ============================================================ -->
+  <div class="beat-section hidden-beat" id="beat3">
+    <span class="beat-tag formalize">Beat 3 &mdash; Formalize</span>
+    <h2>What Went Wrong: The Variance Formula</h2>
+    <p class="mt-1">Classical OLS assumes homoscedastic errors: \(\text{Var}(\varepsilon_i) = \sigma^2\) for all \(i\). Under this assumption, the covariance of \(\hat\beta\) simplifies beautifully. But when variance depends on \(X\), you need the sandwich.</p>
+
+    <div class="formula-grid mt-2">
+      <div class="formula-card">
+        <h4 class="text-blue">Classical (Assumes Homoscedasticity)</h4>
+        <p>\[\text{Var}(\hat\beta) = \sigma^2 (X^\top X)^{-1}\]</p>
+        <p class="text-muted mt-1" style="font-size:0.85rem;">Estimates one \(\hat\sigma^2\) for all observations. If variance actually grows with \(X_1\), this is <strong class="text-red">wrong</strong>.</p>
+      </div>
+      <div class="formula-card">
+        <h4 class="text-green">Sandwich / Robust (HC1 / White)</h4>
+        <p>\[\text{Var}(\hat\beta) = (X^\top X)^{-1} X^\top \hat\Omega X (X^\top X)^{-1}\]</p>
+        <p class="text-muted mt-1" style="font-size:0.85rem;">Where \(\hat\Omega = \text{diag}(\hat e_i^2)\) uses each residual individually. Scaled by \(\frac{n}{n-k}\) for HC1.</p>
+      </div>
+    </div>
+
+    <div class="formula-box mt-2">
+      <h3>SE Comparison (from your first sample)</h3>
+      <div id="seCompare"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 4: DESTROY -->
+  <!-- ============================================================ -->
+  <div class="beat-section hidden-beat" id="beat4">
+    <span class="beat-tag destroy">Beat 4 &mdash; Destroy</span>
+    <h2>How Bad Can It Get?</h2>
+    <p class="mt-1">Drag the slider to control the strength of heteroscedasticity. At 0, errors are homoscedastic and classical SEs work fine. Watch coverage collapse as you increase the strength.</p>
+
+    <div class="slider-container">
+      <label>Heteroscedasticity strength: <span class="slider-value" id="destroyStrVal">0.5</span></label>
+      <input type="range" id="destroySlider" min="0" max="20" value="5" step="1">
+    </div>
+
+    <div class="viz-container mt-1">
+      <div class="viz-plot" id="destroyPlot" style="min-height:450px;"></div>
+      <div class="summary-panel">
+        <h3>Classical SE Coverage</h3>
+        <div class="coverage-big" id="destroyCoverage" style="color:var(--red);">--</div>
+        <div class="coverage-label">at current strength</div>
+        <div class="param-row mt-2"><span class="param-label">Strength</span><span class="param-value" id="destroyStrDisp">0.5</span></div>
+        <div class="param-row"><span class="param-label">\(\varepsilon \sim N(0,\; s \cdot X_1)\)</span><span class="param-value" id="destroyFormula">--</span></div>
+        <p class="text-muted mt-2" style="font-size:0.85rem;">At strength = 0, errors are \(N(0, 1)\) (homoscedastic). Coverage should be ~95%.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 5: REPAIR -->
+  <!-- ============================================================ -->
+  <div class="beat-section hidden-beat" id="beat5">
+    <span class="beat-tag repair">Beat 5 &mdash; Repair</span>
+    <h2>Robust Standard Errors to the Rescue</h2>
+    <p class="mt-1">Toggle between classical and robust (White / HC1) standard errors. Robust SEs let each observation have its own error variance, restoring correct coverage.</p>
+
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="btnClassical" onclick="setRepairMode('classical')">Classical SEs</button>
+      <button class="toggle-btn" id="btnRobust" onclick="setRepairMode('robust')">Robust (HC1) SEs</button>
+    </div>
+
+    <div class="viz-container mt-1">
+      <div class="viz-plot" id="repairPlot" style="min-height:500px;"></div>
+      <div class="summary-panel">
+        <h3 id="repairTitle">Classical SE Coverage</h3>
+        <div class="coverage-big" id="repairCoverage">--</div>
+        <div class="coverage-label" id="repairCoverageLabel">coverage</div>
+        <div class="param-row mt-2"><span class="param-label">Miss count</span><span class="param-value error" id="repairMiss">--</span></div>
+        <div class="param-row"><span class="param-label">Hit count</span><span class="param-value ols" id="repairHit">--</span></div>
+        <p class="text-muted mt-2" style="font-size:0.85rem;">Robust SEs use the sandwich estimator, which is consistent under heteroscedasticity.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 6: LIMIT -->
+  <!-- ============================================================ -->
+  <div class="beat-section hidden-beat" id="beat6">
+    <span class="beat-tag limit">Beat 6 &mdash; Limit</span>
+    <h2>The Small-Sample Trap</h2>
+    <p class="mt-1">Robust SEs are a large-sample fix. With small \(n\), the sandwich estimator is biased, and coverage can be <em>worse</em> than classical. Find the crossover point.</p>
+
+    <div class="slider-container">
+      <label>Sample size (n): <span class="slider-value" id="limitNVal">200</span></label>
+      <input type="range" id="limitSlider" min="0" max="4" value="3" step="1">
+    </div>
+
+    <div class="viz-container mt-1">
+      <div class="viz-plot" id="limitPlot" style="min-height:400px;"></div>
+      <div class="summary-panel">
+        <h3>Coverage by SE Type</h3>
+        <div class="param-row"><span class="param-label">Classical</span><span class="param-value error" id="limitClassical">--</span></div>
+        <div class="param-row"><span class="param-label">Robust (HC1)</span><span class="param-value repair" id="limitRobust">--</span></div>
+        <div class="param-row mt-1"><span class="param-label">n</span><span class="param-value" id="limitNDisp">200</span></div>
+        <p class="text-muted mt-2" style="font-size:0.85rem;">At very small n (e.g., 20), the sandwich estimator underestimates variance because \(\hat e_i^2\) is noisy. HC1's \(\frac{n}{n-k}\) correction helps, but not enough.</p>
+        <p class="text-muted mt-1" style="font-size:0.85rem;"><strong>Rule of thumb:</strong> use robust SEs when \(n \gtrsim 50\).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SIDEBAR: Google Flu Trends -->
+  <!-- ============================================================ -->
+  <div class="sidebar-collapsible" id="sidebarFlu">
+    <button class="sidebar-toggle" onclick="toggleSidebar('sidebarFlu')">Aside: Google Flu Trends &mdash; When Your Effective Sample Size Shrinks</button>
+    <div class="sidebar-content">
+      <p class="mt-1">In 2008, Google Flu Trends claimed to predict flu outbreaks from search queries with impressive precision. The confidence intervals were extremely tight &mdash; but the team ignored <strong>autocorrelation</strong> in the errors.</p>
+      <p class="mt-1">When errors are correlated over time (\(\rho > 0\)), the <em>effective</em> sample size is much smaller than the nominal \(n\):</p>
+      <div class="formula-box">
+        <p style="text-align:center; font-size:1.1rem;">\[n_{\text{eff}} = n \cdot \frac{1 - \rho}{1 + \rho}\]</p>
+      </div>
+      <p class="mt-1">With \(\rho = 0.8\) and \(n = 100\):</p>
+      <p style="text-align:center; font-size:1.2rem; font-weight:700; color:var(--red); margin:0.5rem 0;">\(n_{\text{eff}} = 100 \times \frac{0.2}{1.8} \approx 11\)</p>
+      <p>Your 100 observations carry the information of only 11 independent ones. The CIs should be roughly \(\sqrt{100/11} \approx 3\times\) wider.</p>
+      <div class="viz-plot sidebar-mini-plot" id="fluPlot"></div>
+      <p class="text-muted mt-1" style="font-size:0.85rem;">Blue: nominal CI width. Red: CI width corrected for autocorrelation. The further \(\rho\) is from 0, the bigger the gap.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BRIDGE -->
+  <!-- ============================================================ -->
+  <div class="bridge-section">
+    <p class="bridge-text">"Your standard errors are correct now. But what does 'significant' actually mean?"</p>
+    <a class="bridge-link" href="03_significance.html">Next: The Significance Mirage &rarr;</a>
+  </div>
+
+</div><!-- /page-wrapper -->
+
+<script>
+// ======================================================================
+// SEEDED PRNG (mulberry32)
+// ======================================================================
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function seededNormal(rng) {
+  // Box-Muller
+  let u1 = rng(), u2 = rng();
+  while (u1 === 0) u1 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+// ======================================================================
+// DGP
+// ======================================================================
+function generateData(n, heteroStrength, rng) {
+  const U = [], X1 = [], X2 = [], Y = [], logX1 = [];
+  for (let i = 0; i < n; i++) {
+    const u = seededNormal(rng);
+    const eta1 = seededNormal(rng) * 0.3;
+    const eta2 = seededNormal(rng) * 0.3;
+    const x1 = 2.0 + 0.5 * u + eta1;
+    const x1pos = Math.max(x1, 0.01); // ensure positive for log
+    const x2 = 3.0 + 0.5 * u + eta2;
+    const epsilonSD = heteroStrength > 0 ? Math.abs(heteroStrength * x1pos) : 1.0;
+    const epsilon = seededNormal(rng) * Math.sqrt(epsilonSD);
+    const y = 50 + 8 * Math.log(x1pos) + 3 * x2 + 2 * u + epsilon;
+    U.push(u); X1.push(x1pos); X2.push(x2); Y.push(y); logX1.push(Math.log(x1pos));
+  }
+  return { U, X1, X2, Y, logX1, n };
+}
+
+// ======================================================================
+// OLS via normal equations
+// ======================================================================
+function ols(Y, Xmat) {
+  // Xmat: array of arrays (each row = observation, each col = regressor incl intercept)
+  const n = Y.length;
+  const k = Xmat[0].length;
+
+  // X'X
+  const XtX = Array.from({length: k}, () => new Float64Array(k));
+  const XtY = new Float64Array(k);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < k; j++) {
+      XtY[j] += Xmat[i][j] * Y[i];
+      for (let l = j; l < k; l++) {
+        XtX[j][l] += Xmat[i][j] * Xmat[i][l];
+      }
+    }
+  }
+  // symmetrize
+  for (let j = 0; j < k; j++)
+    for (let l = 0; l < j; l++)
+      XtX[j][l] = XtX[l][j];
+
+  // invert XtX (small k, use Gauss-Jordan)
+  const inv = invertMatrix(XtX, k);
+  if (!inv) return null;
+
+  // beta = inv * XtY
+  const beta = new Float64Array(k);
+  for (let j = 0; j < k; j++)
+    for (let l = 0; l < k; l++)
+      beta[j] += inv[j][l] * XtY[l];
+
+  // residuals
+  const resid = new Float64Array(n);
+  let ssr = 0;
+  for (let i = 0; i < n; i++) {
+    let yhat = 0;
+    for (let j = 0; j < k; j++) yhat += Xmat[i][j] * beta[j];
+    resid[i] = Y[i] - yhat;
+    ssr += resid[i] * resid[i];
+  }
+
+  // Classical SE: sigma^2 = SSR/(n-k), Var = sigma^2 * inv(X'X)
+  const sigma2 = ssr / (n - k);
+  const seClassical = new Float64Array(k);
+  for (let j = 0; j < k; j++)
+    seClassical[j] = Math.sqrt(sigma2 * inv[j][j]);
+
+  // Robust SE (HC1): (n/(n-k)) * inv(X'X) * X' diag(e^2) X * inv(X'X)
+  // Meat = X' diag(e^2) X
+  const meat = Array.from({length: k}, () => new Float64Array(k));
+  for (let i = 0; i < n; i++) {
+    const e2 = resid[i] * resid[i];
+    for (let j = 0; j < k; j++)
+      for (let l = 0; l < k; l++)
+        meat[j][l] += Xmat[i][j] * e2 * Xmat[i][l];
+  }
+  // sandwich = inv * meat * inv
+  const sandwich = matMul(matMul(inv, meat, k), inv, k);
+  const hc1Scale = n / (n - k);
+  const seRobust = new Float64Array(k);
+  for (let j = 0; j < k; j++)
+    seRobust[j] = Math.sqrt(hc1Scale * sandwich[j][j]);
+
+  return { beta, seClassical, seRobust, resid, sigma2 };
+}
+
+function invertMatrix(M, k) {
+  // augmented matrix
+  const aug = Array.from({length: k}, (_, i) => {
+    const row = new Float64Array(2 * k);
+    for (let j = 0; j < k; j++) row[j] = M[i][j];
+    row[k + i] = 1;
+    return row;
+  });
+  for (let col = 0; col < k; col++) {
+    let maxRow = col, maxVal = Math.abs(aug[col][col]);
+    for (let r = col + 1; r < k; r++) {
+      if (Math.abs(aug[r][col]) > maxVal) { maxVal = Math.abs(aug[r][col]); maxRow = r; }
+    }
+    if (maxVal < 1e-14) return null;
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    const pivot = aug[col][col];
+    for (let j = 0; j < 2 * k; j++) aug[col][j] /= pivot;
+    for (let r = 0; r < k; r++) {
+      if (r === col) continue;
+      const f = aug[r][col];
+      for (let j = 0; j < 2 * k; j++) aug[r][j] -= f * aug[col][j];
+    }
+  }
+  return aug.map(row => {
+    const r = new Float64Array(k);
+    for (let j = 0; j < k; j++) r[j] = row[k + j];
+    return r;
+  });
+}
+
+function matMul(A, B, k) {
+  const C = Array.from({length: k}, () => new Float64Array(k));
+  for (let i = 0; i < k; i++)
+    for (let j = 0; j < k; j++)
+      for (let l = 0; l < k; l++)
+        C[i][j] += A[i][l] * B[l][j];
+  return C;
+}
+
+// ======================================================================
+// Build design matrix [1, logX1, X2, U]
+// ======================================================================
+function buildX(data) {
+  const n = data.n;
+  const Xmat = [];
+  for (let i = 0; i < n; i++) {
+    Xmat.push([1, data.logX1[i], data.X2[i], data.U[i]]);
+  }
+  return Xmat;
+}
+
+// ======================================================================
+// Monte Carlo: returns { coverageClassical, coverageRobust, cis_classical, cis_robust }
+// ci entry: { lo, hi, beta, covers }
+// ======================================================================
+function monteCarlo(nObs, heteroStrength, nReps, baseSeed) {
+  const truth = 8.0; // coeff on log(X1)
+  const betaIdx = 1; // index of log(X1) in [intercept, logX1, X2, U]
+  const cis_classical = [];
+  const cis_robust = [];
+  let hitC = 0, hitR = 0;
+
+  for (let rep = 0; rep < nReps; rep++) {
+    const rng = mulberry32(baseSeed + rep * 7919);
+    const data = generateData(nObs, heteroStrength, rng);
+    const Xmat = buildX(data);
+    const result = ols(data.Y, Xmat);
+    if (!result) continue;
+
+    const bHat = result.beta[betaIdx];
+    const seC = result.seClassical[betaIdx];
+    const seR = result.seRobust[betaIdx];
+
+    const loC = bHat - 1.96 * seC, hiC = bHat + 1.96 * seC;
+    const loR = bHat - 1.96 * seR, hiR = bHat + 1.96 * seR;
+    const coversC = (loC <= truth && truth <= hiC);
+    const coversR = (loR <= truth && truth <= hiR);
+
+    cis_classical.push({ lo: loC, hi: hiC, beta: bHat, covers: coversC });
+    cis_robust.push({ lo: loR, hi: hiR, beta: bHat, covers: coversR });
+    if (coversC) hitC++;
+    if (coversR) hitR++;
+  }
+
+  return {
+    coverageClassical: hitC / cis_classical.length,
+    coverageRobust: hitR / cis_robust.length,
+    cis_classical,
+    cis_robust,
+    nReps: cis_classical.length
+  };
+}
+
+// ======================================================================
+// Plotly config
+// ======================================================================
+const plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#e8e8e8', family: 'Inter, sans-serif' },
+  margin: { l: 50, r: 20, t: 40, b: 50 },
+};
+const plotlyConfig = { responsive: true, displayModeBar: false };
+
+// ======================================================================
+// GLOBAL PRECOMPUTED DATA
+// ======================================================================
+let firstSampleData = null;
+let firstSampleOLS = null;
+let mcDefault = null; // n=200, strength=0.5, 1000 reps
+
+// Beat 4: precomputed for 11 strength values
+const destroyStrengths = [0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.4, 1.7, 2.0];
+const destroyResults = {};
+
+// Beat 5: reuse mcDefault for classical, compute robust too (same data)
+// Already in mcDefault
+
+// Beat 6: precomputed for sample sizes
+const limitNs = [20, 50, 100, 200, 500];
+const limitResults = {};
+
+// ======================================================================
+// PRECOMPUTATION
+// ======================================================================
+async function precompute() {
+  const overlay = document.getElementById('progressOverlay');
+  const bar = document.getElementById('progressBar');
+  const label = document.getElementById('progressLabel');
+  const totalSteps = 1 + destroyStrengths.length + limitNs.length;
+  let step = 0;
+
+  function tick(msg) {
+    step++;
+    bar.style.width = (step / totalSteps * 100).toFixed(1) + '%';
+    label.textContent = msg;
+  }
+
+  await new Promise(r => setTimeout(r, 10));
+
+  // First sample
+  const rng0 = mulberry32(42);
+  firstSampleData = generateData(200, 0.5, rng0);
+  firstSampleOLS = ols(firstSampleData.Y, buildX(firstSampleData));
+
+  // Default MC (n=200, strength=0.5)
+  tick('Running 1,000 Monte Carlo replications...');
+  await new Promise(r => setTimeout(r, 5));
+  mcDefault = monteCarlo(200, 0.5, 1000, 12345);
+
+  // Beat 4: varying strength
+  for (const s of destroyStrengths) {
+    tick(`Precomputing strength = ${s.toFixed(1)}...`);
+    await new Promise(r => setTimeout(r, 2));
+    destroyResults[s] = monteCarlo(200, s, 500, 54321);
+  }
+
+  // Beat 6: varying n
+  for (const n of limitNs) {
+    tick(`Precomputing n = ${n}...`);
+    await new Promise(r => setTimeout(r, 2));
+    limitResults[n] = monteCarlo(n, 0.5, 500, 99999);
+  }
+
+  overlay.style.display = 'none';
+  renderAll();
+}
+
+// ======================================================================
+// RENDERING
+// ======================================================================
+function renderAll() {
+  renderBeat1();
+  renderBeat3();
+  renderFluSidebar();
+}
+
+// --- Beat 1: Trap ---
+function renderBeat1() {
+  const d = firstSampleData;
+  const r = firstSampleOLS;
+  if (!d || !r) return;
+
+  const bHat = r.beta[1];
+  const se = r.seClassical[1];
+  const lo = bHat - 1.96 * se, hi = bHat + 1.96 * se;
+
+  document.getElementById('trapEst').textContent = bHat.toFixed(3);
+  document.getElementById('trapSE').textContent = se.toFixed(3);
+  document.getElementById('trapCI').textContent = `[${lo.toFixed(2)}, ${hi.toFixed(2)}]`;
+
+  // Scatter: Y vs log(X1)
+  Plotly.newPlot('trapScatter', [{
+    x: d.logX1, y: d.Y, mode: 'markers',
+    marker: { color: '#2E5EA8', size: 5, opacity: 0.6 },
+    name: 'Data'
+  }], {
+    ...plotlyLayout,
+    title: { text: 'Y vs log(X₁)', font: { size: 14 } },
+    xaxis: { title: 'log(X₁)', gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+    yaxis: { title: 'Y', gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+    showlegend: false
+  }, plotlyConfig);
+}
+
+// --- Beat 1: Quiz ---
+document.getElementById('trapSubmit').addEventListener('click', function() {
+  const selected = document.querySelector('input[name="q1"]:checked');
+  if (!selected) return;
+  const fb = document.getElementById('trapFeedback');
+
+  if (selected.value === 'yes') {
+    fb.className = 'trap-feedback incorrect';
+    fb.innerHTML = '<strong>Not so fast!</strong> The 95% label assumes homoscedastic errors. When error variance depends on X, classical standard errors are wrong &mdash; and your CI coverage can be far below 95%. Let\'s see how bad it gets.';
+  } else if (selected.value === 'somewhat' || selected.value === 'cant') {
+    fb.className = 'trap-feedback correct';
+    fb.innerHTML = '<strong>Good instinct.</strong> You\'re right to be cautious. The 95% coverage guarantee depends on assumptions we haven\'t checked. Let\'s investigate.';
+  } else {
+    fb.className = 'trap-feedback correct';
+    fb.innerHTML = '<strong>Sharp.</strong> Something is indeed off. Let\'s see exactly how wrong these intervals are.';
+  }
+
+  // Reveal beats 2-6
+  document.getElementById('beat2').classList.remove('hidden-beat');
+  document.getElementById('beat3').classList.remove('hidden-beat');
+  document.getElementById('beat4').classList.remove('hidden-beat');
+  document.getElementById('beat5').classList.remove('hidden-beat');
+  document.getElementById('beat6').classList.remove('hidden-beat');
+
+  renderBeat2();
+  renderBeat4(0.5);
+  renderBeat5('classical');
+  renderBeat6(200);
+
+  setTimeout(() => {
+    document.getElementById('beat2').scrollIntoView({ behavior: 'smooth' });
+  }, 300);
+});
+
+// --- Beat 2: Reveal ---
+function renderBeat2() {
+  const mc = mcDefault;
+  if (!mc) return;
+
+  const covPct = (mc.coverageClassical * 100).toFixed(1);
+  document.getElementById('revealCoverage').textContent = covPct + '%';
+  const hits = mc.cis_classical.filter(c => c.covers).length;
+  const misses = mc.nReps - hits;
+  document.getElementById('revealMiss').textContent = misses;
+  document.getElementById('revealHit').textContent = hits;
+
+  // coverage color
+  const covEl = document.getElementById('revealCoverage');
+  covEl.style.color = mc.coverageClassical < 0.90 ? 'var(--red)' : 'var(--gold)';
+
+  plotCIs('revealPlot', mc.cis_classical, 8.0, 'Classical 95% CIs (1,000 replications)', 100);
+}
+
+function plotCIs(divId, cis, truth, title, maxShow) {
+  const show = maxShow ? cis.slice(0, maxShow) : cis;
+  const shapes = [{
+    type: 'line', x0: truth, x1: truth, y0: -0.5, y1: show.length - 0.5,
+    line: { color: '#D4A017', width: 2.5, dash: 'dash' }
+  }];
+
+  const traces = [];
+  // hits
+  const hx = [], hy = [], hBase = [];
+  // misses
+  const mx = [], my = [], mBase = [];
+
+  for (let i = 0; i < show.length; i++) {
+    const ci = show[i];
+    if (ci.covers) {
+      hBase.push(ci.lo); hx.push(ci.hi - ci.lo); hy.push(i);
+    } else {
+      mBase.push(ci.lo); mx.push(ci.hi - ci.lo); my.push(i);
+    }
+  }
+
+  traces.push({
+    type: 'bar', orientation: 'h', y: hy, x: hx, base: hBase,
+    marker: { color: 'rgba(46,94,168,0.5)' }, name: 'Covers truth',
+    hoverinfo: 'skip', width: 0.7
+  });
+  traces.push({
+    type: 'bar', orientation: 'h', y: my, x: mx, base: mBase,
+    marker: { color: 'rgba(192,57,43,0.7)' }, name: 'Misses truth',
+    hoverinfo: 'skip', width: 0.7
+  });
+
+  Plotly.newPlot(divId, traces, {
+    ...plotlyLayout,
+    title: { text: title, font: { size: 13 } },
+    xaxis: { title: 'Coefficient on log(X₁)', gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+    yaxis: { visible: false },
+    shapes,
+    showlegend: true,
+    legend: { x: 0, y: 1.12, orientation: 'h', font: { size: 11 } },
+    barmode: 'overlay',
+    bargap: 0.05
+  }, plotlyConfig);
+}
+
+// --- Beat 3: Formalize ---
+function renderBeat3() {
+  const r = firstSampleOLS;
+  if (!r) return;
+  const labels = ['Intercept', 'log(X₁)', 'X₂', 'U'];
+  let html = '';
+  for (let j = 0; j < 4; j++) {
+    const highlight = j === 1 ? ' style="font-weight:700;"' : '';
+    html += `<div class="se-compare-row"${highlight}>
+      <span>${labels[j]}</span>
+      <span style="color:var(--blue);">Classical: ${r.seClassical[j].toFixed(4)}</span>
+      <span style="color:var(--green);">Robust: ${r.seRobust[j].toFixed(4)}</span>
+      <span style="color:var(--text-muted);">Ratio: ${(r.seRobust[j]/r.seClassical[j]).toFixed(2)}</span>
+    </div>`;
+  }
+  document.getElementById('seCompare').innerHTML = html;
+}
+
+// --- Beat 4: Destroy ---
+function renderBeat4(strength) {
+  // find closest precomputed
+  let best = destroyStrengths[0], bestDist = 999;
+  for (const s of destroyStrengths) {
+    if (Math.abs(s - strength) < bestDist) { bestDist = Math.abs(s - strength); best = s; }
+  }
+  const mc = destroyResults[best];
+  if (!mc) return;
+
+  const covPct = (mc.coverageClassical * 100).toFixed(1);
+  document.getElementById('destroyCoverage').textContent = covPct + '%';
+  document.getElementById('destroyCoverage').style.color =
+    mc.coverageClassical >= 0.93 ? 'var(--green)' : mc.coverageClassical >= 0.88 ? 'var(--gold)' : 'var(--red)';
+  document.getElementById('destroyStrDisp').textContent = best.toFixed(1);
+  document.getElementById('destroyFormula').textContent = best > 0 ? `N(0, ${best.toFixed(1)}·X₁)` : 'N(0, 1)';
+
+  plotCIs('destroyPlot', mc.cis_classical, 8.0, `Classical CIs at strength = ${best.toFixed(1)}`, 80);
+}
+
+document.getElementById('destroySlider').addEventListener('input', function() {
+  const val = this.value / 10;
+  document.getElementById('destroyStrVal').textContent = val.toFixed(1);
+  renderBeat4(val);
+});
+
+// --- Beat 5: Repair ---
+let repairMode = 'classical';
+function setRepairMode(mode) {
+  repairMode = mode;
+  document.getElementById('btnClassical').classList.toggle('active', mode === 'classical');
+  document.getElementById('btnRobust').classList.toggle('active', mode === 'robust');
+  renderBeat5(mode);
+}
+
+function renderBeat5(mode) {
+  const mc = mcDefault;
+  if (!mc) return;
+
+  const cis = mode === 'classical' ? mc.cis_classical : mc.cis_robust;
+  const coverage = mode === 'classical' ? mc.coverageClassical : mc.coverageRobust;
+  const covPct = (coverage * 100).toFixed(1);
+
+  document.getElementById('repairTitle').textContent =
+    mode === 'classical' ? 'Classical SE Coverage' : 'Robust (HC1) SE Coverage';
+  document.getElementById('repairCoverage').textContent = covPct + '%';
+  document.getElementById('repairCoverage').style.color =
+    coverage >= 0.93 ? 'var(--green)' : coverage >= 0.88 ? 'var(--gold)' : 'var(--red)';
+
+  const hits = cis.filter(c => c.covers).length;
+  document.getElementById('repairMiss').textContent = mc.nReps - hits;
+  document.getElementById('repairHit').textContent = hits;
+
+  const label = mode === 'classical' ? 'Classical' : 'Robust (HC1)';
+  plotCIs('repairPlot', cis, 8.0, `${label} 95% CIs (1,000 replications)`, 100);
+}
+
+// --- Beat 6: Limit ---
+function renderBeat6(n) {
+  const mc = limitResults[n];
+  if (!mc) return;
+
+  const ccPct = (mc.coverageClassical * 100).toFixed(1);
+  const crPct = (mc.coverageRobust * 100).toFixed(1);
+
+  document.getElementById('limitClassical').textContent = ccPct + '%';
+  document.getElementById('limitRobust').textContent = crPct + '%';
+  document.getElementById('limitNDisp').textContent = n;
+
+  // Color the robust coverage
+  document.getElementById('limitRobust').style.color =
+    mc.coverageRobust >= mc.coverageClassical ? 'var(--green)' : 'var(--red)';
+  document.getElementById('limitClassical').style.color = 'var(--red)';
+
+  // Bar chart: coverage by n for both SE types
+  const ns = limitNs;
+  const classicalCovs = ns.map(nn => (limitResults[nn] ? limitResults[nn].coverageClassical * 100 : 0));
+  const robustCovs = ns.map(nn => (limitResults[nn] ? limitResults[nn].coverageRobust * 100 : 0));
+
+  Plotly.newPlot('limitPlot', [
+    {
+      x: ns.map(String), y: classicalCovs, type: 'bar', name: 'Classical',
+      marker: { color: '#2E5EA8' }
+    },
+    {
+      x: ns.map(String), y: robustCovs, type: 'bar', name: 'Robust (HC1)',
+      marker: { color: '#27AE60' }
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Coverage by Sample Size', font: { size: 13 } },
+    xaxis: { title: 'Sample size (n)', gridcolor: '#2a2d34' },
+    yaxis: { title: 'Coverage (%)', range: [70, 100], gridcolor: '#2a2d34',
+      zerolinecolor: '#2a2d34' },
+    shapes: [{
+      type: 'line', x0: -0.5, x1: ns.length - 0.5, y0: 95, y1: 95,
+      line: { color: '#D4A017', width: 2, dash: 'dash' }
+    }],
+    annotations: [{
+      x: ns.length - 1, y: 95.5, text: '95% target', showarrow: false,
+      font: { color: '#D4A017', size: 11 }
+    }],
+    barmode: 'group',
+    legend: { x: 0, y: 1.12, orientation: 'h', font: { size: 11 } }
+  }, plotlyConfig);
+
+  // Highlight current n
+  const idx = ns.indexOf(n);
+  if (idx >= 0) {
+    // no extra highlighting needed, the sidebar shows current
+  }
+}
+
+document.getElementById('limitSlider').addEventListener('input', function() {
+  const n = limitNs[this.value];
+  document.getElementById('limitNVal').textContent = n;
+  renderBeat6(n);
+});
+
+// --- Sidebar: Google Flu Trends ---
+function renderFluSidebar() {
+  const rhos = [];
+  const nominalWidths = [];
+  const correctedWidths = [];
+  const n = 100;
+  const baseSE = 1; // normalized
+
+  for (let rho = 0; rho <= 0.95; rho += 0.05) {
+    rhos.push(rho);
+    const nominal = 1.96 * baseSE;
+    const nEff = n * (1 - rho) / (1 + rho);
+    const corrected = 1.96 * baseSE * Math.sqrt(n / nEff);
+    nominalWidths.push(nominal);
+    correctedWidths.push(corrected);
+  }
+
+  Plotly.newPlot('fluPlot', [
+    {
+      x: rhos, y: nominalWidths, mode: 'lines', name: 'Nominal CI half-width',
+      line: { color: '#2E5EA8', width: 2.5 }
+    },
+    {
+      x: rhos, y: correctedWidths, mode: 'lines', name: 'Corrected CI half-width',
+      line: { color: '#C0392B', width: 2.5 }
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'CI Width vs Autocorrelation (n=100)', font: { size: 13 } },
+    xaxis: { title: 'Autocorrelation (ρ)', gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+    yaxis: { title: 'CI half-width (normalized)', gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+    legend: { x: 0, y: 1.12, orientation: 'h', font: { size: 11 } },
+    margin: { l: 50, r: 20, t: 50, b: 50 }
+  }, plotlyConfig);
+}
+
+// --- Sidebar toggle ---
+function toggleSidebar(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  // re-render plot if opening (Plotly needs visible container)
+  if (el.classList.contains('open')) {
+    setTimeout(() => {
+      Plotly.Plots.resize(document.getElementById('fluPlot'));
+    }, 350);
+  }
+}
+
+// ======================================================================
+// INIT
+// ======================================================================
+precompute();
+</script>
+
+</body>
+</html>
