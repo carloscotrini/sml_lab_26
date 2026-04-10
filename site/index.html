@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regression Autopsy</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1>Regression <span class="accent">Autopsy</span></h1>
+      <p class="hook">
+        Eight interactive investigations into the ways ordinary least squares
+        can mislead you — and the statistical tools that set things right.
+        Every plot is live. Every number is computed in your browser.
+        Drag a slider and watch your model break.
+      </p>
+    </section>
+
+    <!-- Notebook Grid -->
+    <section class="section">
+      <h2>Investigations</h2>
+      <div class="notebook-grid">
+
+        <a href="notebooks/01_coefficient.html" class="notebook-card">
+          <div class="card-number">01</div>
+          <div class="card-title">The Coefficient Illusion</div>
+          <div class="card-desc">
+            Your OLS coefficient looks precise and significant — but it is
+            estimating the wrong quantity because an omitted confounder has
+            twisted the regression surface.
+          </div>
+        </a>
+
+        <a href="notebooks/01b_controlling_for.html" class="notebook-card">
+          <div class="card-number">01b</div>
+          <div class="card-title">Controlling For</div>
+          <div class="card-desc">
+            Adding a control variable should fix omitted-variable bias — unless
+            you control for a collider or a post-treatment variable and
+            introduce bias that was never there.
+          </div>
+        </a>
+
+        <a href="notebooks/02_confidence.html" class="notebook-card">
+          <div class="card-number">02</div>
+          <div class="card-title">The Confidence Interval Delusion</div>
+          <div class="card-desc">
+            Your 95% confidence interval promises coverage — but
+            heteroscedasticity makes the actual coverage far lower than you
+            think.
+          </div>
+        </a>
+
+        <a href="notebooks/03_rsquared.html" class="notebook-card">
+          <div class="card-number">03</div>
+          <div class="card-title">The R-squared Trap</div>
+          <div class="card-desc">
+            A high R-squared feels like validation, but adding a post-treatment
+            variable inflates it while destroying every causal interpretation
+            your model had.
+          </div>
+        </a>
+
+        <a href="notebooks/04_pvalue.html" class="notebook-card">
+          <div class="card-number">04</div>
+          <div class="card-title">The p-Value Mirage</div>
+          <div class="card-desc">
+            A tiny p-value screams significance, but when you run thousands of
+            hypothesis tests the false-discovery rate explodes — unless you
+            correct for multiplicity.
+          </div>
+        </a>
+
+        <a href="notebooks/05_prediction.html" class="notebook-card">
+          <div class="card-number">05</div>
+          <div class="card-title">The Prediction Paradox</div>
+          <div class="card-desc">
+            Your model predicts beautifully on training data yet fails
+            catastrophically out-of-sample because it memorized noise instead
+            of learning signal.
+          </div>
+        </a>
+
+        <a href="notebooks/06_residual.html" class="notebook-card">
+          <div class="card-number">06</div>
+          <div class="card-title">The Residual Blind Spot</div>
+          <div class="card-desc">
+            Residuals look random at a glance, but structured patterns reveal
+            model misspecification that summary statistics cannot detect.
+          </div>
+        </a>
+
+        <a href="notebooks/07_influence.html" class="notebook-card">
+          <div class="card-number">07</div>
+          <div class="card-title">The Influence Earthquake</div>
+          <div class="card-desc">
+            A single data point can move your entire regression line — leverage
+            and Cook's distance reveal which observations hold outsized power.
+          </div>
+        </a>
+
+        <a href="notebooks/08_redemption.html" class="notebook-card">
+          <div class="card-number">08</div>
+          <div class="card-title">The Redemption</div>
+          <div class="card-desc">
+            After seven disasters, assemble every diagnostic and repair into a
+            principled modelling workflow that earns the right to trust its
+            output.
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="text-align:center; padding:2rem 0; color:var(--text-muted); font-size:0.85rem;">
+      Built with Plotly.js and MathJax. All computations run in your browser.
+    </footer>
+
+  </div>
+</body>
+</html>

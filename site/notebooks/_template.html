@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOTEBOOK_TITLE — Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">&larr; Back to Index</a>
+    <span class="nav-title">NOTEBOOK_NUMBER &mdash; NOTEBOOK_TITLE</span>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <!-- ============================================================
+         BEAT 1: TRAP
+         Show the student a "good-looking" result that is actually wrong.
+         ============================================================ -->
+    <section class="beat-section" id="trap">
+      <span class="beat-tag trap">Trap</span>
+      <h2>TRAP_HEADING</h2>
+
+      <!-- Interactive viz: slider + plot -->
+      <div class="dynamic-title" id="trap-title">
+        <!-- JS will update this dynamically -->
+      </div>
+      <div class="viz-container">
+        <div class="viz-plot" id="trap-plot"></div>
+        <div class="summary-panel" id="trap-summary">
+          <h3>Parameter Readout</h3>
+          <!-- JS fills parameter rows here -->
+        </div>
+      </div>
+
+      <!-- Trap quiz -->
+      <div class="trap-widget" id="trap-quiz">
+        <div class="trap-question">TRAP_QUESTION</div>
+        <!-- Options filled by JS or hardcoded -->
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-a" value="a">
+          <label for="trap-a">Option A</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-b" value="b">
+          <label for="trap-b">Option B</label>
+        </div>
+        <div class="trap-option">
+          <input type="radio" name="trap-q" id="trap-c" value="c">
+          <label for="trap-c">Option C</label>
+        </div>
+        <button class="trap-submit" id="trap-submit">Submit</button>
+        <div class="trap-feedback" id="trap-feedback"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BEAT 2: REVEAL
+         Show the student what is actually going on.
+         ============================================================ -->
+    <section class="beat-section" id="reveal">
+      <span class="beat-tag reveal">Reveal</span>
+      <h2>REVEAL_HEADING</h2>
+
+      <div class="dynamic-title" id="reveal-title"></div>
+      <div class="viz-container">
+        <div class="viz-plot" id="reveal-plot"></div>
+        <div class="summary-panel" id="reveal-summary">
+          <h3>What Changed</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BEAT 3: FORMALIZE
+         Present the math / theory behind the pathology.
+         ============================================================ -->
+    <section class="beat-section" id="formalize">
+      <span class="beat-tag formalize">Formalize</span>
+      <h2>FORMALIZE_HEADING</h2>
+
+      <div class="sidebar-collapsible" id="formalize-sidebar">
+        <button class="sidebar-toggle">Mathematical Details</button>
+        <div class="sidebar-content">
+          <!-- LaTeX / explanation goes here -->
+          <p>FORMALIZE_CONTENT</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BEAT 4: DESTROY
+         Crank the pathology to the extreme so the student sees damage.
+         ============================================================ -->
+    <section class="beat-section" id="destroy">
+      <span class="beat-tag destroy">Destroy</span>
+      <h2>DESTROY_HEADING</h2>
+
+      <div class="slider-container">
+        <label>Pathology Strength <span class="slider-value" id="destroy-slider-val">0.5</span></label>
+        <input type="range" id="destroy-slider" min="0" max="1" step="0.01" value="0.5">
+      </div>
+
+      <div class="dynamic-title" id="destroy-title"></div>
+      <div class="viz-container">
+        <div class="viz-plot" id="destroy-plot"></div>
+        <div class="summary-panel" id="destroy-summary">
+          <h3>Damage Report</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BEAT 5: REPAIR
+         Show the fix and let the student toggle it on/off.
+         ============================================================ -->
+    <section class="beat-section" id="repair">
+      <span class="beat-tag repair">Repair</span>
+      <h2>REPAIR_HEADING</h2>
+
+      <div class="dynamic-title" id="repair-title"></div>
+      <div class="viz-container">
+        <div class="viz-plot" id="repair-plot"></div>
+        <div class="summary-panel" id="repair-summary">
+          <h3>Repair Diagnostics</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BEAT 6: LIMIT
+         Acknowledge what the repair cannot fix.
+         ============================================================ -->
+    <section class="beat-section" id="limit">
+      <span class="beat-tag limit">Limit</span>
+      <h2>LIMIT_HEADING</h2>
+
+      <div class="sidebar-collapsible" id="limit-sidebar">
+        <button class="sidebar-toggle">Limitations &amp; Edge Cases</button>
+        <div class="sidebar-content">
+          <p>LIMIT_CONTENT</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         BRIDGE — transition to next notebook
+         ============================================================ -->
+    <section class="bridge-section">
+      <p class="bridge-text">BRIDGE_TEXT</p>
+      <a href="NEXT_NOTEBOOK.html" class="bridge-link">Next: NEXT_TITLE &rarr;</a>
+    </section>
+
+  </div>
+
+  <!-- ============================================================
+       Module script — import shared DGP and build this page
+       ============================================================ -->
+  <script type="module">
+    import { CompanySimulator, ols, seededRandom, randn } from '../js/company_sim.js';
+
+    // --- Sidebar toggle logic ---
+    document.querySelectorAll('.sidebar-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.parentElement.classList.toggle('open');
+      });
+    });
+
+    // --- Trap quiz logic ---
+    document.getElementById('trap-submit')?.addEventListener('click', () => {
+      const selected = document.querySelector('input[name="trap-q"]:checked');
+      const feedback = document.getElementById('trap-feedback');
+      if (!selected) return;
+      // Override correctAnswer in per-notebook script
+      const correct = window.TRAP_CORRECT_ANSWER || 'b';
+      if (selected.value === correct) {
+        feedback.className = 'trap-feedback correct';
+        feedback.textContent = window.TRAP_CORRECT_TEXT || 'Correct!';
+      } else {
+        feedback.className = 'trap-feedback incorrect';
+        feedback.textContent = window.TRAP_INCORRECT_TEXT || 'Not quite — keep reading to find out why.';
+      }
+    });
+
+    // --- Notebook-specific code goes below or in a separate <script type="module"> ---
+  </script>
+
+</body>
+</html>
