@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05 — Why Your R² Is Lying | Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .toggle-group { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .toggle-btn {
+      padding: 0.45rem 1.2rem; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+      font-family: var(--font-sans); font-size: 0.9rem; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .toggle-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .toggle-btn:hover:not(.active) { border-color: var(--blue); color: var(--text); }
+    .leaderboard { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    .leaderboard th, .leaderboard td {
+      padding: 0.5rem 1rem; text-align: left; border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .leaderboard th { color: var(--text-muted); font-weight: 600; }
+    .leaderboard .best { color: var(--gold); font-weight: 700; }
+    .leaderboard .worst { color: var(--red); font-weight: 700; }
+    .progress-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17,19,23,0.92); display: flex; align-items: center;
+      justify-content: center; z-index: 9999; flex-direction: column; gap: 1rem;
+    }
+    .progress-bar-container {
+      width: 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: var(--blue); border-radius: 4px; transition: width 0.1s;
+    }
+    .two-plots { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .two-plots { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">Index</a>
+    <a href="04_heteroscedasticity.html">Prev</a>
+    <a href="06_causation.html">Next</a>
+    <span class="nav-title">05 — Why Your R&sup2; Is Lying</span>
+  </nav>
+
+  <!-- Progress overlay -->
+  <div id="progress-overlay" class="progress-overlay">
+    <div style="color: var(--text); font-weight: 600;">Precomputing polynomial fits...</div>
+    <div class="progress-bar-container"><div id="progress-bar" class="progress-bar-fill" style="width:0%"></div></div>
+    <div id="progress-text" style="color: var(--text-muted); font-size: 0.85rem;">0%</div>
+  </div>
+
+  <div class="page-wrapper">
+    <h1>Why Your R&sup2; Is Lying</h1>
+    <p class="text-muted mb-3">Overfitting and the bias-variance tradeoff: more complexity does not mean better prediction.</p>
+
+    <!-- ============================================================ -->
+    <!-- TRAP -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-trap">
+      <span class="beat-tag trap">Trap</span>
+      <h2>The Leaderboard</h2>
+      <p>We generated 500 data points from a housing DGP. Here are polynomial regressions of increasing degree on \(X_1\) (living area):</p>
+
+      <table class="leaderboard" id="trap-leaderboard">
+        <thead><tr><th>Degree</th><th>R&sup2;</th><th>Coefficients</th></tr></thead>
+        <tbody id="trap-leaderboard-body"></tbody>
+      </table>
+
+      <div class="trap-widget">
+        <div class="trap-question">Which model should you deploy?</div>
+        <div class="trap-option"><input type="radio" name="trap05" id="t05-a" value="a"><label for="t05-a">Degree 1 &mdash; simple is best</label></div>
+        <div class="trap-option"><input type="radio" name="trap05" id="t05-b" value="b"><label for="t05-b">Degree 3 &mdash; good balance</label></div>
+        <div class="trap-option"><input type="radio" name="trap05" id="t05-c" value="c"><label for="t05-c">Degree 7 &mdash; high R&sup2;</label></div>
+        <div class="trap-option"><input type="radio" name="trap05" id="t05-d" value="d"><label for="t05-d">Degree 12 &mdash; highest R&sup2; wins!</label></div>
+        <button class="trap-submit" onclick="checkTrap()">Submit</button>
+        <div id="trap-feedback-correct" class="trap-feedback correct">
+          Correct! Degree 3 happens to be closest, but the real answer is: training R&sup2; alone cannot tell you. Read on to see why.
+        </div>
+        <div id="trap-feedback-incorrect" class="trap-feedback incorrect">
+          Not quite. The highest training R&sup2; is a trap &mdash; let's see what happens on unseen data.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- REVEAL -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-reveal" style="display:none;">
+      <span class="beat-tag reveal">Reveal</span>
+      <h2>The Train/Test Split</h2>
+      <p>We split the 500 points into 400 training and 100 test observations. Here is what happens:</p>
+
+      <table class="leaderboard" id="reveal-table">
+        <thead><tr><th>Degree</th><th>Train R&sup2;</th><th>Test R&sup2;</th><th>Verdict</th></tr></thead>
+        <tbody id="reveal-table-body"></tbody>
+      </table>
+
+      <p class="mt-2">The degree-12 polynomial has a <strong class="text-red">negative test R&sup2;</strong> &mdash; it predicts worse than simply guessing the mean!</p>
+
+      <div class="viz-container mt-2">
+        <div class="viz-plot" id="reveal-plot" style="min-height:420px;"></div>
+        <div class="summary-panel">
+          <h3>What went wrong?</h3>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6;">
+            The degree-12 polynomial memorized training noise. Its wiggly curve (blue) passes near every training point but diverges wildly between them.
+            The true relationship (gold) is smooth: \(Y \approx 50 + 8\log(X_1)\). No polynomial can capture the log shape without overfitting.
+          </p>
+          <div class="param-row mt-2"><span class="param-label">Degree 12 Train R&sup2;</span><span class="param-value ols" id="rev-train-r2"></span></div>
+          <div class="param-row"><span class="param-label">Degree 12 Test R&sup2;</span><span class="param-value error" id="rev-test-r2"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DESTROY -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-destroy" style="display:none;">
+      <span class="beat-tag destroy">Destroy</span>
+      <h2>The Bias-Variance Tradeoff</h2>
+      <p>Use the slider to sweep polynomial degree from 1 to 15. Watch training R&sup2; rise while test R&sup2; collapses.</p>
+
+      <div class="slider-container">
+        <label>Polynomial Degree <span class="slider-value" id="degree-val">3</span></label>
+        <input type="range" id="degree-slider" min="1" max="15" value="3" step="1">
+      </div>
+
+      <div class="two-plots">
+        <div class="viz-plot" id="destroy-r2-plot" style="min-height:380px;"></div>
+        <div class="viz-plot" id="destroy-fit-plot" style="min-height:380px;"></div>
+      </div>
+
+      <div class="summary-panel mt-2">
+        <h3>Current Model: Degree <span id="destroy-deg-label">3</span></h3>
+        <div class="param-row"><span class="param-label">Train R&sup2;</span><span class="param-value ols" id="destroy-train-r2"></span></div>
+        <div class="param-row"><span class="param-label">Test R&sup2;</span><span class="param-value" id="destroy-test-r2"></span></div>
+        <div class="param-row"><span class="param-label">Optimal Degree</span><span class="param-value truth" id="destroy-best-deg"></span></div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- REPAIR -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-repair" style="display:none;">
+      <span class="beat-tag repair">Repair</span>
+      <h2>Right Family Beats Right Complexity</h2>
+      <p>Toggle between polynomial models and the correct log-linear specification. The log-linear model uses \(\log(X_1)\) as the predictor &mdash; matching the true DGP.</p>
+
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-poly" onclick="toggleFamily('poly')">Polynomial (best degree)</button>
+        <button class="toggle-btn" id="btn-log" onclick="toggleFamily('log')">Log-Linear</button>
+      </div>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="repair-plot" style="min-height:400px;"></div>
+        <div class="summary-panel">
+          <h3>Model Comparison</h3>
+          <div class="param-row"><span class="param-label">Best Poly Test R&sup2;</span><span class="param-value ols" id="repair-poly-r2"></span></div>
+          <div class="param-row"><span class="param-label">Log-Linear Test R&sup2;</span><span class="param-value repair" id="repair-log-r2"></span></div>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-top:1rem;">
+            The log-linear model captures the true functional form with just two parameters, outperforming every polynomial.
+            <strong class="text-green">Choosing the right model family matters more than tuning complexity.</strong>
+          </p>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-top:0.75rem;">
+            In practice, use <strong>cross-validation</strong>: split data into K folds, train on K-1, test on the held-out fold, and average. This gives an honest estimate of out-of-sample performance.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- LIMIT -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-limit" style="display:none;">
+      <span class="beat-tag limit">Limit</span>
+      <h2>Even Cross-Validation Can Overfit</h2>
+      <p>What if you try 100 model specifications and pick the best CV score? The more models you search, the more likely you find one that looks good by chance.</p>
+
+      <div class="slider-container">
+        <label>Number of Models Searched <span class="slider-value" id="nsearch-val">1</span></label>
+        <input type="range" id="nsearch-slider" min="0" max="4" value="0" step="1">
+      </div>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="limit-plot" style="min-height:400px;"></div>
+        <div class="summary-panel">
+          <h3>CV Inflation</h3>
+          <div class="param-row"><span class="param-label">Models Searched</span><span class="param-value" id="limit-nsearch">1</span></div>
+          <div class="param-row"><span class="param-label">Best CV R&sup2;</span><span class="param-value ols" id="limit-best-cv"></span></div>
+          <div class="param-row"><span class="param-label">True Test R&sup2;</span><span class="param-value truth" id="limit-true-r2"></span></div>
+          <div class="param-row"><span class="param-label">Inflation</span><span class="param-value error" id="limit-inflation"></span></div>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-top:1rem;">
+            This is <strong>model selection overfitting</strong>. Even honest CV scores become optimistic when you cherry-pick the best among many.
+            Remedies: hold out a final test set that is <em>never</em> used for selection, or use statistical corrections for multiple comparisons.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SIDEBAR -->
+    <!-- ============================================================ -->
+    <div class="sidebar-collapsible" id="sidebar">
+      <button class="sidebar-toggle" onclick="this.parentElement.classList.toggle('open')">
+        Real-World Case: Long-Term Capital Management &mdash; $4.6B from Overfitting
+      </button>
+      <div class="sidebar-content">
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7; margin-bottom:1rem;">
+          In 1998, Long-Term Capital Management (LTCM) &mdash; staffed by Nobel laureates &mdash; lost $4.6 billion in four months.
+          Their models were fit to decades of historical bond spreads and converged beautifully on past data.
+          When the Russian debt crisis created patterns outside the training distribution, the models catastrophically failed.
+        </p>
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7; margin-bottom:1rem;">
+          <strong>Mini-simulation:</strong> Sweep polynomial degree from 1 to 45 on a tiny dataset. Training MSE approaches zero; test MSE explodes.
+        </p>
+        <div class="viz-plot" id="sidebar-plot" style="min-height:320px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BRIDGE -->
+    <!-- ============================================================ -->
+    <div class="bridge-section">
+      <div class="bridge-text">"Your model fits and predicts well. But does increasing X cause Y to increase?"</div>
+      <a class="bridge-link" href="06_causation.html">Next: Why Your Causal Claim Is Wrong &rarr;</a>
+    </div>
+  </div>
+
+<script>
+// ======================================================================
+// Seeded PRNG (Mulberry32)
+// ======================================================================
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(42);
+function rnorm() {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// ======================================================================
+// DGP: Y = 50 + 8*log(X1) + 3*X2 + 2*U + eps
+// U ~ N(0,1), X1 = 2.0 + 0.5*U + eta1, X2 = 3 + 0.5*U + eta2
+// X3 = 0.9*Y + eta3, eps ~ N(0, 0.5*X1), eta ~ N(0, 0.3)
+// ======================================================================
+const N = 500;
+const trainN = 400;
+const testN = 100;
+let X1 = [], X2 = [], X3 = [], Y = [], U = [];
+
+function generateData() {
+  for (let i = 0; i < N; i++) {
+    const u = rnorm();
+    const eta1 = rnorm() * 0.3;
+    const eta2 = rnorm() * 0.3;
+    const eta3 = rnorm() * 0.3;
+    const x1 = 2.0 + 0.5 * u + eta1;
+    const x2 = 3 + 0.5 * u + eta2;
+    const eps = rnorm() * (0.5 * Math.abs(x1));
+    const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+    const x3 = 0.9 * y + eta3;
+    X1.push(x1); X2.push(x2); X3.push(x3); Y.push(y); U.push(u);
+  }
+}
+generateData();
+
+// Train/test split (first 400 train, last 100 test)
+const trainIdx = Array.from({length: trainN}, (_, i) => i);
+const testIdx = Array.from({length: testN}, (_, i) => i + trainN);
+
+function subset(arr, idx) { return idx.map(i => arr[i]); }
+const X1_train = subset(X1, trainIdx), X1_test = subset(X1, testIdx);
+const Y_train = subset(Y, trainIdx), Y_test = subset(Y, testIdx);
+
+// ======================================================================
+// OLS helpers
+// ======================================================================
+function mean(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+
+function polyFeatures(x, degree) {
+  // Returns matrix: each row is [1, x, x^2, ..., x^degree]
+  return x.map(xi => {
+    const row = [1];
+    for (let d = 1; d <= degree; d++) row.push(Math.pow(xi, d));
+    return row;
+  });
+}
+
+// OLS via normal equations with simple Gaussian elimination
+function olsFit(X_mat, y) {
+  const n = X_mat.length, p = X_mat[0].length;
+  // X'X
+  const XtX = Array.from({length: p}, () => new Float64Array(p));
+  const Xty = new Float64Array(p);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < p; j++) {
+      Xty[j] += X_mat[i][j] * y[i];
+      for (let k = j; k < p; k++) {
+        XtX[j][k] += X_mat[i][j] * X_mat[i][k];
+      }
+    }
+  }
+  // Symmetrize + regularize
+  for (let j = 0; j < p; j++) {
+    for (let k = 0; k < j; k++) XtX[j][k] = XtX[k][j];
+    XtX[j][j] += 1e-8; // ridge for stability
+  }
+  // Solve via Gaussian elimination
+  const aug = XtX.map((row, i) => [...row, Xty[i]]);
+  for (let col = 0; col < p; col++) {
+    let maxRow = col;
+    for (let row = col + 1; row < p; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    }
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-12) continue;
+    const pivot = aug[col][col];
+    for (let j = col; j <= p; j++) aug[col][j] /= pivot;
+    for (let row = 0; row < p; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = col; j <= p; j++) aug[row][j] -= factor * aug[col][j];
+    }
+  }
+  return aug.map(row => row[p]);
+}
+
+function predict(X_mat, beta) {
+  return X_mat.map(row => row.reduce((s, x, j) => s + x * beta[j], 0));
+}
+
+function rSquared(yTrue, yPred) {
+  const m = mean(yTrue);
+  const ssTot = yTrue.reduce((s, y) => s + (y - m) ** 2, 0);
+  const ssRes = yTrue.reduce((s, y, i) => s + (y - yPred[i]) ** 2, 0);
+  return 1 - ssRes / ssTot;
+}
+
+// ======================================================================
+// Precompute polynomial fits for degrees 1..15
+// ======================================================================
+const MAX_DEG = 15;
+const polyResults = {}; // degree -> {beta, trainR2, testR2}
+
+function precomputePolynomials(callback) {
+  let deg = 1;
+  function step() {
+    const Xtrain = polyFeatures(X1_train, deg);
+    const Xtest = polyFeatures(X1_test, deg);
+    const beta = olsFit(Xtrain, Y_train);
+    const predTrain = predict(Xtrain, beta);
+    const predTest = predict(Xtest, beta);
+    const trainR2 = rSquared(Y_train, predTrain);
+    const testR2 = rSquared(Y_test, predTest);
+    polyResults[deg] = {beta, trainR2, testR2};
+
+    const pct = Math.round((deg / MAX_DEG) * 80);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = pct + '%';
+
+    deg++;
+    if (deg <= MAX_DEG) {
+      setTimeout(step, 10);
+    } else {
+      precomputeLogLinear();
+      precomputeLimit(callback);
+    }
+  }
+  step();
+}
+
+// Log-linear fit
+let logLinResult = {};
+function precomputeLogLinear() {
+  const Xtrain = X1_train.map(x => [1, Math.log(Math.max(x, 0.01))]);
+  const Xtest = X1_test.map(x => [1, Math.log(Math.max(x, 0.01))]);
+  const beta = olsFit(Xtrain, Y_train);
+  const predTrain = predict(Xtrain, Y_train.map(() => 0).map((_, i) => Xtrain[i]).length ? Xtrain : Xtrain, beta);
+  const predTrainActual = predict(Xtrain, beta);
+  const predTest = predict(Xtest, beta);
+  logLinResult = {
+    beta,
+    trainR2: rSquared(Y_train, predTrainActual),
+    testR2: rSquared(Y_test, predTest)
+  };
+}
+
+// Limit: model search inflation
+const searchCounts = [1, 5, 10, 50, 100];
+const limitResults = {}; // count -> {bestCV, trueTestR2}
+
+function precomputeLimit(callback) {
+  // Simulate: for each search count, generate random polynomial models
+  // and pick the best 5-fold CV score. Show inflation.
+  const rng2 = mulberry32(123);
+
+  // 5-fold CV for a given polynomial degree with random feature subsets
+  function cvScore(degree, noiseScale) {
+    const foldSize = Math.floor(trainN / 5);
+    let totalR2 = 0;
+    for (let fold = 0; fold < 5; fold++) {
+      const valStart = fold * foldSize;
+      const valEnd = valStart + foldSize;
+      const tIdx = [], vIdx = [];
+      for (let i = 0; i < trainN; i++) {
+        if (i >= valStart && i < valEnd) vIdx.push(i);
+        else tIdx.push(i);
+      }
+      const xTr = tIdx.map(i => {
+        const row = [1];
+        for (let d = 1; d <= degree; d++) row.push(Math.pow(X1_train[i] + noiseScale * (rng2() - 0.5), d));
+        return row;
+      });
+      const yTr = tIdx.map(i => Y_train[i]);
+      const xVa = vIdx.map(i => {
+        const row = [1];
+        for (let d = 1; d <= degree; d++) row.push(Math.pow(X1_train[i] + noiseScale * (rng2() - 0.5), d));
+        return row;
+      });
+      const yVa = vIdx.map(i => Y_train[i]);
+      const beta = olsFit(xTr, yTr);
+      const pred = predict(xVa, beta);
+      totalR2 += rSquared(yVa, pred);
+    }
+    return totalR2 / 5;
+  }
+
+  // True test R2 for the best polynomial
+  let bestDeg = 1, bestTest = -Infinity;
+  for (let d = 1; d <= MAX_DEG; d++) {
+    if (polyResults[d].testR2 > bestTest) { bestTest = polyResults[d].testR2; bestDeg = d; }
+  }
+  const trueTestR2 = bestTest;
+
+  for (const count of searchCounts) {
+    let bestCV = -Infinity;
+    const rng3 = mulberry32(count * 77);
+    for (let m = 0; m < count; m++) {
+      const deg = Math.floor(rng3() * 6) + 1; // degree 1-6
+      const noise = rng3() * 0.3;
+      const cv = cvScore(deg, noise);
+      if (cv > bestCV) bestCV = cv;
+    }
+    limitResults[count] = { bestCV, trueTestR2 };
+  }
+
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('progress-text').textContent = '100%';
+  setTimeout(() => {
+    document.getElementById('progress-overlay').style.display = 'none';
+    callback();
+  }, 200);
+}
+
+// ======================================================================
+// Plotly config
+// ======================================================================
+const plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(26,29,35,1)',
+  font: { color: '#e8e8e8', family: 'Inter, sans-serif' },
+  margin: { t: 40, r: 20, b: 50, l: 60 },
+  xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+  yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+};
+const plotlyConfig = { responsive: true, displayModeBar: false };
+
+// ======================================================================
+// TRAP: Leaderboard
+// ======================================================================
+function renderTrapLeaderboard() {
+  const tbody = document.getElementById('trap-leaderboard-body');
+  const degrees = [1, 3, 7, 12];
+  degrees.forEach(d => {
+    const r = polyResults[d];
+    const tr = document.createElement('tr');
+    const isBest = d === 12;
+    tr.innerHTML = `
+      <td>Degree ${d}</td>
+      <td class="${isBest ? 'best' : ''}">${r.trainR2.toFixed(3)}</td>
+      <td>${r.beta.length} coefficients</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function checkTrap() {
+  const selected = document.querySelector('input[name="trap05"]:checked');
+  if (!selected) return;
+  document.getElementById('trap-feedback-correct').style.display = 'none';
+  document.getElementById('trap-feedback-incorrect').style.display = 'none';
+  if (selected.value === 'b') {
+    document.getElementById('trap-feedback-correct').style.display = 'block';
+  } else {
+    document.getElementById('trap-feedback-incorrect').style.display = 'block';
+  }
+  document.getElementById('beat-reveal').style.display = 'block';
+  document.getElementById('beat-destroy').style.display = 'block';
+  document.getElementById('beat-repair').style.display = 'block';
+  document.getElementById('beat-limit').style.display = 'block';
+  renderReveal();
+  renderDestroyR2();
+  updateDestroy(3);
+  renderRepair('poly');
+  updateLimit(0);
+  renderSidebar();
+}
+
+// ======================================================================
+// REVEAL
+// ======================================================================
+function renderReveal() {
+  const tbody = document.getElementById('reveal-table-body');
+  const degrees = [1, 3, 7, 12];
+  degrees.forEach(d => {
+    const r = polyResults[d];
+    const tr = document.createElement('tr');
+    const testClass = r.testR2 < 0 ? 'worst' : '';
+    const verdict = r.testR2 < 0 ? 'WORSE THAN MEAN' : (r.testR2 > 0.5 ? 'OK' : 'Weak');
+    tr.innerHTML = `
+      <td>Degree ${d}</td>
+      <td>${r.trainR2.toFixed(3)}</td>
+      <td class="${testClass}">${r.testR2.toFixed(3)}</td>
+      <td class="${testClass}">${verdict}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('rev-train-r2').textContent = polyResults[12].trainR2.toFixed(3);
+  document.getElementById('rev-test-r2').textContent = polyResults[12].testR2.toFixed(3);
+
+  // Plot: training data + degree-12 fit + true curve
+  const sortedX = [...X1_train].sort((a, b) => a - b);
+  const xLine = [];
+  const minX = Math.min(...X1_train), maxX = Math.max(...X1_train);
+  for (let x = minX; x <= maxX; x += (maxX - minX) / 200) xLine.push(x);
+
+  const deg12Beta = polyResults[12].beta;
+  const yFit12 = xLine.map(x => {
+    let s = 0;
+    for (let d = 0; d < deg12Beta.length; d++) s += deg12Beta[d] * Math.pow(x, d);
+    return s;
+  });
+  const yTrue = xLine.map(x => 50 + 8 * Math.log(Math.max(x, 0.01)) + 3 * mean(X2) + 2 * mean(U));
+
+  // Clamp extreme predictions for display
+  const yRange = Math.max(...Y_train) - Math.min(...Y_train);
+  const yMin = Math.min(...Y_train) - yRange * 0.5;
+  const yMax = Math.max(...Y_train) + yRange * 0.5;
+
+  Plotly.newPlot('reveal-plot', [
+    { x: X1_train, y: Y_train, mode: 'markers', type: 'scatter',
+      marker: { color: 'rgba(255,255,255,0.3)', size: 4 }, name: 'Training Data' },
+    { x: xLine, y: yFit12, mode: 'lines', type: 'scatter',
+      line: { color: '#2E5EA8', width: 2 }, name: 'Degree 12 Fit' },
+    { x: xLine, y: yTrue, mode: 'lines', type: 'scatter',
+      line: { color: '#D4A017', width: 2.5, dash: 'dash' }, name: 'True Curve' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Degree 12 vs Truth', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'X1 (Living Area)' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Y (Sale Price)', range: [yMin, yMax] },
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+  }, plotlyConfig);
+}
+
+// ======================================================================
+// DESTROY: Bias-Variance Slider
+// ======================================================================
+function renderDestroyR2() {
+  const degrees = Array.from({length: MAX_DEG}, (_, i) => i + 1);
+  const trainR2s = degrees.map(d => polyResults[d].trainR2);
+  const testR2s = degrees.map(d => polyResults[d].testR2);
+
+  Plotly.newPlot('destroy-r2-plot', [
+    { x: degrees, y: trainR2s, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#2E5EA8', width: 2.5 }, marker: { size: 7 }, name: 'Train R\u00B2' },
+    { x: degrees, y: testR2s, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#C0392B', width: 2.5 }, marker: { size: 7 }, name: 'Test R\u00B2' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Train vs Test R\u00B2', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'Polynomial Degree', dtick: 1 },
+    yaxis: { ...plotlyLayout.yaxis, title: 'R\u00B2', range: [-1, 1.05] },
+    legend: { x: 0.6, y: 0.95, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+    shapes: [{
+      type: 'line', x0: 0.5, x1: 15.5, y0: 0, y1: 0,
+      line: { color: '#7F8C8D', width: 1, dash: 'dot' }
+    }]
+  }, plotlyConfig);
+}
+
+function updateDestroy(deg) {
+  const r = polyResults[deg];
+  document.getElementById('degree-val').textContent = deg;
+  document.getElementById('destroy-deg-label').textContent = deg;
+  document.getElementById('destroy-train-r2').textContent = r.trainR2.toFixed(4);
+  const testEl = document.getElementById('destroy-test-r2');
+  testEl.textContent = r.testR2.toFixed(4);
+  testEl.className = 'param-value ' + (r.testR2 < 0 ? 'error' : (r.testR2 > 0.5 ? 'repair' : 'ols'));
+
+  // Find best test degree
+  let bestDeg = 1, bestTest = -Infinity;
+  for (let d = 1; d <= MAX_DEG; d++) {
+    if (polyResults[d].testR2 > bestTest) { bestTest = polyResults[d].testR2; bestDeg = d; }
+  }
+  document.getElementById('destroy-best-deg').textContent = bestDeg;
+
+  // Highlight current degree on R2 plot
+  Plotly.relayout('destroy-r2-plot', {
+    shapes: [
+      { type: 'line', x0: 0.5, x1: 15.5, y0: 0, y1: 0, line: { color: '#7F8C8D', width: 1, dash: 'dot' } },
+      { type: 'line', x0: deg, x1: deg, y0: -1, y1: 1.05, line: { color: '#D4A017', width: 2, dash: 'dash' } }
+    ]
+  });
+
+  // Fitted curve plot
+  const minX = Math.min(...X1_train), maxX = Math.max(...X1_train);
+  const xLine = [];
+  for (let x = minX; x <= maxX; x += (maxX - minX) / 200) xLine.push(x);
+
+  const beta = r.beta;
+  const yFit = xLine.map(x => {
+    let s = 0;
+    for (let d = 0; d < beta.length; d++) s += beta[d] * Math.pow(x, d);
+    return s;
+  });
+  const yTrue = xLine.map(x => 50 + 8 * Math.log(Math.max(x, 0.01)) + 3 * mean(X2) + 2 * mean(U));
+
+  const yRange = Math.max(...Y_train) - Math.min(...Y_train);
+  const yMin = Math.min(...Y_train) - yRange * 0.3;
+  const yMax = Math.max(...Y_train) + yRange * 0.3;
+
+  Plotly.newPlot('destroy-fit-plot', [
+    { x: X1_train, y: Y_train, mode: 'markers', type: 'scatter',
+      marker: { color: 'rgba(255,255,255,0.25)', size: 3 }, name: 'Training Data' },
+    { x: xLine, y: yFit, mode: 'lines', type: 'scatter',
+      line: { color: '#2E5EA8', width: 2 }, name: `Degree ${deg} Fit` },
+    { x: xLine, y: yTrue, mode: 'lines', type: 'scatter',
+      line: { color: '#D4A017', width: 2, dash: 'dash' }, name: 'True Curve' },
+  ], {
+    ...plotlyLayout,
+    title: { text: `Degree ${deg} Fit`, font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'X1' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Y', range: [yMin, yMax] },
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+  }, plotlyConfig);
+}
+
+document.getElementById('degree-slider').addEventListener('input', function() {
+  updateDestroy(parseInt(this.value));
+});
+
+// ======================================================================
+// REPAIR: Log-Linear vs Polynomial
+// ======================================================================
+function renderRepair(family) {
+  document.getElementById('btn-poly').classList.toggle('active', family === 'poly');
+  document.getElementById('btn-log').classList.toggle('active', family === 'log');
+
+  // Find best polynomial by test R2
+  let bestDeg = 1, bestTest = -Infinity;
+  for (let d = 1; d <= MAX_DEG; d++) {
+    if (polyResults[d].testR2 > bestTest) { bestTest = polyResults[d].testR2; bestDeg = d; }
+  }
+
+  document.getElementById('repair-poly-r2').textContent = bestTest.toFixed(4);
+  document.getElementById('repair-log-r2').textContent = logLinResult.testR2.toFixed(4);
+
+  const minX = Math.min(...X1_train), maxX = Math.max(...X1_train);
+  const xLine = [];
+  for (let x = minX; x <= maxX; x += (maxX - minX) / 200) xLine.push(x);
+
+  const yTrue = xLine.map(x => 50 + 8 * Math.log(Math.max(x, 0.01)) + 3 * mean(X2) + 2 * mean(U));
+
+  let yFit, fitName, fitColor;
+  if (family === 'poly') {
+    const beta = polyResults[bestDeg].beta;
+    yFit = xLine.map(x => {
+      let s = 0;
+      for (let d = 0; d < beta.length; d++) s += beta[d] * Math.pow(x, d);
+      return s;
+    });
+    fitName = `Best Poly (deg ${bestDeg})`;
+    fitColor = '#2E5EA8';
+  } else {
+    const beta = logLinResult.beta;
+    yFit = xLine.map(x => beta[0] + beta[1] * Math.log(Math.max(x, 0.01)));
+    fitName = 'Log-Linear';
+    fitColor = '#27AE60';
+  }
+
+  const yRange = Math.max(...Y_test) - Math.min(...Y_test);
+  const yMin = Math.min(...Y_test) - yRange * 0.3;
+  const yMax = Math.max(...Y_test) + yRange * 0.3;
+
+  Plotly.newPlot('repair-plot', [
+    { x: X1_test, y: Y_test, mode: 'markers', type: 'scatter',
+      marker: { color: 'rgba(255,255,255,0.5)', size: 5 }, name: 'Test Data' },
+    { x: xLine, y: yFit, mode: 'lines', type: 'scatter',
+      line: { color: fitColor, width: 2.5 }, name: fitName },
+    { x: xLine, y: yTrue, mode: 'lines', type: 'scatter',
+      line: { color: '#D4A017', width: 2, dash: 'dash' }, name: 'True Curve' },
+  ], {
+    ...plotlyLayout,
+    title: { text: family === 'poly' ? `Best Polynomial (Degree ${bestDeg})` : 'Log-Linear Model', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'X1' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Y', range: [yMin, yMax] },
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+  }, plotlyConfig);
+}
+
+function toggleFamily(f) { renderRepair(f); }
+
+// ======================================================================
+// LIMIT: CV overfitting to model search
+// ======================================================================
+function updateLimit(sliderVal) {
+  const count = searchCounts[sliderVal];
+  document.getElementById('nsearch-val').textContent = count;
+  document.getElementById('limit-nsearch').textContent = count;
+
+  const r = limitResults[count];
+  document.getElementById('limit-best-cv').textContent = r.bestCV.toFixed(4);
+  document.getElementById('limit-true-r2').textContent = r.trueTestR2.toFixed(4);
+  const inflation = r.bestCV - r.trueTestR2;
+  document.getElementById('limit-inflation').textContent = (inflation > 0 ? '+' : '') + inflation.toFixed(4);
+
+  // Bar chart
+  const counts = searchCounts;
+  const cvScores = counts.map(c => limitResults[c].bestCV);
+  const trueScores = counts.map(c => limitResults[c].trueTestR2);
+
+  Plotly.newPlot('limit-plot', [
+    { x: counts.map(c => `${c} models`), y: cvScores, type: 'bar',
+      marker: { color: '#2E5EA8' }, name: 'Best CV R\u00B2' },
+    { x: counts.map(c => `${c} models`), y: trueScores, type: 'bar',
+      marker: { color: '#D4A017' }, name: 'True Test R\u00B2' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'CV Score Inflation with Model Search', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'Models Searched' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'R\u00B2' },
+    barmode: 'group',
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+    shapes: [{
+      type: 'rect',
+      x0: counts.indexOf(count) - 0.4 + (counts.length > 1 ? 0 : 0),
+      x1: counts.indexOf(count) + 0.4 + (counts.length > 1 ? 0 : 0),
+      xref: 'x', y0: 0, y1: 1, yref: 'paper',
+      fillcolor: 'rgba(212,160,23,0.08)', line: { width: 0 }
+    }]
+  }, plotlyConfig);
+}
+
+document.getElementById('nsearch-slider').addEventListener('input', function() {
+  updateLimit(parseInt(this.value));
+});
+
+// ======================================================================
+// SIDEBAR: LTCM mini-sim
+// ======================================================================
+function renderSidebar() {
+  // Generate tiny dataset (30 points) and fit polys 1-45
+  const rngS = mulberry32(999);
+  const sN = 30;
+  const sX = [], sY = [];
+  for (let i = 0; i < sN; i++) {
+    const x = 0.5 + rngS() * 4;
+    const y = 10 + 5 * Math.log(x) + (function(){ let u=0,v=0; while(!u) u=rngS(); while(!v) v=rngS(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); })() * 2;
+    sX.push(x); sY.push(y);
+  }
+  // Hold out last 10
+  const sTrX = sX.slice(0, 20), sTrY = sY.slice(0, 20);
+  const sTeX = sX.slice(20), sTeY = sY.slice(20);
+
+  const degs = [];
+  const trainMSEs = [], testMSEs = [];
+  for (let d = 1; d <= 20; d++) {
+    degs.push(d);
+    const Xtr = polyFeatures(sTrX, d);
+    const Xte = polyFeatures(sTeX, d);
+    const beta = olsFit(Xtr, sTrY);
+    const pTr = predict(Xtr, beta);
+    const pTe = predict(Xte, beta);
+    const mse = (arr, pred) => arr.reduce((s, y, i) => s + (y - pred[i]) ** 2, 0) / arr.length;
+    trainMSEs.push(mse(sTrY, pTr));
+    testMSEs.push(Math.min(mse(sTeY, pTe), 1000)); // cap for display
+  }
+
+  Plotly.newPlot('sidebar-plot', [
+    { x: degs, y: trainMSEs, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#2E5EA8', width: 2 }, marker: { size: 5 }, name: 'Train MSE' },
+    { x: degs, y: testMSEs, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#C0392B', width: 2 }, marker: { size: 5 }, name: 'Test MSE' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'LTCM Mini-Sim: Train MSE\u21920, Test MSE Explodes', font: { size: 13, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'Polynomial Degree' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'MSE', type: 'log' },
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+  }, plotlyConfig);
+}
+
+// ======================================================================
+// Boot
+// ======================================================================
+precomputePolynomials(function() {
+  renderTrapLeaderboard();
+});
+</script>
+</body>
+</html>

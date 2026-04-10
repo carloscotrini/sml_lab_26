@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 — Why Your Causal Claim Is Wrong | Regression Autopsy</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    .toggle-group { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+    .toggle-btn {
+      padding: 0.45rem 1.2rem; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+      font-family: var(--font-sans); font-size: 0.9rem; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .toggle-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .toggle-btn:hover:not(.active) { border-color: var(--blue); color: var(--text); }
+    .progress-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17,19,23,0.92); display: flex; align-items: center;
+      justify-content: center; z-index: 9999; flex-direction: column; gap: 1rem;
+    }
+    .progress-bar-container {
+      width: 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: var(--blue); border-radius: 4px; transition: width 0.1s;
+    }
+    .dag-container {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1.5rem; margin: 1rem 0; text-align: center;
+    }
+    .dag-container svg { max-width: 100%; }
+    .dag-node {
+      fill: var(--bg-card); stroke: #D4A017; stroke-width: 2;
+    }
+    .dag-node-collider {
+      fill: var(--bg-card); stroke: #C0392B; stroke-width: 2.5;
+    }
+    .dag-text { fill: #e8e8e8; font-family: Inter, sans-serif; font-size: 13px; font-weight: 600; }
+    .dag-arrow { stroke: #7F8C8D; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .dag-arrow-bad { stroke: #C0392B; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead-red); }
+    .coeff-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    .coeff-table th, .coeff-table td {
+      padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+    }
+    .coeff-table th { color: var(--text-muted); font-weight: 600; }
+    .two-plots { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .two-plots { grid-template-columns: 1fr; } }
+    .callout {
+      background: rgba(192,57,43,0.08); border-left: 3px solid var(--red);
+      padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 6px 6px 0;
+      font-size: 0.9rem; line-height: 1.6;
+    }
+    .callout-green {
+      background: rgba(39,174,96,0.08); border-left: 3px solid var(--green);
+      padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 6px 6px 0;
+      font-size: 0.9rem; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="top-nav">
+    <a href="../index.html">Index</a>
+    <a href="05_overfitting.html">Prev</a>
+    <a href="07_real_world.html">Next</a>
+    <span class="nav-title">06 — Why Your Causal Claim Is Wrong</span>
+  </nav>
+
+  <!-- Progress overlay -->
+  <div id="progress-overlay" class="progress-overlay">
+    <div style="color: var(--text); font-weight: 600;">Precomputing simulations...</div>
+    <div class="progress-bar-container"><div id="progress-bar" class="progress-bar-fill" style="width:0%"></div></div>
+    <div id="progress-text" style="color: var(--text-muted); font-size: 0.85rem;">0%</div>
+  </div>
+
+  <div class="page-wrapper">
+    <h1>Why Your Causal Claim Is Wrong</h1>
+    <p class="text-muted mb-3">Endogeneity, reverse causality, and instrumental variables: why regression coefficients are not causal effects.</p>
+
+    <!-- ============================================================ -->
+    <!-- TRAP -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-trap">
+      <span class="beat-tag trap">Trap</span>
+      <h2>The "Perfect" Regression</h2>
+      <p>You've fixed everything from prior notebooks. Here is a well-specified regression with the correct functional form, controlling for observed confounders:</p>
+
+      <div class="viz-container">
+        <div>
+          <pre id="trap-regression-output" style="font-size:0.85rem; line-height:1.7;"></pre>
+        </div>
+        <div class="summary-panel">
+          <h3>Model Quality</h3>
+          <div class="param-row"><span class="param-label">R&sup2;</span><span class="param-value ols" id="trap-r2"></span></div>
+          <div class="param-row"><span class="param-label">Specification</span><span class="param-value repair">Correct</span></div>
+          <div class="param-row"><span class="param-label">Heterosk. Robust SEs</span><span class="param-value repair">Yes</span></div>
+          <div class="param-row"><span class="param-label">Functional Form</span><span class="param-value repair">log(X1)</span></div>
+        </div>
+      </div>
+
+      <div class="trap-widget mt-2">
+        <div class="trap-question">
+          The coefficient on \(\log(X_1)\) implies that a 50% increase in living area (roughly a 500 sqft addition to a 1000 sqft home, costing ~$80k)
+          increases the sale price by approximately $<span id="trap-effect-val"></span>k.
+          <br>Does funding the addition <em>cause</em> sale price to increase by that amount?
+        </div>
+        <div class="trap-option"><input type="radio" name="trap06" id="t06-a" value="a"><label for="t06-a">Yes, definitely &mdash; we controlled for confounders</label></div>
+        <div class="trap-option"><input type="radio" name="trap06" id="t06-b" value="b"><label for="t06-b">Probably &mdash; the model is well-specified</label></div>
+        <div class="trap-option"><input type="radio" name="trap06" id="t06-c" value="c"><label for="t06-c">No &mdash; the coefficient is biased</label></div>
+        <div class="trap-option"><input type="radio" name="trap06" id="t06-d" value="d"><label for="t06-d">Can't tell from regression alone</label></div>
+        <button class="trap-submit" onclick="checkTrap()">Submit</button>
+        <div id="trap-feedback-correct" class="trap-feedback correct">
+          Correct! Regression coefficients measure association, not causation. Even a perfectly specified model cannot establish causation from observational data alone without additional assumptions.
+        </div>
+        <div id="trap-feedback-incorrect" class="trap-feedback incorrect">
+          Not quite. Even with perfect specification, regression measures <em>association</em>. Unobserved confounders (desirability U) bias the coefficient. Let's see why.
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- REVEAL -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-reveal" style="display:none;">
+      <span class="beat-tag reveal">Reveal</span>
+      <h2>The Causal Structure</h2>
+
+      <p>The Zestimate (\(X_3\)) is computed <em>from</em> sale prices. When you control for it, you create <strong>collider bias</strong>. But even without \(X_3\), neighborhood desirability (\(U\)) confounds the living area&ndash;price relationship.</p>
+
+      <!-- DAG -->
+      <div class="dag-container">
+        <svg viewBox="0 0 680 320" width="680" height="320">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#7F8C8D"/>
+            </marker>
+            <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#C0392B"/>
+            </marker>
+            <marker id="arrowhead-gold" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#D4A017"/>
+            </marker>
+          </defs>
+
+          <!-- Nodes -->
+          <rect class="dag-node" x="30" y="120" width="130" height="44" rx="8"/>
+          <text class="dag-text" x="95" y="147" text-anchor="middle">Living Area (X1)</text>
+
+          <rect class="dag-node" x="270" y="120" width="130" height="44" rx="8"/>
+          <text class="dag-text" x="335" y="147" text-anchor="middle">Sale Price (Y)</text>
+
+          <rect class="dag-node-collider" x="510" y="120" width="140" height="44" rx="8"/>
+          <text class="dag-text" x="580" y="147" text-anchor="middle" fill="#C0392B">Zestimate (X3)</text>
+
+          <rect class="dag-node" x="150" y="20" width="160" height="44" rx="8"/>
+          <text class="dag-text" x="230" y="47" text-anchor="middle">Desirability (U)</text>
+
+          <rect class="dag-node" x="140" y="240" width="130" height="44" rx="8"/>
+          <text class="dag-text" x="205" y="267" text-anchor="middle">Area Size (X2)</text>
+
+          <!-- Arrows: U -> Y -->
+          <line class="dag-arrow" x1="280" y1="64" x2="320" y2="118" style="stroke:#D4A017; marker-end:url(#arrowhead-gold);"/>
+          <!-- U -> X1 -->
+          <line class="dag-arrow" x1="180" y1="64" x2="110" y2="118" style="stroke:#D4A017; marker-end:url(#arrowhead-gold);"/>
+          <!-- U -> X2 -->
+          <line class="dag-arrow" x1="210" y1="64" x2="205" y2="238" style="stroke:#D4A017; marker-end:url(#arrowhead-gold);"/>
+          <!-- X1 -> Y -->
+          <line class="dag-arrow" x1="162" y1="142" x2="268" y2="142"/>
+          <!-- X2 -> Y -->
+          <line class="dag-arrow" x1="260" y1="255" x2="310" y2="166"/>
+          <!-- Y -> X3 (reverse causality!) -->
+          <line class="dag-arrow-bad" x1="402" y1="142" x2="508" y2="142"/>
+          <text x="455" y="135" fill="#C0392B" font-size="11" font-family="Inter, sans-serif" font-weight="700">REVERSE</text>
+        </svg>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">
+          Gold arrows: confounding paths through U. Red arrow: reverse causality (Y causes X3).
+          Controlling for X3 (a collider) opens a backdoor path and biases all coefficients.
+        </p>
+      </div>
+
+      <!-- Coefficient distortion table -->
+      <h3 class="mt-2">Coefficient Distortion When Controlling for Zestimate</h3>
+      <table class="coeff-table" id="reveal-coeff-table">
+        <thead><tr><th>Variable</th><th>True Value</th><th>Without X3</th><th>With X3 (Biased)</th></tr></thead>
+        <tbody id="reveal-coeff-body"></tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Collider Bias:</strong> \(X_3\) is caused by \(Y\). Conditioning on a descendant of the outcome
+        opens spurious paths and distorts every coefficient in the regression.
+        The coefficient on \(\log(X_1)\) no longer estimates the causal effect.
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DESTROY -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-destroy" style="display:none;">
+      <span class="beat-tag destroy">Destroy</span>
+      <h2>Endogeneity in Action</h2>
+      <p>Use the slider to vary the strength of confounding (correlation between unobserved desirability \(U\) and \(X_1\)). Watch the gap between the OLS estimate and what a randomized experiment would find.</p>
+
+      <div class="slider-container">
+        <label>Endogeneity Strength (\(\rho_{U,X_1}\)) <span class="slider-value" id="endo-val">0.50</span></label>
+        <input type="range" id="endo-slider" min="0" max="20" value="10" step="1">
+      </div>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="destroy-plot" style="min-height:420px;"></div>
+        <div class="summary-panel">
+          <h3>OLS vs Experiment</h3>
+          <div class="param-row"><span class="param-label">True Causal Effect</span><span class="param-value truth" id="destroy-true">8.000</span></div>
+          <div class="param-row"><span class="param-label">OLS Estimate</span><span class="param-value ols" id="destroy-ols"></span></div>
+          <div class="param-row"><span class="param-label">Experimental Estimate</span><span class="param-value repair" id="destroy-exp"></span></div>
+          <div class="param-row"><span class="param-label">OLS Bias</span><span class="param-value error" id="destroy-bias"></span></div>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-top:1rem;">
+            When \(U\) affects both \(X_1\) and \(Y\), OLS confuses the effect of desirability with the effect of living area.
+            A randomized experiment (where \(X_1\) is assigned randomly) isolates the true causal effect.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- REPAIR -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-repair" style="display:none;">
+      <span class="beat-tag repair">Repair</span>
+      <h2>Instrumental Variables to the Rescue</h2>
+      <p>An <strong>instrument</strong> \(Z\) (e.g., mortgage rate variation) affects \(X_1\) but has no direct effect on \(Y\) except through \(X_1\).
+        The IV (two-stage least squares) estimator uses only the exogenous variation in \(X_1\) induced by \(Z\).</p>
+
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-ols" onclick="toggleEstimator('ols')">OLS (Biased)</button>
+        <button class="toggle-btn" id="btn-iv" onclick="toggleEstimator('iv')">IV / 2SLS</button>
+      </div>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="repair-plot" style="min-height:420px;"></div>
+        <div class="summary-panel">
+          <h3>Estimator Comparison</h3>
+          <div class="param-row"><span class="param-label">True Effect of log(X1)</span><span class="param-value truth">8.000</span></div>
+          <div class="param-row"><span class="param-label">OLS Estimate</span><span class="param-value ols" id="repair-ols"></span></div>
+          <div class="param-row"><span class="param-label">IV Estimate</span><span class="param-value repair" id="repair-iv"></span></div>
+          <div class="param-row"><span class="param-label">OLS Bias</span><span class="param-value error" id="repair-ols-bias"></span></div>
+          <div class="param-row"><span class="param-label">IV Bias</span><span class="param-value" id="repair-iv-bias"></span></div>
+          <div class="callout-green" style="margin-top:1rem;">
+            <strong>How IV works:</strong><br>
+            <strong>Stage 1:</strong> Regress \(\log(X_1)\) on \(Z\) to get predicted \(\widehat{\log(X_1)}\).<br>
+            <strong>Stage 2:</strong> Regress \(Y\) on \(\widehat{\log(X_1)}\).<br>
+            The Wald estimator: \(\hat{\beta}_{IV} = \frac{Cov(Y, Z)}{Cov(\log X_1, Z)}\)<br><br>
+            <strong>Requirements:</strong> (1) Relevance: \(Z\) must affect \(X_1\). (2) Exclusion: \(Z\) must not directly affect \(Y\).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- LIMIT -->
+    <!-- ============================================================ -->
+    <div class="beat-section" id="beat-limit" style="display:none;">
+      <span class="beat-tag limit">Limit</span>
+      <h2>The Weak Instrument Problem</h2>
+      <p>Slide the instrument strength. When \(Z\) barely affects \(X_1\), the IV estimator becomes wildly unstable with enormous confidence intervals.</p>
+
+      <div class="slider-container">
+        <label>Instrument Strength (\(\rho_{Z, X_1}\)) <span class="slider-value" id="iv-strength-val">0.50</span></label>
+        <input type="range" id="iv-strength-slider" min="0" max="20" value="10" step="1">
+      </div>
+
+      <div class="viz-container">
+        <div class="viz-plot" id="limit-plot" style="min-height:420px;"></div>
+        <div class="summary-panel">
+          <h3>IV Stability</h3>
+          <div class="param-row"><span class="param-label">Instrument Strength</span><span class="param-value" id="limit-strength"></span></div>
+          <div class="param-row"><span class="param-label">IV Estimate</span><span class="param-value repair" id="limit-iv-est"></span></div>
+          <div class="param-row"><span class="param-label">95% CI Width</span><span class="param-value" id="limit-ci-width"></span></div>
+          <div class="param-row"><span class="param-label">First-Stage F-stat</span><span class="param-value" id="limit-fstat"></span></div>
+          <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-top:1rem;">
+            Rule of thumb: first-stage F-statistic should exceed 10.
+            Below that threshold, IV estimates are biased toward OLS and confidence intervals are unreliable.
+            <strong>A bad instrument can be worse than no instrument at all.</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SIDEBAR -->
+    <!-- ============================================================ -->
+    <div class="sidebar-collapsible" id="sidebar">
+      <button class="sidebar-toggle" onclick="this.parentElement.classList.toggle('open')">
+        Real-World Case: Police and Crime &mdash; When OLS Gets the Sign Wrong
+      </button>
+      <div class="sidebar-content">
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7; margin-bottom:1rem;">
+          Naive OLS shows a <em>positive</em> correlation between police numbers and crime rates: cities with more police have more crime.
+          Does hiring police <em>cause</em> crime? Of course not &mdash; cities deploy more police <em>because</em> they have more crime (reverse causality).
+        </p>
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7; margin-bottom:1rem;">
+          Levitt (1997) used <strong>electoral cycles</strong> as an instrument: politicians hire more police before elections regardless of crime trends.
+          Using this exogenous variation, the IV estimate shows that more police <em>reduces</em> crime &mdash; a complete <strong>sign flip</strong>.
+        </p>
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7; margin-bottom:1rem;">
+          <strong>Mini-simulation:</strong> OLS vs IV with the endogeneity sign reversal.
+        </p>
+        <div class="viz-plot" id="sidebar-plot" style="min-height:340px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BRIDGE -->
+    <!-- ============================================================ -->
+    <div class="bridge-section">
+      <div class="bridge-text">"You've learned six ways regression fails. Now let's see what happens when they all attack at once."</div>
+      <a class="bridge-link" href="07_real_world.html">Next: The Real World &rarr;</a>
+    </div>
+  </div>
+
+<script>
+// ======================================================================
+// Seeded PRNG (Mulberry32)
+// ======================================================================
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeRnorm(rng) {
+  return function() {
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  };
+}
+
+const rng = mulberry32(42);
+const rnorm = makeRnorm(rng);
+
+// ======================================================================
+// OLS helpers
+// ======================================================================
+function mean(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+function cov(a, b) {
+  const ma = mean(a), mb = mean(b);
+  return a.reduce((s, ai, i) => s + (ai - ma) * (b[i] - mb), 0) / (a.length - 1);
+}
+function variance(a) { return cov(a, a); }
+
+function olsFit(X_mat, y) {
+  const n = X_mat.length, p = X_mat[0].length;
+  const XtX = Array.from({length: p}, () => new Float64Array(p));
+  const Xty = new Float64Array(p);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < p; j++) {
+      Xty[j] += X_mat[i][j] * y[i];
+      for (let k = j; k < p; k++) XtX[j][k] += X_mat[i][j] * X_mat[i][k];
+    }
+  }
+  for (let j = 0; j < p; j++) {
+    for (let k = 0; k < j; k++) XtX[j][k] = XtX[k][j];
+    XtX[j][j] += 1e-8;
+  }
+  const aug = XtX.map((row, i) => [...row, Xty[i]]);
+  for (let col = 0; col < p; col++) {
+    let maxRow = col;
+    for (let row = col + 1; row < p; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    }
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-12) continue;
+    const pivot = aug[col][col];
+    for (let j = col; j <= p; j++) aug[col][j] /= pivot;
+    for (let row = 0; row < p; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = col; j <= p; j++) aug[row][j] -= factor * aug[col][j];
+    }
+  }
+  return aug.map(row => row[p]);
+}
+
+function predict(X_mat, beta) {
+  return X_mat.map(row => row.reduce((s, x, j) => s + x * beta[j], 0));
+}
+
+function rSquared(yTrue, yPred) {
+  const m = mean(yTrue);
+  const ssTot = yTrue.reduce((s, y) => s + (y - m) ** 2, 0);
+  const ssRes = yTrue.reduce((s, y, i) => s + (y - yPred[i]) ** 2, 0);
+  return 1 - ssRes / ssTot;
+}
+
+// ======================================================================
+// DGP
+// ======================================================================
+const N = 500;
+let X1 = [], X2 = [], X3 = [], Y = [], U_arr = [], logX1 = [];
+
+function generateData() {
+  for (let i = 0; i < N; i++) {
+    const u = rnorm();
+    const eta1 = rnorm() * 0.3;
+    const eta2 = rnorm() * 0.3;
+    const eta3 = rnorm() * 0.3;
+    const x1 = 2.0 + 0.5 * u + eta1;
+    const x2 = 3 + 0.5 * u + eta2;
+    const eps = rnorm() * (0.5 * Math.abs(x1));
+    const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+    const x3 = 0.9 * y + eta3;
+    X1.push(x1); X2.push(x2); X3.push(x3); Y.push(y); U_arr.push(u);
+    logX1.push(Math.log(Math.max(x1, 0.01)));
+  }
+}
+generateData();
+
+// ======================================================================
+// Plotly config
+// ======================================================================
+const plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(26,29,35,1)',
+  font: { color: '#e8e8e8', family: 'Inter, sans-serif' },
+  margin: { t: 40, r: 20, b: 50, l: 60 },
+  xaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+  yaxis: { gridcolor: '#2a2d34', zerolinecolor: '#2a2d34' },
+};
+const plotlyConfig = { responsive: true, displayModeBar: false };
+
+// ======================================================================
+// Precompute all simulation results
+// ======================================================================
+
+// --- TRAP: "good" regression without X3 ---
+let trapBeta, trapR2, trapBetaWithX3, trapR2withX3;
+
+// --- DESTROY: endogeneity slider ---
+const endoSteps = 21; // 0.00 to 1.00
+const endoResults = []; // {rho, olsEst, expEst}
+
+// --- REPAIR: OLS vs IV ---
+let repairOLS, repairIV;
+
+// --- LIMIT: instrument strength ---
+const ivStrengthSteps = 21;
+const ivStrengthResults = [];
+
+function precomputeAll(callback) {
+  // TRAP regression
+  const Xmat = Array.from({length: N}, (_, i) => [1, logX1[i], X2[i], U_arr[i]]);
+  trapBeta = olsFit(Xmat, Y);
+  const predTrap = predict(Xmat, Y);
+  trapR2 = rSquared(Y, predict(Xmat, trapBeta));
+
+  // Regression WITH X3
+  const XmatX3 = Array.from({length: N}, (_, i) => [1, logX1[i], X2[i], U_arr[i], X3[i]]);
+  trapBetaWithX3 = olsFit(XmatX3, Y);
+  trapR2withX3 = rSquared(Y, predict(XmatX3, trapBetaWithX3));
+
+  setProgress(20);
+
+  // DESTROY: vary endogeneity strength
+  for (let step = 0; step <= 20; step++) {
+    const rho = step / 20; // 0 to 1
+    const rng2 = mulberry32(1000 + step);
+    const rnorm2 = makeRnorm(rng2);
+    const n = 500;
+    const xs = [], ys = [], us = [], lxs = [];
+    // Observational data with endogeneity = rho
+    for (let i = 0; i < n; i++) {
+      const u = rnorm2();
+      const eta1 = rnorm2() * 0.3;
+      const x1 = 2.0 + rho * u + eta1;
+      const x2 = 3 + 0.5 * u + rnorm2() * 0.3;
+      const eps = rnorm2() * (0.5 * Math.abs(x1));
+      const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+      xs.push(x1); ys.push(y); us.push(u); lxs.push(Math.log(Math.max(x1, 0.01)));
+    }
+    // OLS: Y on log(X1)
+    const Xobs = xs.map((_, i) => [1, lxs[i]]);
+    const betaObs = olsFit(Xobs, ys);
+
+    // "Experimental": assign X1 randomly (break U-X1 link)
+    const rng3 = mulberry32(2000 + step);
+    const rnorm3 = makeRnorm(rng3);
+    const xsExp = [], ysExp = [], lxsExp = [];
+    for (let i = 0; i < n; i++) {
+      const u = rnorm3();
+      const x1 = 2.0 + rnorm3() * 0.3; // no U influence
+      const x2 = 3 + 0.5 * u + rnorm3() * 0.3;
+      const eps = rnorm3() * (0.5 * Math.abs(x1));
+      const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+      xsExp.push(x1); ysExp.push(y); lxsExp.push(Math.log(Math.max(x1, 0.01)));
+    }
+    const XobsExp = xsExp.map((_, i) => [1, lxsExp[i]]);
+    const betaExp = olsFit(XobsExp, ysExp);
+
+    endoResults.push({ rho, olsEst: betaObs[1], expEst: betaExp[1] });
+  }
+
+  setProgress(50);
+
+  // REPAIR: IV estimation with default parameters
+  // Generate instrument Z (mortgage rate variation)
+  const rngIV = mulberry32(3000);
+  const rnormIV = makeRnorm(rngIV);
+  const Z = [], X1iv = [], Yiv = [], logX1iv = [];
+  const ivN = 500;
+  const ivStrength = 0.5;
+  for (let i = 0; i < ivN; i++) {
+    const u = rnormIV();
+    const z = rnormIV(); // instrument
+    const eta1 = rnormIV() * 0.3;
+    const x1 = 2.0 + 0.5 * u + ivStrength * z + eta1;
+    const x2 = 3 + 0.5 * u + rnormIV() * 0.3;
+    const eps = rnormIV() * (0.5 * Math.abs(x1));
+    const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+    Z.push(z); X1iv.push(x1); Yiv.push(y); logX1iv.push(Math.log(Math.max(x1, 0.01)));
+  }
+
+  // OLS
+  const XmatIV = logX1iv.map(lx => [1, lx]);
+  repairOLS = olsFit(XmatIV, Yiv)[1];
+
+  // IV: Wald estimator = Cov(Y,Z) / Cov(logX1, Z)
+  repairIV = cov(Yiv, Z) / cov(logX1iv, Z);
+
+  setProgress(70);
+
+  // LIMIT: vary instrument strength
+  for (let step = 0; step <= 20; step++) {
+    const strength = step / 20; // 0 to 1
+    const rngL = mulberry32(4000 + step);
+    const rnormL = makeRnorm(rngL);
+    const n = 500;
+    const zs = [], x1s = [], ys2 = [], lx1s = [];
+    for (let i = 0; i < n; i++) {
+      const u = rnormL();
+      const z = rnormL();
+      const eta1 = rnormL() * 0.3;
+      const x1 = 2.0 + 0.5 * u + strength * z + eta1;
+      const x2 = 3 + 0.5 * u + rnormL() * 0.3;
+      const eps = rnormL() * (0.5 * Math.abs(x1));
+      const y = 50 + 8 * Math.log(Math.max(x1, 0.01)) + 3 * x2 + 2 * u + eps;
+      zs.push(z); x1s.push(x1); ys2.push(y); lx1s.push(Math.log(Math.max(x1, 0.01)));
+    }
+
+    // Wald estimator
+    const covYZ = cov(ys2, zs);
+    const covXZ = cov(lx1s, zs);
+    const ivEst = Math.abs(covXZ) > 1e-10 ? covYZ / covXZ : NaN;
+
+    // Bootstrap CI (quick 200 reps)
+    const rngB = mulberry32(5000 + step);
+    const bootEstimates = [];
+    for (let b = 0; b < 200; b++) {
+      const idx = Array.from({length: n}, () => Math.floor(rngB() * n));
+      const bz = idx.map(i => zs[i]);
+      const by = idx.map(i => ys2[i]);
+      const blx = idx.map(i => lx1s[i]);
+      const bc = cov(blx, bz);
+      if (Math.abs(bc) > 1e-10) bootEstimates.push(cov(by, bz) / bc);
+    }
+    bootEstimates.sort((a, b) => a - b);
+    const ciLo = bootEstimates[Math.floor(bootEstimates.length * 0.025)] || ivEst - 50;
+    const ciHi = bootEstimates[Math.floor(bootEstimates.length * 0.975)] || ivEst + 50;
+    const ciWidth = ciHi - ciLo;
+
+    // First-stage F-stat: regress logX1 on Z
+    const Xfs = zs.map(z => [1, z]);
+    const betaFS = olsFit(Xfs, lx1s);
+    const predFS = predict(Xfs, betaFS);
+    const ssReg = predFS.reduce((s, p, i) => s + (p - mean(lx1s)) ** 2, 0);
+    const ssRes = lx1s.reduce((s, lx, i) => s + (lx - predFS[i]) ** 2, 0);
+    const fStat = (ssReg / 1) / (ssRes / (n - 2));
+
+    ivStrengthResults.push({ strength, ivEst, ciLo, ciHi, ciWidth, fStat });
+  }
+
+  setProgress(100);
+  setTimeout(() => {
+    document.getElementById('progress-overlay').style.display = 'none';
+    callback();
+  }, 200);
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = pct + '%';
+}
+
+// ======================================================================
+// TRAP rendering
+// ======================================================================
+function renderTrap() {
+  const names = ['Intercept', 'log(X1)', 'X2', 'U'];
+  let output = 'Dependent Variable: Sale Price (Y)\n';
+  output += '─'.repeat(48) + '\n';
+  output += 'Variable'.padEnd(16) + 'Coefficient'.padEnd(16) + 'Std. Error\n';
+  output += '─'.repeat(48) + '\n';
+  names.forEach((name, i) => {
+    output += name.padEnd(16) + trapBeta[i].toFixed(4).padEnd(16) + '(robust)\n';
+  });
+  output += '─'.repeat(48) + '\n';
+  output += `R\u00B2 = ${trapR2.toFixed(4)}    n = ${N}`;
+  document.getElementById('trap-regression-output').textContent = output;
+  document.getElementById('trap-r2').textContent = trapR2.toFixed(4);
+
+  // Effect of 50% increase in X1: beta * log(1.5) ≈ beta * 0.405
+  const effectK = (trapBeta[1] * Math.log(1.5)).toFixed(1);
+  document.getElementById('trap-effect-val').textContent = effectK;
+}
+
+function checkTrap() {
+  const selected = document.querySelector('input[name="trap06"]:checked');
+  if (!selected) return;
+  document.getElementById('trap-feedback-correct').style.display = 'none';
+  document.getElementById('trap-feedback-incorrect').style.display = 'none';
+  if (selected.value === 'd') {
+    document.getElementById('trap-feedback-correct').style.display = 'block';
+  } else {
+    document.getElementById('trap-feedback-incorrect').style.display = 'block';
+  }
+  // Show all subsequent sections
+  ['beat-reveal', 'beat-destroy', 'beat-repair', 'beat-limit'].forEach(id => {
+    document.getElementById(id).style.display = 'block';
+  });
+  renderReveal();
+  updateDestroy(10);
+  renderRepair('ols');
+  updateIVStrength(10);
+  renderSidebar();
+}
+
+// ======================================================================
+// REVEAL rendering
+// ======================================================================
+function renderReveal() {
+  const tbody = document.getElementById('reveal-coeff-body');
+  const names = ['Intercept', 'log(X1)', 'X2', 'U'];
+  const truth = [50, 8, 3, 2];
+
+  // Without X3
+  const withoutX3 = trapBeta;
+  // With X3
+  const withX3 = trapBetaWithX3;
+  const namesX3 = ['Intercept', 'log(X1)', 'X2', 'U', 'X3'];
+  const truthX3 = [50, 8, 3, 2, 0]; // X3 has no true causal role
+
+  namesX3.forEach((name, i) => {
+    const tr = document.createElement('tr');
+    const trueVal = truthX3[i];
+    const without = i < 4 ? withoutX3[i] : '&mdash;';
+    const withVal = withX3[i];
+    const biased = (i > 0 && i < 4) ? Math.abs(withVal - trueVal) > Math.abs((i < 4 ? withoutX3[i] : 0) - trueVal) : false;
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td class="text-gold">${trueVal.toFixed(3)}</td>
+      <td>${typeof without === 'number' ? without.toFixed(3) : without}</td>
+      <td class="${biased ? 'text-red' : ''}">${withVal.toFixed(3)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ======================================================================
+// DESTROY: endogeneity slider
+// ======================================================================
+function updateDestroy(sliderVal) {
+  const rho = sliderVal / 20;
+  document.getElementById('endo-val').textContent = rho.toFixed(2);
+
+  const r = endoResults[sliderVal];
+  document.getElementById('destroy-ols').textContent = r.olsEst.toFixed(3);
+  document.getElementById('destroy-exp').textContent = r.expEst.toFixed(3);
+  document.getElementById('destroy-bias').textContent = (r.olsEst - 8).toFixed(3);
+
+  // Plot: all endogeneity levels, highlight current
+  const rhos = endoResults.map(r => r.rho);
+  const olsLine = endoResults.map(r => r.olsEst);
+  const expLine = endoResults.map(r => r.expEst);
+
+  Plotly.newPlot('destroy-plot', [
+    { x: rhos, y: olsLine, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#2E5EA8', width: 2.5 }, marker: { size: 5 }, name: 'OLS Estimate' },
+    { x: rhos, y: expLine, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#27AE60', width: 2.5 }, marker: { size: 5 }, name: 'Experimental Estimate' },
+    { x: [0, 1], y: [8, 8], mode: 'lines', type: 'scatter',
+      line: { color: '#D4A017', width: 2, dash: 'dash' }, name: 'True Effect (8.0)' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'OLS vs Experimental Estimate by Endogeneity Strength', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'Endogeneity Strength (\u03C1)' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Estimate of \u03B2(log X1)' },
+    legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+    shapes: [{
+      type: 'line', x0: rho, x1: rho, y0: 0, y1: 1, yref: 'paper',
+      line: { color: '#D4A017', width: 2, dash: 'dot' }
+    }]
+  }, plotlyConfig);
+}
+
+document.getElementById('endo-slider').addEventListener('input', function() {
+  updateDestroy(parseInt(this.value));
+});
+
+// ======================================================================
+// REPAIR: OLS vs IV toggle
+// ======================================================================
+function renderRepair(mode) {
+  document.getElementById('btn-ols').classList.toggle('active', mode === 'ols');
+  document.getElementById('btn-iv').classList.toggle('active', mode === 'iv');
+
+  document.getElementById('repair-ols').textContent = repairOLS.toFixed(3);
+  document.getElementById('repair-iv').textContent = repairIV.toFixed(3);
+  document.getElementById('repair-ols-bias').textContent = (repairOLS - 8).toFixed(3);
+  const ivBiasEl = document.getElementById('repair-iv-bias');
+  ivBiasEl.textContent = (repairIV - 8).toFixed(3);
+  ivBiasEl.className = 'param-value ' + (Math.abs(repairIV - 8) < Math.abs(repairOLS - 8) ? 'repair' : 'error');
+
+  // Visual: bar comparison
+  const estimates = ['OLS', 'IV (2SLS)', 'Truth'];
+  const values = [repairOLS, repairIV, 8];
+  const colors = ['#2E5EA8', '#27AE60', '#D4A017'];
+
+  const highlight = mode === 'ols' ? 0 : 1;
+
+  Plotly.newPlot('repair-plot', [{
+    x: estimates,
+    y: values,
+    type: 'bar',
+    marker: {
+      color: colors.map((c, i) => i === highlight ? c : c + '88'),
+      line: { color: colors, width: 2 }
+    },
+    text: values.map(v => v.toFixed(3)),
+    textposition: 'outside',
+    textfont: { color: '#e8e8e8', size: 14, family: 'Fira Code, monospace' }
+  }], {
+    ...plotlyLayout,
+    title: { text: 'Estimated Effect of log(X1) on Y', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: '' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Coefficient Estimate', range: [0, Math.max(repairOLS, repairIV, 8) * 1.3] },
+    showlegend: false,
+  }, plotlyConfig);
+}
+
+function toggleEstimator(mode) { renderRepair(mode); }
+
+// ======================================================================
+// LIMIT: Instrument strength slider
+// ======================================================================
+function updateIVStrength(sliderVal) {
+  const r = ivStrengthResults[sliderVal];
+  document.getElementById('iv-strength-val').textContent = r.strength.toFixed(2);
+  document.getElementById('limit-strength').textContent = r.strength.toFixed(2);
+  document.getElementById('limit-iv-est').textContent = isNaN(r.ivEst) ? 'Undefined' : r.ivEst.toFixed(3);
+  document.getElementById('limit-ci-width').textContent = r.ciWidth.toFixed(1);
+  const fEl = document.getElementById('limit-fstat');
+  fEl.textContent = r.fStat.toFixed(1);
+  fEl.className = 'param-value ' + (r.fStat > 10 ? 'repair' : 'error');
+
+  // Plot: IV estimate + CI across all strengths
+  const strengths = ivStrengthResults.map(r => r.strength);
+  const ivEsts = ivStrengthResults.map(r => isNaN(r.ivEst) ? null : Math.max(-50, Math.min(50, r.ivEst)));
+  const ciLos = ivStrengthResults.map(r => Math.max(-50, r.ciLo));
+  const ciHis = ivStrengthResults.map(r => Math.min(50, r.ciHi));
+
+  Plotly.newPlot('limit-plot', [
+    { x: strengths, y: ivEsts, mode: 'lines+markers', type: 'scatter',
+      line: { color: '#27AE60', width: 2.5 }, marker: { size: 6 }, name: 'IV Estimate',
+      error_y: {
+        type: 'data', symmetric: false,
+        array: ivStrengthResults.map((r, i) => Math.min(50, r.ciHi) - (ivEsts[i] || 0)),
+        arrayminus: ivStrengthResults.map((r, i) => (ivEsts[i] || 0) - Math.max(-50, r.ciLo)),
+        color: 'rgba(39,174,96,0.3)', thickness: 1.5, width: 4
+      }
+    },
+    { x: [0, 1], y: [8, 8], mode: 'lines', type: 'scatter',
+      line: { color: '#D4A017', width: 2, dash: 'dash' }, name: 'True Effect (8.0)' },
+  ], {
+    ...plotlyLayout,
+    title: { text: 'IV Estimate Stability by Instrument Strength', font: { size: 14, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: 'Instrument Strength' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'IV Estimate', range: [-30, 40] },
+    legend: { x: 0.6, y: 0.98, bgcolor: 'rgba(0,0,0,0.5)' },
+    showlegend: true,
+    shapes: [
+      { type: 'line', x0: r.strength, x1: r.strength, y0: 0, y1: 1, yref: 'paper',
+        line: { color: '#D4A017', width: 2, dash: 'dot' } },
+      // F > 10 threshold region
+      { type: 'rect', x0: 0, x1: 1, y0: -30, y1: 40,
+        fillcolor: 'rgba(0,0,0,0)', line: { width: 0 } }
+    ],
+    annotations: [{
+      x: 0.5, y: 38, text: 'F > 10 rule of thumb', showarrow: false,
+      font: { color: '#7F8C8D', size: 11 }
+    }]
+  }, plotlyConfig);
+}
+
+document.getElementById('iv-strength-slider').addEventListener('input', function() {
+  updateIVStrength(parseInt(this.value));
+});
+
+// ======================================================================
+// SIDEBAR: Police and crime
+// ======================================================================
+function renderSidebar() {
+  // Mini-sim: OLS positive, IV negative
+  const rngP = mulberry32(7000);
+  const rnormP = makeRnorm(rngP);
+  const cities = 200;
+  const crime = [], police = [], election = [];
+  for (let i = 0; i < cities; i++) {
+    const baseCrime = rnormP() * 10 + 50; // base crime level
+    const elec = rnormP(); // electoral cycle instrument
+    const p = 20 + 0.3 * baseCrime + 2 * elec + rnormP() * 3; // more police where more crime
+    const c = baseCrime - 1.5 * (p - 20) / 10 + rnormP() * 5; // true: more police reduces crime
+    crime.push(c); police.push(p); election.push(elec);
+  }
+
+  // OLS: crime on police
+  const Xols = police.map(p => [1, p]);
+  const betaOLS = olsFit(Xols, crime);
+
+  // IV: Wald
+  const betaIV = cov(crime, election) / cov(police, election);
+
+  Plotly.newPlot('sidebar-plot', [
+    { x: ['OLS (Naive)', 'IV (Electoral Cycle)', 'Truth'],
+      y: [betaOLS[1], betaIV, -0.15],
+      type: 'bar',
+      marker: { color: ['#2E5EA8', '#27AE60', '#D4A017'] },
+      text: [betaOLS[1].toFixed(3), betaIV.toFixed(3), '-0.150'],
+      textposition: 'outside',
+      textfont: { color: '#e8e8e8', size: 13, family: 'Fira Code, monospace' }
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Effect of Police on Crime: Sign Flip', font: { size: 13, color: '#e8e8e8' } },
+    xaxis: { ...plotlyLayout.xaxis, title: '' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Estimated Coefficient' },
+    showlegend: false,
+    shapes: [{
+      type: 'line', x0: -0.5, x1: 2.5, y0: 0, y1: 0,
+      line: { color: '#7F8C8D', width: 1, dash: 'dot' }
+    }],
+    annotations: [{
+      x: 0, y: betaOLS[1] + 0.02, text: 'POSITIVE (wrong!)', showarrow: false,
+      font: { color: '#C0392B', size: 11, weight: 700 }
+    }, {
+      x: 1, y: betaIV - 0.02, text: 'NEGATIVE (correct)', showarrow: false,
+      font: { color: '#27AE60', size: 11, weight: 700 }
+    }]
+  }, plotlyConfig);
+}
+
+// ======================================================================
+// Boot
+// ======================================================================
+precomputeAll(function() {
+  renderTrap();
+});
+</script>
+</body>
+</html>
