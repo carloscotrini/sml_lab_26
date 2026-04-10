@@ -783,12 +783,46 @@ Weak instruments ($\Cov(Z, X) \approx 0$) cause the IV estimator to be highly va
 When the first-stage $F$-statistic is below 10, IV confidence intervals are extremely wide and the estimator may be more biased than OLS.
 \end{warningbox}
 
+\begin{numermark}[title={Education, Wages, and Distance to College}]
+We want the causal effect of education ($X$) on wages ($Y$, in \$K). Problem: ability ($U$) boosts both. We use distance to college ($Z$) as an instrument.
+
+\begin{center}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+Person & $Z$ (distance) & $U$ (ability) & $X = 2+Z+U$ & $Y = 10+3X+U$ \\
+\midrule
+A & 1 & 1 & 4 & 23 \\
+B & 2 & $-2$ & 2 & 14 \\
+C & 3 & 0 & 5 & 25 \\
+D & 4 & 2 & 8 & 36 \\
+E & 5 & $-1$ & 6 & 27 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+True causal effect: $\beta = 3$. Verify: $\Cov(Z, U) = 0$ by construction.
+
+\textbf{OLS} (biased): slope $= \Cov(X,Y)/\Var(X) = 14/4 = 3.5$. Ability inflates the estimate by $+0.5$.
+
+\textbf{IV}: $\biv = \Cov(Z,Y)/\Cov(Z,X) = 6/2 = 3.0$. Exactly the true $\beta$!
+
+The instrument strips out ability contamination by using only the variation in education that comes from geography, not brains.
+\end{numermark}
+
+\begin{vizspec}[title={``The Backdoor and the Detour'' --- IV Strength Simulator}]
+\textbf{Try it:} Three linked panels show the first stage ($Z$ vs $X$), reduced form ($Z$ vs $Y$), and structural ($X$ vs $Y$) relationships. The structural panel overlays OLS (blue, biased), truth (gold), and IV (green) lines.
+
+\textbf{Key slider:} Instrument strength (0.01 to 0.95). With a strong instrument, IV hugs the truth. Drag toward zero: the first-stage scatter becomes noise, the $F$-statistic drops below 10 (turns red), and the IV sampling distribution \emph{explodes}. A weak instrument is worse than no instrument at all.
+\end{vizspec}
+
 % ============================================================
 % 9. CONFRONTING REAL DATA (NB 7)
 % ============================================================
 \section{The Real World: When All Pathologies Strike at Once}\label{sec:realworld}
 
 \subsection{The Lalonde Dataset}
+
+The previous sections studied one pathology at a time in a clean simulated world. Real data is not so polite---every pathology arrives simultaneously, and none announces itself.
 
 Notebook~7 transitions from simulated data to the Lalonde (1986) dataset, a benchmark in causal inference.
 The question: does a job training programme increase earnings?
@@ -832,6 +866,12 @@ This is why the observational and experimental estimates disagree.
 Regression works brilliantly when the world provides a natural experiment.
 The \textbf{regression discontinuity design} (RDD) exploits a sharp threshold to identify causal effects.
 
+\begin{toystory}[title={The Kid Who Scored 69 vs.\ The Kid Who Scored 70}]
+Your school says anyone who scores 70 or above on the final exam gets into the honours class next year. The kid who scored 70 and the kid who scored 69 are basically the same student---maybe one got lucky on one question, maybe the other had a headache. They studied the same amount, have the same ability, live in the same neighbourhoods. But one gets the honours class and the other doesn't. If you come back a year later and the 70-kid is doing noticeably better, that gap can't be explained by the kids being different---they were virtually identical. The jump in outcomes right at the cutoff \emph{is} the real effect of the honours class itself.
+
+This is exactly what the regression discontinuity design measures: the difference in outcomes just above versus just below the cutoff, where people are essentially identical, gives you the causal effect without a randomised experiment.
+\end{toystory}
+
 \begin{definition}[Sharp RDD]
 Suppose treatment is assigned deterministically by a \emph{running variable} $R$ at a cutoff~$c$:
 \[
@@ -872,6 +912,37 @@ The RDD does not require controlling for confounders.
 The design itself ensures comparability near the cutoff.
 When the autopsy report is run on the RDD estimate, all indicators are green: the regression is trustworthy because the \emph{design} is trustworthy.
 \end{repairbox}
+
+\begin{numermark}[title={Scholarship Scores and Outcomes}]
+Students who score $\geq 50$ on an entrance exam receive a scholarship. Data generated from $Y = 60 + 0.5R + 5D$ (true treatment effect $\tau = 5$):
+
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Student & $R$ (score) & Scholarship? & $Y$ (outcome) \\
+\midrule
+1 & 43 & No & 81.5 \\
+2 & 45 & No & 82.5 \\
+3 & 47 & No & 83.5 \\
+4 & 49 & No & 84.5 \\
+5 & 51 & Yes & 90.5 \\
+6 & 53 & Yes & 91.5 \\
+7 & 55 & Yes & 92.5 \\
+8 & 57 & Yes & 93.5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Na\"ive above-vs-below comparison: $92.0 - 83.0 = 9.0$. But this includes the baseline trend (higher-scoring students do better anyway).
+
+Fit lines on each side and extrapolate to the cutoff ($R = 50$): below gives $\hat{Y}(50) = 85.0$, above gives $\hat{Y}(50) = 90.0$. The RD estimate: $\hat\tau = 90.0 - 85.0 = 5.0$---exactly the true treatment effect.
+\end{numermark}
+
+\begin{vizspec}[title={``The Cliff'' --- Bandwidth Explorer}]
+\textbf{Try it:} A scatterplot of $Y$ vs.\ test score $R$ with a vertical cutoff line. Two local regression lines meet at the cutoff; the gap is the treatment effect. A bandwidth slider (2 to 50) controls how many points are used: narrow bandwidth shows a clean jump with wide CI, wide bandwidth smooths the jump away.
+
+\textbf{Break it:} Drag the cutoff away from the true value (50) and watch the ``treatment effect'' vanish---a built-in falsification test.
+\end{vizspec}
 
 % ============================================================
 % 11. THE FRISCH-WAUGH-LOVELL THEOREM (NB 1.5)
