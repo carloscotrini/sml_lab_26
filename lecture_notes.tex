@@ -954,6 +954,12 @@ Fit lines on each side and extrapolate to the cutoff ($R = 50$): below gives $\h
 When we say ``the coefficient on $X_1$, controlling for $X_2$,'' we do \emph{not} mean ``holding $X_2$ constant.''
 We mean: the coefficient from regressing the part of $Y$ unexplained by $X_2$ on the part of $X_1$ unexplained by $X_2$.
 
+\begin{toystory}[title={Is It the Coaching or Just the New Shoes?}]
+Your friend claims her new running coach made her faster, but she also bought expensive new running shoes at the same time. How do you figure out what the coach actually contributed? Step one: figure out how much of her speed improvement the shoes alone would predict, and subtract that out---what's left is the part of her speed the shoes \emph{can't} explain. Step two: figure out how much of the coaching hours the shoes can predict (maybe the coach recommended the shoes, so they're connected), and subtract that out too---what's left is the coaching variation that has nothing to do with shoes. Now compare those two leftovers: the unexplained speed against the unexplained coaching. \emph{That} remaining relationship is the coach's true contribution, cleaned of the shoe effect.
+
+This is exactly what the Frisch--Waugh--Lovell theorem proves: ``controlling for'' shoes means removing shoes' influence from \emph{both} the outcome (speed) and the variable of interest (coaching), then running the regression on the residuals---the double-residualisation gives you the same coefficient you'd get in the full multiple regression.
+\end{toystory}
+
 \begin{theorem}[Frisch--Waugh--Lovell]\label{thm:fwl}
 Consider the regression $Y = X_1 \beta_1 + X_2 \beta_2 + \varepsilon$.
 Let $M_2 = I - X_2(X_2^\top X_2)^{-1}X_2^\top$ be the residual-maker matrix that projects orthogonally to the column space of~$X_2$.
@@ -993,10 +999,46 @@ The partial regression plot (also called an added-variable plot) visualises this
 The slope of this scatterplot \emph{is} $\bhat_1$ from the full multiple regression.
 \end{keyinsight}
 
+\begin{numermark}[title={Exercise, Sleep, and Mood}]
+We want the effect of exercise ($X_1$, hours) on mood ($Y$, score 1--20), controlling for sleep ($X_2$, hours).
+
+\begin{center}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+Person & $X_1$ (exercise) & $X_2$ (sleep) & $Y$ (mood) \\
+\midrule
+A & 1 & 2 & 3 \\
+B & 2 & 4 & 7 \\
+C & 3 & 6 & 10 \\
+D & 5 & 8 & 18 \\
+E & 4 & 10 & 12 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Step 1:} Regress $Y$ on $X_2$: slope $= 1.45$. Residuals $\tilde{Y} = (-1.2,\; -0.1,\; 0.0,\; +5.1,\; -3.8)$.
+
+\textbf{Step 2:} Regress $X_1$ on $X_2$: slope $= 0.45$. Residuals $\tilde{X}_1 = (-0.2,\; -0.1,\; 0.0,\; +1.1,\; -0.8)$.
+
+\textbf{Step 3:} Regress $\tilde{Y}$ on $\tilde{X}_1$: slope $= 8.9 / 1.9 = \mathbf{4.684}$.
+
+\textbf{Full multiple regression} ($Y$ on $X_1$ and $X_2$): coefficient on $X_1 = \mathbf{4.684}$.
+
+They match---not approximately, but to every decimal place. ``Controlling for sleep'' literally means: remove everything sleep can explain from \emph{both} mood and exercise, then see what's left.
+\end{numermark}
+
+\begin{vizspec}[title={``The Double Residual'' --- FWL Animator}]
+\textbf{Try it:} Three panels. Panel~1: a 3D scatter of $(X_1, X_2, Y)$ with the regression plane. Panel~2: two mini-scatters showing the residualisation (residual bars appear as regressions are fit). Panel~3: the partial regression plot---residuals vs.\ residuals.
+
+\textbf{The aha moment:} Click ``Animate.'' Watch regression lines fit in Panel~2, residual bars appear, then the residual dots ``fly'' into Panel~3 and reassemble into a new scatter. The slope reads $4.684$. Check the multiple regression output: $\beta_1 = 4.684$. Exact match.
+\end{vizspec}
+
 % ============================================================
 % 12. DIAGNOSTICS TOOLKIT SUMMARY
 % ============================================================
 \section{Diagnostic Toolkit Summary}\label{sec:diagnostics}
+
+Think of these diagnostics as the instrument panel in a cockpit. Each gauge checks one specific condition---but all gauges reading green does not mean the flight plan is correct.
 
 The following diagnostics are used across all notebooks:
 
