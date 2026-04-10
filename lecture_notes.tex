@@ -45,6 +45,14 @@
 \newtcolorbox{repairbox}[1][]{colback=repairgreen!5, colframe=repairgreen!80!black,
   fonttitle=\bfseries, title={The Repair}, breakable, #1}
 
+% --- New pedagogical boxes ---
+\newtcolorbox{toystory}[1][]{colback=truthgold!5, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Toy Story}, breakable, #1}
+\newtcolorbox{numermark}[1][]{colback=olsblue!3, colframe=olsblue!50!black,
+  fonttitle=\bfseries, title={Numerical Example}, breakable, #1}
+\newtcolorbox{vizspec}[1][]{colback=repairgreen!3, colframe=repairgreen!50!black,
+  fonttitle=\bfseries, title={Visualization}, breakable, #1}
+
 % --- Header / Footer ---
 \pagestyle{fancy}
 \fancyhf{}
@@ -116,6 +124,8 @@ These lecture notes formalise the mathematical foundations behind the eight core
 Each section corresponds to one interactive notebook in the accompanying lab series.
 The notes are designed to be self-contained: every claim is stated as a formal result and, in the lab, confirmed by Monte Carlo simulation.
 
+Each section follows a consistent pattern: we begin with an everyday story that makes the problem visceral, then state the rigorous mathematics, then work through a tiny numerical example you can verify on paper, and finally describe an interactive visualization that lets you play with the result.
+
 \subsection{The NovaMart Scenario}
 
 Throughout the course, we work with a single fictional company---\textbf{NovaMart}, an online retailer.
@@ -146,6 +156,12 @@ The data are generated according to the following structural equations:
   X_3 &= \alpha \, Y + \eta_3, \quad \eta_3 \sim \mathcal{N}(0,\sigma_\eta^2). \label{eq:X3}
 \end{align}
 \end{definition}
+
+If these structural equations look intimidating, don't worry. Each section ahead will isolate one piece and make it tangible through stories and examples before we prove anything.
+
+\begin{remark}[Probability limit]
+Throughout these notes, $\plim$ denotes the \emph{probability limit}---the value an estimator converges to as the sample size grows to infinity. Think of it as ``what the estimator settles down to with unlimited data.''
+\end{remark}
 
 The default parameter values are:
 \begin{center}
@@ -197,6 +213,12 @@ Each notebook isolates and examines one pathology while the others remain presen
 
 \subsection{Setup}
 
+\begin{toystory}[title={The Sunscreen Murder Mystery}]
+Every summer, ice cream sales go up and so do drowning deaths. If you just look at the data, it seems like ice cream \emph{causes} drownings. But you forgot about the hot weather---when it's hot, people buy more ice cream AND swim more. The heat is doing the real work behind the scenes, but because you ignored it, its effect got smeared onto ice cream, making ice cream look dangerous.
+
+This is exactly what the OVB formula captures: the bias on ice cream's coefficient equals the true effect of temperature on drownings times the correlation between temperature and ice cream sales. Leave out a variable that matters and is correlated with what you included, and its ghost haunts your estimate.
+\end{toystory}
+
 Suppose the true model is
 \begin{equation}\label{eq:long}
   Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon, \qquad \E[\varepsilon \mid X_1, X_2] = 0,
@@ -233,6 +255,48 @@ Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, 
 \]
 \end{proof}
 
+\begin{numermark}[title={Studying, Sleeping, and Exam Scores}]
+Five students have data on hours studied ($X_1$), hours slept ($X_2$), and exam scores ($Y$). The true model is $Y = 60 + 5X_1 + 3X_2$ (no noise).
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Student & $X_1$ (studied) & $X_2$ (slept) & $Y$ (score) \\
+\midrule
+A & 1 & 8 & 89 \\
+B & 2 & 6 & 88 \\
+C & 3 & 7 & 96 \\
+D & 4 & 4 & 92 \\
+E & 5 & 5 & 100 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Full regression} (include both $X_1$ and $X_2$): recovers $\bhat_1 = 5$, $\bhat_2 = 3$.
+
+\textbf{Short regression} (omit sleep): gives $\bhat_1^{\text{short}} = 2.6$.
+
+\textbf{Auxiliary regression} ($X_2$ on $X_1$): slope $\delta_1 = -0.8$ (each extra hour of study costs 0.8 hours of sleep).
+
+\textbf{Verify the OVB formula:}
+\[
+  \bhat_1^{\text{short}} = \beta_1 + \beta_2 \cdot \delta_1 = 5 + 3 \times (-0.8) = 5 - 2.4 = 2.6. \quad \checkmark
+\]
+
+Omitting sleep shrank the study coefficient from 5 to 2.6---each hour of study costs sleep, and sleep helps scores, so some of study's real effect gets ``charged'' to the missing sleep variable.
+\end{numermark}
+
+\begin{vizspec}[title={``The Ghost in the Regression'' --- Interactive OVB Explorer}]
+\textbf{Try it:} A scatterplot of $X_1$ vs.\ $Y$ shows two regression lines---the full model (gold) and the short model (red). Toggle a switch to include/exclude $X_2$ and watch the slope shift in real time.
+
+\textbf{Key interactions:}
+\begin{itemize}[nosep]
+  \item \emph{Correlation slider} ($-0.95$ to $+0.95$): controls how strongly $X_1$ and $X_2$ are related. At zero correlation, both lines coincide---omitting an uncorrelated variable causes no bias.
+  \item \emph{Effect-size slider} ($\beta_2$ from $-5$ to $+10$): when the omitted variable doesn't matter ($\beta_2 = 0$), there's no bias regardless of correlation.
+\end{itemize}
+The formula panel updates live, showing how $\beta_2 \cdot \delta_1$ produces the exact gap you see.
+\end{vizspec}
+
 \begin{keyinsight}
 The bias has a \emph{sign} and a \emph{direction}.
 In the NovaMart DGP with default parameters, $\beta_2 = 3$ and $\delta_1 > 0$ (because both $X_1$ and $X_2$ are driven by $U$), so the bias is \emph{positive}: the short regression overestimates the effect of ad spend.
@@ -265,6 +329,12 @@ Because $X_3$ is caused by $Y$, conditioning on $X_3$ opens a collider path and 
 
 \subsection{The Classical Variance Formula}
 
+\begin{toystory}[title={The Bathroom Scale That Lies About Its Own Reliability}]
+You have a bathroom scale that gives the right weight \emph{on average}---step on it 100 times and the average is your true weight. But when you weigh a kitten, the readings barely wobble. When you weigh a suitcase full of books, the readings scatter all over the place. If you pretend the wobble is the same for everything, you'll think you know the suitcase's weight much more precisely than you actually do. The scale isn't biased---it's centered on the truth---but your confidence about ``how close am I?'' is completely wrong.
+
+This is what the sandwich variance formula fixes: when the noise differs across observations, the simple formula for uncertainty is wrong, and you need the corrected version to get honest error bars.
+\end{toystory}
+
 Under the standard linear model $Y = X\beta + \varepsilon$ with $\E[\varepsilon\varepsilon^\top \mid X] = \sigma^2 I_n$, the variance of the OLS estimator is
 \begin{equation}\label{eq:var-homo}
   \Var(\bols \mid X) = \sigma^2 (X^\top X)^{-1}.
@@ -283,6 +353,34 @@ When $\E[\varepsilon\varepsilon^\top \mid X] = \Omega \neq \sigma^2 I_n$, the OL
 This is the \textbf{sandwich formula}.
 The classical formula~\eqref{eq:var-homo} underestimates or overestimates the true variance, depending on the correlation structure between $X$ and the error variances.
 \end{theorem}
+
+\begin{numermark}[title={Five Companies, One Funnel}]
+We predict revenue ($Y$, in \$K) from ad spend ($X$, in \$K) for five companies:
+
+\begin{center}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Company & $X$ & $Y$ & $\hat{Y} = 2.2X$ & Residual $\hat\varepsilon$ & $\hat\varepsilon^2$ \\
+\midrule
+A & 1 & 3 & 2.2 & $+0.8$ & 0.64 \\
+B & 2 & 5 & 4.4 & $+0.6$ & 0.36 \\
+C & 3 & 7 & 6.6 & $+0.4$ & 0.16 \\
+D & 4 & 3 & 8.8 & $-5.8$ & 33.64 \\
+E & 5 & 15 & 11.0 & $+4.0$ & 16.00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Low-$X$ companies (A, B) have average $\hat\varepsilon^2 = 0.50$. High-$X$ companies (D, E) have average $\hat\varepsilon^2 = 24.82$---\textbf{fifty times larger}. The classical SE of $1.30$ treats all five companies as equally informative. But the big spenders are wildly noisier, so the classical confidence interval is a lie.
+\end{numermark}
+
+\begin{vizspec}[title={``The Funnel of False Confidence'' --- Coverage Simulator}]
+\textbf{Try it:} A scatterplot shows data fanning out (the funnel). Two confidence bands overlay the regression line: classical (constant width, blue) and robust (varying width, green).
+
+\textbf{Key interaction:} Click ``Draw 100 new samples.'' Watch 100 confidence intervals cascade in, coloring green if they contain the truth and red if they miss. With heteroscedasticity, classical CIs achieve only $\approx$82\% coverage while robust CIs hit the promised 95\%.
+
+\textbf{Break it:} Set sample size to $n = 20$ and watch the robust SEs \emph{perform worse} than classical---the repair has a minimum sample-size cost.
+\end{vizspec}
 
 \subsection{Consequences for Inference}
 
@@ -324,6 +422,12 @@ The crossover point depends on the severity of heteroscedasticity, but as a roug
 \section{Why Your Significance Is Wrong: Effect Size and Power}\label{sec:significance}
 
 \subsection{The Anatomy of a $t$-Statistic}
+
+\begin{toystory}[title={The Coin That's Almost Fair}]
+Imagine a coin that lands heads 50.1\% of the time instead of exactly 50\%. Flip it 20 times and you'd never notice---it looks perfectly fair. Flip it 10 million times and you can prove beyond any doubt that it's rigged. But so what? It's still basically fair---no casino would care, no bet would change. You ``detected'' a difference so tiny it means nothing in real life, just because you had an ocean of data. Statistical significance told you ``it's not exactly 50\%,'' but it never told you ``and you should care.''
+
+This is exactly what the $t$-statistic scaling with $\sqrt{n}$ shows: for any nonzero effect, no matter how trivial, collecting enough data will eventually make it ``statistically significant''---which is why significance is not the same as importance.
+\end{toystory}
 
 The $t$-statistic for testing $H_0: \beta_j = 0$ is
 \begin{equation}\label{eq:tstat}
@@ -372,12 +476,42 @@ For genome-wide association studies ($m \approx 10^6$), the corrected threshold 
 Always report effect sizes and confidence intervals alongside $p$-values.
 \end{repairbox}
 
+\begin{numermark}[title={The Keyboard That Saves 0.1 Seconds}]
+A new keyboard layout saves an average of $\beta = 0.1$ seconds per email ($\sigma = 2$ seconds). Is this ``significant''?
+
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Sample size $n$ & $\se = \sigma/\sqrt{n}$ & $t = 0.1/\se$ & Significant? \\
+\midrule
+5 & 0.894 & 0.11 & No \\
+50 & 0.283 & 0.35 & No \\
+5{,}000 & 0.028 & 3.54 & Yes ($p < 0.001$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The effect never changed---it was always 0.1 seconds. Only the sample size grew. With 5{,}000 emails, saving one tenth of a second becomes ``highly significant'' ($p < 0.001$). Statistical significance tells you ``the effect is not zero.'' It says nothing about whether the effect matters.
+\end{numermark}
+
+\begin{vizspec}[title={``The Magnifying Glass That Can't Measure'' --- Sample Size Simulator}]
+\textbf{Try it:} A slider controls sample size $n$ (50 to 100{,}000). Three linked panels show the $|t|$-statistic rising, the $p$-value plummeting, and the confidence interval narrowing---all while the effect size stays fixed at a tiny value.
+
+\textbf{The aha moment:} The dashboard goes from gray ``not significant'' to screaming red ``HIGHLY SIGNIFICANT ($p < 0.001$)'' while the actual effect label never changes. Significance is a property of $n$, not of importance.
+\end{vizspec}
+
 % ============================================================
 % 6. SPECIFICATION ERROR (NB 4)
 % ============================================================
 \section{Why Your Model Is Wrong: Specification Error}\label{sec:specification}
 
 \subsection{The Problem of Functional Form}
+
+\begin{toystory}[title={The Straight Ruler on a Winding Road}]
+You're driving up a mountain on a road that curves back and forth. A friend asks you to describe the road, but you only have a straight ruler. You lay it on the map across the section you've driven so far, and it gives a decent summary---``on average, the road goes uphill at about this angle.'' But then you extend that straight line past where you've actually been, and it says you should be 500 feet in the air by now, flying off a cliff. The ruler was the \emph{best} straight summary of the curvy road you had data for, but using it to predict beyond that range was a disaster.
+
+This is exactly what the linear projection under misspecification gives you: OLS finds the best-fitting straight line through curved reality, which can look reasonable in-sample but diverges catastrophically when you extrapolate.
+\end{toystory}
 
 Suppose the true relationship is $Y = f(X) + \varepsilon$ for some nonlinear function $f$, but we fit the linear model $Y = X\beta + \varepsilon$.
 
@@ -411,12 +545,49 @@ Extrapolation accuracy improves dramatically.
 However, even the log model is a local approximation---at extreme extrapolation, all parametric models eventually fail.
 \end{repairbox}
 
+\begin{numermark}[title={Square Plots and Fence Lengths}]
+The true relationship between the area of a square plot ($X$, in m$^2$) and its side length ($Y = \sqrt{X}$, in m) is nonlinear. We fit a straight line to five plots:
+
+\begin{center}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Plot & $X$ (area) & True $Y = \sqrt{X}$ & Fitted $\hat{Y} = 1.24 + 0.16X$ \\
+\midrule
+A & 1 & 1.00 & 1.40 \\
+B & 4 & 2.00 & 1.88 \\
+C & 9 & 3.00 & 2.68 \\
+D & 16 & 4.00 & 3.80 \\
+E & 25 & 5.00 & 5.25 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Maximum in-sample error: just $0.40$. Looks fine! Now extrapolate:
+\begin{itemize}[nosep]
+  \item At $X = 100$: line predicts $\hat{Y} = 17.3$. Truth: $\sqrt{100} = 10$. Off by 73\%.
+  \item At $X = 10{,}000$: line predicts $\hat{Y} = 1{,}606$. Truth: $\sqrt{10{,}000} = 100$. Off by a factor of 16.
+\end{itemize}
+The best linear approximation is only ``best'' within the range where you asked the question.
+\end{numermark}
+
+\begin{vizspec}[title={``The Comfort Zone'' --- Extrapolation Explorer}]
+\textbf{Try it:} Drag a prediction point along the $x$-axis. Within the data range, the background is calm blue and the error bar is tiny. Drag past the data boundary: the background turns progressively red, the error bar explodes, and the warning escalates from ``Mild extrapolation'' to ``CATASTROPHIC: prediction is fiction.''
+
+\textbf{Toggle:} Show the correctly specified $\log$ model alongside the line. The log model tracks truth even far out---the contrast is stark.
+\end{vizspec}
+
 % ============================================================
 % 7. OVERFITTING AND BIAS-VARIANCE (NB 5)
 % ============================================================
 \section{Why Your $R^2$ Is Lying: Overfitting}\label{sec:overfitting}
 
 \subsection{The Bias--Variance Decomposition}
+
+\begin{toystory}[title={The Three Dartboard Players}]
+Three friends play darts. The first always throws at the same wrong spot---consistently two inches left of the bullseye. Every throw lands in the same cluster, just in the wrong place. That's high bias, low variance. The second friend aims perfectly and averages a bullseye, but her throws scatter wildly all over the board. That's low bias, high variance. The third friend accepts that the dartboard sits on a wobbly wall, so even a perfect throw gets jostled randomly. That wobble is irreducible noise---nobody can beat it. The best player is the one who aims at the right spot AND throws consistently, finding the sweet spot between the first two friends' mistakes.
+
+This is exactly what the bias-variance decomposition says: total prediction error equals systematic mis-aim (bias squared) plus scatter in your throws (variance) plus the wobble you can never control (irreducible noise).
+\end{toystory}
 
 \begin{theorem}[Bias--Variance Decomposition]\label{thm:biasvar}
 For any estimator $\hat{f}$ of the regression function $f$, the expected prediction error at a point $x_0$ decomposes as
@@ -482,6 +653,35 @@ The right model family matters more than the degree of flexibility.
 Cross-validation itself can overfit if the number of candidate model specifications searched is large.
 The best CV $R^2$ inflates with the breadth of the search.
 \end{warningbox}
+
+\begin{numermark}[title={Three Models, Three Training Sets}]
+True relationship: $Y = 2X$. We predict at $X = 6$ (true $Y = 12$) using three training sets of $(X, Y)$ pairs and three models:
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{Model A} (constant) & \textbf{Model B} (line) & \textbf{Model C} (degree-4) \\
+\midrule
+Prediction (Set 1) & 7 & 10.8 & 8.0 \\
+Prediction (Set 2) & 7 & 13.2 & 16.0 \\
+Prediction (Set 3) & 7 & 12.2 & $-13.0$ \\
+\midrule
+Average prediction & 7.0 & 12.1 & 3.7 \\
+Bias$^2$ & 25.0 & $\approx 0$ & 69.4 \\
+Variance & 0.0 & 1.0 & 149.6 \\
+\textbf{Total MSE} & \textbf{25.0} & \textbf{1.0} & \textbf{219.0} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Model C has zero training error on every dataset, yet its predictions swing from $+16$ to $-13$. The line (Model B) wins decisively. Perfect in-sample fit amplifies noise into wild out-of-sample predictions.
+\end{numermark}
+
+\begin{vizspec}[title={``The U-Shaped Trap'' --- Bias-Variance Explorer}]
+\textbf{Try it:} A slider controls polynomial degree (1 to 15). The left panel shows a stacked area chart of Bias$^2$ + Variance + Noise forming the classic U-shaped MSE curve. The right panel overlays 20 fitted curves from different training sets.
+
+\textbf{The aha moment:} At degree 1, twenty nearly identical lines all miss the true curve (stable but wrong). At degree 15, twenty polynomials pass through their training points perfectly but look completely different from each other---wild oscillations everywhere (unstable and absurd). Press ``Animate'' and watch the sweet spot at degree 3--4.
+\end{vizspec}
 
 % ============================================================
 % 8. BAD CONTROLS AND CAUSATION (NB 6)
