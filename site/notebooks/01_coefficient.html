@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notebook 1: Why Your Coefficient Is Wrong</title>
+<link rel="stylesheet" href="../css/style.css">
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.7;
+  padding: 0;
+}
+
+/* ── Color Palette ── */
+:root {
+  --blue: #2E5EA8;
+  --gold: #D4A017;
+  --red: #C0392B;
+  --green: #27AE60;
+  --gray: #7F8C8D;
+  --bg-dark: #1a1a2e;
+  --bg-section: #16213e;
+  --bg-card: #1c2a4a;
+  --text: #e0e0e0;
+  --text-muted: #9ca3af;
+}
+
+/* ── Layout ── */
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+section {
+  background: var(--bg-section);
+  border-radius: 12px;
+  padding: 2.5rem;
+  margin-bottom: 2.5rem;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+h1 { font-size: 2.4rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+h2 { font-size: 1.6rem; font-weight: 600; color: var(--gold); margin-bottom: 1rem; border-bottom: 2px solid var(--gold); padding-bottom: 0.4rem; }
+h3 { font-size: 1.2rem; color: #c0c0c0; margin-bottom: 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 2rem; }
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ── Table ── */
+table.reg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', monospace;
+  font-size: 0.92rem;
+  margin: 1rem 0;
+}
+table.reg-table th, table.reg-table td {
+  text-align: right;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+table.reg-table th { color: var(--gold); font-weight: 600; border-bottom: 2px solid var(--gold); }
+table.reg-table td:first-child, table.reg-table th:first-child { text-align: left; }
+
+/* ── Quiz ── */
+.quiz-option { display: block; margin: 0.6rem 0; padding: 0.8rem 1rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.quiz-option:hover { background: rgba(46,94,168,0.15); border-color: var(--blue); }
+.quiz-option input { margin-right: 0.7rem; }
+.quiz-option.selected { border-color: var(--blue); background: rgba(46,94,168,0.15); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.8rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #fff;
+}
+.btn-blue { background: var(--blue); }
+.btn-blue:hover { background: #3a6fc0; }
+.btn-green { background: var(--green); }
+.btn-green:hover { background: #2ecc71; }
+.btn-red { background: var(--red); }
+.btn-gray { background: var(--gray); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Toggle ── */
+.toggle-group { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+.toggle-btn {
+  padding: 0.6rem 1.4rem;
+  border: 2px solid var(--gray);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.toggle-btn.active-green { border-color: var(--green); background: rgba(39,174,96,0.15); color: var(--green); }
+.toggle-btn.active-red { border-color: var(--red); background: rgba(192,57,43,0.15); color: var(--red); }
+
+/* ── Two-col ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Slider ── */
+.slider-row { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+input[type=range] {
+  flex: 1; min-width: 200px; height: 6px;
+  -webkit-appearance: none; appearance: none;
+  background: #333; border-radius: 3px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--blue); cursor: pointer;
+}
+.slider-val { font-weight: 700; font-size: 1.1rem; min-width: 4rem; text-align: center; color: var(--gold); }
+
+/* ── Loading ── */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(26,26,46,0.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; transition: opacity 0.4s;
+}
+.loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.loading-bar-bg { width: 320px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; }
+.loading-bar { height: 100%; background: var(--blue); width: 0%; transition: width 0.15s; border-radius: 6px; }
+.loading-text { color: var(--text-muted); margin-top: 1rem; font-size: 0.95rem; }
+
+/* ── Collapsible sidebar ── */
+.collapsible-header {
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+}
+.collapsible-header .arrow { transition: transform 0.3s; font-size: 1.2rem; }
+.collapsible-header .arrow.open { transform: rotate(90deg); }
+.collapsible-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+.collapsible-body.open { max-height: 3000px; }
+
+/* ── Tabs ── */
+.tab-bar { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid rgba(255,255,255,0.1); }
+.tab-btn {
+  padding: 0.6rem 1.2rem; background: transparent; border: none;
+  color: var(--text-muted); font-size: 0.95rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+}
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── DAG ── */
+.dag-container { display: flex; justify-content: center; margin: 1.5rem 0; }
+.dag-container svg { max-width: 100%; }
+
+/* ── Feedback ── */
+.feedback { padding: 1rem 1.2rem; border-radius: 8px; margin-top: 1rem; display: none; }
+.feedback.correct { background: rgba(39,174,96,0.15); border: 1px solid var(--green); }
+.feedback.wrong { background: rgba(192,57,43,0.15); border: 1px solid var(--red); }
+.feedback.show { display: block; }
+
+/* ── Misc ── */
+.hidden { display: none !important; }
+.formula-box { background: rgba(0,0,0,0.3); padding: 1rem 1.5rem; border-radius: 8px; margin: 1rem 0; text-align: center; font-size: 1.1rem; }
+.highlight-gold { color: var(--gold); font-weight: 600; }
+.highlight-red { color: var(--red); font-weight: 600; }
+.highlight-green { color: var(--green); font-weight: 600; }
+.highlight-blue { color: var(--blue); font-weight: 600; }
+.readout { font-size: 1.05rem; padding: 0.8rem 1rem; background: rgba(0,0,0,0.25); border-radius: 6px; margin: 0.8rem 0; }
+.bridge-box {
+  text-align: center; padding: 2rem; background: linear-gradient(135deg, var(--bg-section), #1c2a4a);
+  border: 1px solid var(--gold); border-radius: 12px;
+}
+.bridge-box a { color: var(--gold); text-decoration: none; font-weight: 600; font-size: 1.1rem; }
+.bridge-box a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <h2 style="color:#fff; margin-bottom:1.5rem;">Precomputing Monte Carlo Simulations...</h2>
+  <div class="loading-bar-bg"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-text" id="loadingText">Initializing...</div>
+</div>
+
+<div class="container">
+
+<!-- Title -->
+<header style="text-align:center; margin-bottom: 2rem;">
+  <h1>Why Your Coefficient Is Wrong</h1>
+  <p class="subtitle">Notebook 1: Omitted Variable Bias</p>
+</header>
+
+<!-- ============================================ -->
+<!-- BEAT 1: THE TRAP                             -->
+<!-- ============================================ -->
+<section id="beat1">
+  <h2>The Regression Output</h2>
+  <p>A real-estate consultancy asks: <em>"How much does an extra square foot of living area add to sale price?"</em> You run a simple linear regression on 500 recent sales.</p>
+
+  <div class="card">
+    <h3 style="text-align:center; margin-bottom:0.5rem;">OLS Regression: sale_price ~ living_area</h3>
+    <p style="text-align:center; color:var(--text-muted); font-size:0.85rem;">n = 500 &nbsp;|&nbsp; R<sup>2</sup> = <span id="r2val"></span></p>
+    <table class="reg-table">
+      <thead><tr><th>Variable</th><th>Coefficient</th><th>Std Error</th><th>t-stat</th><th>p-value</th></tr></thead>
+      <tbody>
+        <tr><td>(Intercept)</td><td id="intercept_coef"></td><td id="intercept_se"></td><td id="intercept_t"></td><td id="intercept_p"></td></tr>
+        <tr><td>living_area</td><td id="slope_coef"></td><td id="slope_se"></td><td id="slope_t"></td><td id="slope_p"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Based on this regression, what do you conclude?</h3>
+  <form id="quizForm">
+    <label class="quiz-option" onclick="selectQuiz(this,'A')">
+      <input type="radio" name="q1" value="A">
+      <strong>A:</strong> "Living area strongly increases sale price (coeff ~ 4.7, p &lt; 0.001). Recommend funding the addition."
+    </label>
+    <label class="quiz-option" onclick="selectQuiz(this,'B')">
+      <input type="radio" name="q1" value="B">
+      <strong>B:</strong> "There's a positive relationship but I'm not confident it's causal."
+    </label>
+    <label class="quiz-option" onclick="selectQuiz(this,'C')">
+      <input type="radio" name="q1" value="C">
+      <strong>C:</strong> "The coefficient is biased upward &mdash; the true effect is smaller."
+    </label>
+    <label class="quiz-option" onclick="selectQuiz(this,'D')">
+      <input type="radio" name="q1" value="D">
+      <strong>D:</strong> "The coefficient is biased but I can't determine the direction."
+    </label>
+    <button type="button" class="btn btn-blue" id="quizSubmit" onclick="submitQuiz()" disabled>Submit Answer</button>
+  </form>
+
+  <div class="feedback" id="feedbackA">
+    <p><strong style="color:var(--red);">Not quite.</strong> You fell into the classic trap! The coefficient is <em>statistically significant</em>, but significance does not imply the estimate is unbiased. Neighborhood desirability drives both living area and price, inflating the coefficient. Read on to see why.</p>
+  </div>
+  <div class="feedback" id="feedbackB">
+    <p><strong style="color:var(--gold);">Good instinct!</strong> You're right to doubt causality, but we can be more specific. The coefficient is not just "uncertain" &mdash; it's systematically <em>biased upward</em> because an omitted variable (neighborhood desirability) is positively correlated with both living area and price.</p>
+  </div>
+  <div class="feedback correct" id="feedbackC">
+    <p><strong style="color:var(--green);">Correct!</strong> Neighborhood desirability (U) is positively correlated with both living area and sale price. Omitting it inflates the living_area coefficient. The true effect of living area is smaller than 4.7. Let's see exactly how this works.</p>
+  </div>
+  <div class="feedback" id="feedbackD">
+    <p><strong style="color:var(--gold);">Partially right.</strong> The coefficient is indeed biased &mdash; but we <em>can</em> determine the direction. Since the omitted variable (desirability) is positively correlated with both living area and price, the bias is <em>upward</em>. The true effect is smaller.</p>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BEAT 2: THE REVEAL                           -->
+<!-- ============================================ -->
+<section id="beat2" class="hidden">
+  <h2>The Reveal: What You Couldn't See</h2>
+  <p>Each dot below is a home sale. Color encodes <strong>neighborhood desirability (U)</strong> &mdash; the variable you omitted.</p>
+  <div id="scatterPlot" style="width:100%; height:480px;"></div>
+  <p>Desirable neighborhoods have both <span class="highlight-gold">larger homes</span> and <span class="highlight-gold">higher prices</span>. When you omit desirability, its effect gets absorbed into the living_area coefficient.</p>
+
+  <div class="formula-box">
+    <p>The Omitted Variable Bias formula:</p>
+    <p>$$E[\hat{\beta}_1] = \beta_1 + \underbrace{\beta_U \cdot \delta_1}_{\text{bias}}$$</p>
+    <p style="font-size:0.9rem; color:var(--text-muted);">where $\delta_1$ is the coefficient from regressing $U$ on $X_1$ (the auxiliary regression), and $\beta_U$ is the true effect of $U$ on $Y$.</p>
+    <p style="font-size:0.9rem;">Since $\beta_U > 0$ (desirability raises price) and $\delta_1 > 0$ (desirability is correlated with larger living area), the bias is <span class="highlight-red">positive</span>.</p>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BEAT 3: FORMALIZE (MONTE CARLO)              -->
+<!-- ============================================ -->
+<section id="beat3" class="hidden">
+  <h2>Formalize: Monte Carlo Evidence</h2>
+  <p>Let's run 500 replications of the same data-generating process. Each time we generate 500 observations and estimate the naive regression (Y on X<sub>1</sub> only, without log, without controlling for U). The histogram below shows the distribution of the estimated coefficient.</p>
+
+  <div id="mcHistogram" style="width:100%; height:420px;"></div>
+
+  <div class="card">
+    <p><span class="highlight-blue">Blue histogram:</span> distribution of $\hat{\beta}_1$ across 500 replications (naive OLS).</p>
+    <p><span class="highlight-gold">Gold line:</span> the true marginal effect of $X_1$ at the mean ($\approx 8 / \overline{X_1}$), which is what an unbiased estimator would recover under a linear approximation.</p>
+    <p><span class="highlight-red">Red line &amp; annotation:</span> the average of the naive estimates &mdash; clearly shifted right due to omitted variable bias.</p>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BEAT 4: THE DESTRUCTION PLAYGROUND           -->
+<!-- ============================================ -->
+<section id="beat4" class="hidden">
+  <h2>The Destruction Playground</h2>
+  <p>How does the correlation between desirability (U) and living area (X<sub>1</sub>) affect the bias? Drag the slider to find out.</p>
+
+  <div class="slider-row">
+    <span style="color:var(--text-muted);">Correlation (&rho;):</span>
+    <input type="range" id="rhoSlider" min="-9" max="9" value="5" step="1">
+    <span class="slider-val" id="rhoVal">0.5</span>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div id="destroyHist" style="width:100%; height:400px;"></div>
+    </div>
+    <div class="card" id="destroySummary">
+      <h3 id="destroyTitle">Impact of Confounding</h3>
+      <table class="reg-table" style="font-size:0.9rem;">
+        <tr><td>Correlation (&rho;)</td><td id="ds_rho" class="highlight-gold"></td></tr>
+        <tr><td>True marginal effect</td><td id="ds_truth" class="highlight-gold"></td></tr>
+        <tr><td>Mean naive estimate</td><td id="ds_mean" class="highlight-red"></td></tr>
+        <tr><td>Simulated bias</td><td id="ds_bias" class="highlight-red"></td></tr>
+      </table>
+      <p style="margin-top:1rem; font-size:0.9rem; color:var(--text-muted);" id="ds_note"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BEAT 5: THE REPAIR                           -->
+<!-- ============================================ -->
+<section id="beat5" class="hidden">
+  <h2>The Repair</h2>
+  <p>What happens when we include (or exclude) different controls? Toggle the buttons below.</p>
+
+  <div class="toggle-group">
+    <button class="toggle-btn" id="toggleU" onclick="toggleControl('U')">Include U (desirability): OFF</button>
+    <button class="toggle-btn" id="toggleX3" onclick="toggleControl('X3')">Include X<sub>3</sub> (Zestimate): OFF</button>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div id="repairHist" style="width:100%; height:400px;"></div>
+    </div>
+    <div>
+      <div class="card" id="repairSummary">
+        <h3>Current specification</h3>
+        <p id="repairSpec">Y ~ X<sub>1</sub> (naive)</p>
+        <table class="reg-table" style="font-size:0.9rem;">
+          <tr><td>Mean estimate</td><td id="rp_mean"></td></tr>
+          <tr><td>True effect</td><td id="rp_truth" class="highlight-gold"></td></tr>
+          <tr><td>Bias</td><td id="rp_bias"></td></tr>
+        </table>
+      </div>
+
+      <!-- DAG -->
+      <div class="card">
+        <h3>Causal DAG</h3>
+        <div class="dag-container">
+          <svg viewBox="0 0 420 200" width="400" height="190">
+            <!-- nodes -->
+            <rect x="10" y="75" width="110" height="40" rx="8" fill="var(--blue)" opacity="0.85"/>
+            <text x="65" y="100" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Living Area (X1)</text>
+
+            <rect x="155" y="75" width="110" height="40" rx="8" fill="var(--gold)" opacity="0.85"/>
+            <text x="210" y="100" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Sale Price (Y)</text>
+
+            <rect x="300" y="75" width="110" height="40" rx="8" fill="var(--red)" opacity="0.85"/>
+            <text x="355" y="100" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Zestimate (X3)</text>
+
+            <rect x="90" y="5" width="130" height="40" rx="8" fill="var(--green)" opacity="0.85"/>
+            <text x="155" y="30" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Desirability (U)</text>
+
+            <!-- arrows -->
+            <defs><marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ccc"/></marker></defs>
+            <!-- U -> X1 -->
+            <line x1="120" y1="42" x2="75" y2="75" stroke="#ccc" stroke-width="2" marker-end="url(#ah)"/>
+            <!-- U -> Y -->
+            <line x1="190" y1="42" x2="210" y2="75" stroke="#ccc" stroke-width="2" marker-end="url(#ah)"/>
+            <!-- X1 -> Y -->
+            <line x1="120" y1="95" x2="155" y2="95" stroke="#ccc" stroke-width="2" marker-end="url(#ah)"/>
+            <!-- Y -> X3 -->
+            <line x1="265" y1="95" x2="300" y2="95" stroke="#ccc" stroke-width="2" marker-end="url(#ah)"/>
+
+            <!-- labels -->
+            <text x="82" y="60" fill="var(--text-muted)" font-size="10">+</text>
+            <text x="207" y="60" fill="var(--text-muted)" font-size="10">+</text>
+            <text x="137" y="88" fill="var(--text-muted)" font-size="10">+</text>
+            <text x="282" y="88" fill="var(--text-muted)" font-size="10">func</text>
+          </svg>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted);">Controlling for U blocks the confounding path. Controlling for X<sub>3</sub> (a <strong>collider descendant</strong>) opens a non-causal path and <em>worsens</em> the estimate.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BEAT 6: THE LIMIT                            -->
+<!-- ============================================ -->
+<section id="beat6" class="hidden">
+  <h2>The Limit: Imperfect Proxies</h2>
+  <p>In practice, you rarely observe the confounder $U$ directly. What if you only have a noisy proxy? Slide the quality from 0% (useless noise) to 100% (perfect proxy).</p>
+
+  <div class="slider-row">
+    <span style="color:var(--text-muted);">Proxy quality:</span>
+    <input type="range" id="proxySlider" min="0" max="20" value="0" step="1">
+    <span class="slider-val" id="proxyVal">0%</span>
+  </div>
+
+  <div class="two-col">
+    <div id="proxyPlot" style="width:100%; height:380px;"></div>
+    <div>
+      <div class="readout" id="proxyReadout">With <strong>0%</strong> proxy quality, residual bias = <strong id="proxyBiasVal">...</strong></div>
+      <div class="card" style="margin-top:1rem;">
+        <p>The curve shows how residual bias shrinks as proxy quality improves. Even a moderate proxy (50-60%) can eliminate most of the bias.</p>
+        <p style="color:var(--text-muted); font-size:0.9rem;">At 100%, the proxy is identical to U and bias vanishes. At 0%, you're controlling for pure noise &mdash; same as omitting U entirely.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- DISASTER SIDEBAR                             -->
+<!-- ============================================ -->
+<section id="disaster">
+  <div class="collapsible-header" onclick="toggleCollapsible(this)">
+    <h2 style="border:none; padding:0; margin:0;">Real-World Disaster: The Hormone Therapy That Killed</h2>
+    <span class="arrow">&#9654;</span>
+  </div>
+  <div class="collapsible-body" id="disasterBody">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(event,'story')">The Story</button>
+      <button class="tab-btn" onclick="switchTab(event,'math')">The Math</button>
+      <button class="tab-btn" onclick="switchTab(event,'sim')">The Simulation</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-story">
+      <p>For decades, observational studies suggested that <strong>Hormone Replacement Therapy (HRT)</strong> reduced heart disease risk in postmenopausal women by 30-50%. Millions of women were prescribed HRT based on these findings.</p>
+      <p>In 2002, the <strong>Women's Health Initiative (WHI)</strong> randomized controlled trial was stopped early because HRT was found to <em>increase</em> heart disease risk by 29%, along with higher breast cancer risk.</p>
+      <p>The culprit: <strong>Omitted Variable Bias.</strong> Women who chose HRT tended to be wealthier, more health-conscious, have better diets, exercise more, and have better access to healthcare. These confounders were positively correlated with both HRT use and better health outcomes.</p>
+      <p style="color:var(--red); font-weight:600;">The biased coefficient suggested a benefit when the true causal effect was harmful. Policy based on this estimate may have contributed to thousands of preventable heart attacks and cancers.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-math">
+      <div class="formula-box">
+        <p>$$E[\hat{\beta}_{HRT}] = \underbrace{\beta_{HRT}}_{\text{true (positive, harmful)}} + \underbrace{\beta_{health} \cdot \delta_{HRT}}_{\text{large negative bias}}$$</p>
+      </div>
+      <p>Here $\beta_{health}$ is the (negative) effect of poor-health-behaviors on heart disease risk, and $\delta_{HRT}$ is the (negative) correlation between poor-health-behaviors and HRT uptake (healthier women were more likely to take HRT).</p>
+      <p>The product $\beta_{health} \cdot \delta_{HRT}$ is <strong>positive times negative = negative</strong> (or negative times negative = positive depending on coding). Either way, the bias was large enough to flip the sign of the estimated effect, making a harmful treatment appear protective.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-sim">
+      <p>A simplified Monte Carlo mirroring the HRT scenario: true causal effect is <em>positive</em> (harmful), but the omitted confounder creates enough negative bias to make the naive estimate negative (appears protective).</p>
+      <div id="disasterPlot" style="width:100%; height:350px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- BRIDGE                                       -->
+<!-- ============================================ -->
+<section>
+  <div class="bridge-box">
+    <p style="font-size:1.3rem; margin-bottom:1rem;">Your coefficient is now correct. But can you trust the standard errors?</p>
+    <a href="02_uncertainty.html">Continue to Notebook 2: Heteroskedasticity &amp; Robust Inference &rarr;</a>
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<!-- ============================================ -->
+<!-- INLINE SIMULATION CODE                       -->
+<!-- ============================================ -->
+<script>
+// ── Seeded PRNG (Mulberry32) ──
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rng = mulberry32(42);
+
+// ── Normal random via Box-Muller ──
+function randn() {
+  var u1, u2;
+  do { u1 = rng(); } while (u1 === 0);
+  u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+// ── OLS via normal equations: y = X*beta, returns {beta, yhat, residuals} ──
+function ols(X, y) {
+  var n = y.length, k = X[0].length;
+  // X'X
+  var XtX = Array.from({length:k}, ()=>new Float64Array(k));
+  var Xty = new Float64Array(k);
+  for (var i=0; i<n; i++) {
+    for (var j=0; j<k; j++) {
+      Xty[j] += X[i][j] * y[i];
+      for (var l=j; l<k; l++) {
+        XtX[j][l] += X[i][j] * X[i][l];
+      }
+    }
+  }
+  for (var j=0; j<k; j++) for (var l=0; l<j; l++) XtX[j][l] = XtX[l][j];
+
+  // Solve via Cholesky
+  var L = Array.from({length:k}, ()=>new Float64Array(k));
+  for (var i=0; i<k; i++) {
+    for (var j=0; j<=i; j++) {
+      var s = 0;
+      for (var m=0; m<j; m++) s += L[i][m]*L[j][m];
+      L[i][j] = (i===j) ? Math.sqrt(Math.max(XtX[i][i]-s, 1e-12)) : (XtX[i][j]-s)/L[j][j];
+    }
+  }
+  // Forward sub: L*w = Xty
+  var w = new Float64Array(k);
+  for (var i=0; i<k; i++) { var s=0; for (var j=0; j<i; j++) s+=L[i][j]*w[j]; w[i]=(Xty[i]-s)/L[i][i]; }
+  // Back sub: L'*beta = w
+  var beta = new Float64Array(k);
+  for (var i=k-1; i>=0; i--) { var s=0; for (var j=i+1; j<k; j++) s+=L[j][i]*beta[j]; beta[i]=(w[i]-s)/L[i][i]; }
+
+  // Residuals
+  var yhat = new Float64Array(n), resid = new Float64Array(n);
+  var SSR=0, SST=0, ybar=0;
+  for (var i=0; i<n; i++) ybar += y[i]; ybar /= n;
+  for (var i=0; i<n; i++) {
+    var p=0; for (var j=0; j<k; j++) p += X[i][j]*beta[j];
+    yhat[i]=p; resid[i]=y[i]-p;
+    SSR += resid[i]*resid[i];
+    SST += (y[i]-ybar)*(y[i]-ybar);
+  }
+  var R2 = 1 - SSR/SST;
+  var s2 = SSR / (n-k);
+
+  // Invert X'X for SEs (using L)
+  var Linv = Array.from({length:k}, ()=>new Float64Array(k));
+  for (var i=0; i<k; i++) { Linv[i][i]=1/L[i][i]; for (var j=i+1; j<k; j++) { var s=0; for (var m=i; m<j; m++) s+=L[j][m]*Linv[m][i]; Linv[j][i]=-s/L[j][j]; } }
+  // (X'X)^-1 = Linv' * Linv
+  var XtXinv = Array.from({length:k}, ()=>new Float64Array(k));
+  for (var i=0; i<k; i++) for (var j=0; j<=i; j++) { var s=0; for (var m=Math.max(i,j); m<k; m++) s+=Linv[m][i]*Linv[m][j]; XtXinv[i][j]=s; XtXinv[j][i]=s; }
+
+  var se = new Float64Array(k);
+  for (var j=0; j<k; j++) se[j] = Math.sqrt(s2 * XtXinv[j][j]);
+
+  return {beta, se, R2, yhat, resid, s2};
+}
+
+// ── Generate one dataset ──
+function generateData(n, rhoU, seed) {
+  var oldRng = rng;
+  rng = mulberry32(seed);
+  var U=[],X1=[],X2=[],X3=[],Y=[],eps=[];
+  // rhoU controls the loading of U on X1 noise offset
+  // We want Corr(U, X1) ~ rhoU. We set X1 = 2.0 + rhoU*U + eta1
+  for (var i=0; i<n; i++) {
+    var u = randn();
+    var eta1 = randn() * 0.3;
+    var eta2 = randn() * 0.3;
+    var x1 = 2.0 + rhoU * u + eta1;
+    if (x1 < 0.1) x1 = 0.1; // keep positive for log
+    var x2 = 3.0 + 0.5 * u + eta2;
+    var e = randn() * Math.sqrt(0.5 * Math.abs(x1));
+    var y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + e;
+    var eta3 = randn() * 0.3;
+    var x3 = 0.9 * y + eta3;
+    U.push(u); X1.push(x1); X2.push(x2); X3.push(x3); Y.push(y); eps.push(e);
+  }
+  rng = oldRng;
+  return {U,X1,X2,X3,Y,eps};
+}
+
+// ── Run naive OLS: Y = a + b*X1 ──
+function naiveOLS(data) {
+  var n = data.Y.length;
+  var X = data.X1.map(function(x){ return [1, x]; });
+  return ols(X, data.Y);
+}
+
+// ── OLS with U control: Y = a + b*X1 + c*U ──
+function olsWithU(data) {
+  var n = data.Y.length;
+  var X = data.X1.map(function(x,i){ return [1, x, data.U[i]]; });
+  return ols(X, data.Y);
+}
+
+// ── OLS with X3 control: Y = a + b*X1 + c*X3 ──
+function olsWithX3(data) {
+  var n = data.Y.length;
+  var X = data.X1.map(function(x,i){ return [1, x, data.X3[i]]; });
+  return ols(X, data.Y);
+}
+
+// ── OLS with U and X3: Y = a + b*X1 + c*U + d*X3 ──
+function olsWithUX3(data) {
+  var n = data.Y.length;
+  var X = data.X1.map(function(x,i){ return [1, x, data.U[i], data.X3[i]]; });
+  return ols(X, data.Y);
+}
+
+// ── OLS with proxy: Y = a + b*X1 + c*proxy ──
+function olsWithProxy(data, quality) {
+  var n = data.Y.length;
+  // proxy = quality*U + (1-quality)*noise
+  var prng = mulberry32(9999);
+  var X = data.X1.map(function(x,i){
+    var noise = (function(){ var u1,u2; do{u1=prng();}while(u1===0); u2=prng(); return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); })();
+    var proxy = quality * data.U[i] + (1 - quality) * noise;
+    return [1, x, proxy];
+  });
+  return ols(X, data.Y);
+}
+
+// ── Compute true marginal effect at mean X1 ──
+function trueMarginal(data) {
+  var sumX1 = 0;
+  for (var i=0; i<data.X1.length; i++) sumX1 += data.X1[i];
+  return 8 / (sumX1 / data.X1.length);
+}
+
+// ── Plotly layout template ──
+var layoutBase = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(22,33,62,0.5)',
+  font: { color: '#e0e0e0', family: 'Segoe UI, sans-serif' },
+  margin: { l:60, r:30, t:50, b:50 },
+  xaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.15)' },
+  yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.15)' }
+};
+function L(overrides) {
+  var o = JSON.parse(JSON.stringify(layoutBase));
+  for (var k in overrides) {
+    if (typeof overrides[k] === 'object' && !Array.isArray(overrides[k]) && overrides[k] !== null && o[k]) {
+      for (var kk in overrides[k]) o[k][kk] = overrides[k][kk];
+    } else {
+      o[k] = overrides[k];
+    }
+  }
+  return o;
+}
+
+// ══════════════════════════════════════════
+// PRECOMPUTATION
+// ══════════════════════════════════════════
+var N = 500, REPS = 500;
+// Slider: -19 to 19 step 2 => rho = idx * 0.05, giving -0.95..0.95 step 0.1 (21 values)
+
+var precomputed = {}; // key: rhoIdx -> {naive:[], withU:[], withX3:[], withUX3:[], truth:number}
+var proxyPrecomputed = {}; // key: qualityIdx (0..20) -> {betas:[], truth:number}
+
+// Base dataset for Beat1/Beat2 (rho=0.5)
+var baseData;
+var baseResult;
+
+function fmt(v, d) { return v.toFixed(d === undefined ? 4 : d); }
+function fmtP(p) { return p < 0.0001 ? '< 0.0001' : p.toFixed(4); }
+
+// t-distribution CDF approximation (for p-values)
+function tCDF(t, df) {
+  // Use regularized incomplete beta function approximation
+  var x = df / (df + t*t);
+  var a = df/2, b = 0.5;
+  // Quick approximation using normal for large df
+  if (df > 100) {
+    // Normal approx
+    var z = t;
+    return 0.5 * (1 + erf(z / Math.sqrt(2)));
+  }
+  // For smaller df, use a series approximation
+  // This is a rough but workable approximation
+  var p = 0.5 * incompleteBeta(x, a, b);
+  return t >= 0 ? 1 - p : p;
+}
+
+function erf(x) {
+  var a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  var sign = x<0 ? -1 : 1; x = Math.abs(x);
+  var t = 1/(1+p*x);
+  var y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return sign*y;
+}
+
+function incompleteBeta(x, a, b) {
+  // Continued fraction approximation
+  if (x < 0 || x > 1) return 0;
+  if (x === 0) return 0;
+  if (x === 1) return 1;
+  var lbeta = lgamma(a) + lgamma(b) - lgamma(a+b);
+  var front = Math.exp(Math.log(x)*a + Math.log(1-x)*b - lbeta) / a;
+  // Lentz continued fraction
+  var f=1, c=1, d=0;
+  for (var i=0; i<=200; i++) {
+    var m = Math.floor(i/2);
+    var num;
+    if (i===0) { num = 1; }
+    else if (i%2===0) { num = m*(b-m)*x / ((a+2*m-1)*(a+2*m)); }
+    else { num = -(a+m)*(a+b+m)*x / ((a+2*m)*(a+2*m+1)); }
+    d = 1 + num*d; if (Math.abs(d)<1e-30) d=1e-30; d=1/d;
+    c = 1 + num/c; if (Math.abs(c)<1e-30) c=1e-30;
+    f *= c*d;
+    if (Math.abs(c*d-1) < 1e-10) break;
+  }
+  return front * f;
+}
+
+function lgamma(x) {
+  var cof = [76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  var y = x, tmp = x + 5.5; tmp -= (x+0.5)*Math.log(tmp);
+  var ser = 1.000000000190015;
+  for (var j=0; j<6; j++) ser += cof[j]/(++y);
+  return -tmp + Math.log(2.5066282746310005*ser/x);
+}
+
+function pValue2Sided(t, df) {
+  var p = 2 * (1 - tCDF(Math.abs(t), df));
+  return Math.max(p, 0);
+}
+
+// ── Quiz Logic ──
+var selectedAnswer = null;
+function selectQuiz(el, val) {
+  document.querySelectorAll('.quiz-option').forEach(function(e){ e.classList.remove('selected'); });
+  el.classList.add('selected');
+  selectedAnswer = val;
+  document.getElementById('quizSubmit').disabled = false;
+}
+
+function submitQuiz() {
+  if (!selectedAnswer) return;
+  ['feedbackA','feedbackB','feedbackC','feedbackD'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.classList.remove('show','correct','wrong');
+  });
+  var fbId = 'feedback' + selectedAnswer;
+  var fb = document.getElementById(fbId);
+  fb.classList.add('show');
+  if (selectedAnswer === 'C') { fb.classList.add('correct'); } else { fb.classList.add('wrong'); }
+  // Reveal beat2+
+  document.getElementById('beat2').classList.remove('hidden');
+  document.getElementById('beat3').classList.remove('hidden');
+  document.getElementById('beat4').classList.remove('hidden');
+  document.getElementById('beat5').classList.remove('hidden');
+  document.getElementById('beat6').classList.remove('hidden');
+  // Scroll to beat2
+  setTimeout(function(){ document.getElementById('beat2').scrollIntoView({behavior:'smooth'}); }, 400);
+  // Render beat2 scatter
+  renderScatter();
+  renderMCHistogram();
+  updateDestroyPlot();
+  updateRepairPlot();
+  renderProxyPlot();
+  renderDisasterPlot();
+}
+
+// ── Collapsible ──
+function toggleCollapsible(header) {
+  var body = header.nextElementSibling;
+  var arrow = header.querySelector('.arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// ── Tabs ──
+function switchTab(e, id) {
+  var section = e.target.closest('section');
+  section.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  section.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  e.target.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if (id === 'sim') renderDisasterPlot();
+}
+
+// ── Beat 2: Scatter ──
+function renderScatter() {
+  var d = baseData;
+  var trace = {
+    x: d.X1, y: d.Y, mode: 'markers',
+    marker: {
+      color: d.U,
+      colorscale: [[0,'#2E5EA8'],[1,'#D4A017']],
+      colorbar: { title: 'Desirability (U)', titlefont:{color:'#ccc'}, tickfont:{color:'#ccc'} },
+      size: 5, opacity: 0.7
+    },
+    type: 'scatter'
+  };
+  Plotly.newPlot('scatterPlot', [trace], L({
+    title: { text: 'Sale Price vs Living Area (colored by Desirability)', font:{size:15} },
+    xaxis: { title: 'Living Area (X1)', gridcolor:'rgba(255,255,255,0.08)' },
+    yaxis: { title: 'Sale Price (Y)', gridcolor:'rgba(255,255,255,0.08)' }
+  }), {responsive:true});
+}
+
+// ── Beat 3: MC Histogram ──
+function renderMCHistogram() {
+  var rhoKey = 5; // rho = 0.5
+  var pc = precomputed[rhoKey];
+  if (!pc) return;
+  var truth = pc.truth;
+  var naiveMean = pc.naive.reduce(function(a,b){return a+b;},0) / pc.naive.length;
+
+  var trace = {
+    x: pc.naive, type: 'histogram', nbinsx: 50,
+    marker: { color: 'rgba(46,94,168,0.7)', line:{color:'rgba(46,94,168,1)', width:1} },
+    name: 'Naive OLS estimates'
+  };
+  var shapes = [
+    { type:'line', x0:truth, x1:truth, y0:0, y1:1, yref:'paper', line:{color:'#D4A017', width:3, dash:'dash'} },
+    { type:'line', x0:naiveMean, x1:naiveMean, y0:0, y1:1, yref:'paper', line:{color:'#C0392B', width:3} }
+  ];
+  var annotations = [
+    { x:truth, y:1, yref:'paper', text:'True effect: '+fmt(truth,2), showarrow:true, arrowcolor:'#D4A017', font:{color:'#D4A017',size:12}, ax:60, ay:-30 },
+    { x:naiveMean, y:0.9, yref:'paper', text:'Naive mean: '+fmt(naiveMean,2)+'<br>Bias: '+fmt(naiveMean-truth,2), showarrow:true, arrowcolor:'#C0392B', font:{color:'#C0392B',size:12}, ax:-70, ay:-20 }
+  ];
+
+  Plotly.newPlot('mcHistogram', [trace], L({
+    title: { text: 'Distribution of Naive OLS Coefficient (500 replications)', font:{size:14} },
+    xaxis: { title: 'Estimated coefficient on X1' },
+    yaxis: { title: 'Count' },
+    shapes: shapes,
+    annotations: annotations,
+    showlegend: false
+  }), {responsive:true});
+}
+
+// ── Beat 4: Destroy Playground ──
+var rhoSlider = document.getElementById('rhoSlider');
+var rhoValEl = document.getElementById('rhoVal');
+rhoSlider.addEventListener('input', function() {
+  var idx = parseInt(this.value);
+  rhoValEl.textContent = (idx * 0.1).toFixed(1);
+  updateDestroyPlot();
+});
+
+function updateDestroyPlot() {
+  var idx = parseInt(rhoSlider.value);
+  var rho = idx * 0.1;
+  var pc = precomputed[idx];
+  if (!pc) return;
+
+  var truth = pc.truth;
+  var naiveMean = pc.naive.reduce(function(a,b){return a+b;},0) / pc.naive.length;
+  var bias = naiveMean - truth;
+
+  // Histogram
+  var trace = {
+    x: pc.naive, type: 'histogram', nbinsx: 50,
+    marker: { color: 'rgba(46,94,168,0.7)', line:{color:'rgba(46,94,168,1)', width:1} }
+  };
+  var shapes = [
+    { type:'line', x0:truth, x1:truth, y0:0, y1:1, yref:'paper', line:{color:'#D4A017', width:3, dash:'dash'} }
+  ];
+
+  Plotly.newPlot('destroyHist', [trace], L({
+    title: { text: 'Naive OLS Distribution (rho = '+rho.toFixed(2)+')', font:{size:14} },
+    xaxis: { title: 'Estimated coefficient on X1' },
+    yaxis: { title: 'Count' },
+    shapes: shapes,
+    showlegend: false
+  }), {responsive:true});
+
+  // Summary
+  document.getElementById('ds_rho').textContent = rho.toFixed(2);
+  document.getElementById('ds_truth').textContent = fmt(truth, 3);
+  document.getElementById('ds_mean').textContent = fmt(naiveMean, 3);
+  document.getElementById('ds_bias').textContent = fmt(bias, 3);
+  document.getElementById('destroyTitle').textContent = rho === 0 ? 'No confounding!' : (bias > 0 ? 'Upward bias' : 'Downward bias');
+  document.getElementById('ds_note').textContent = Math.abs(rho) < 0.05 ?
+    'When rho is near zero, the omitted variable is nearly uncorrelated with X1 and the bias vanishes.' :
+    'The sign and magnitude of the bias follow directly from the OVB formula: bias = beta_U * delta_1.';
+}
+
+// ── Beat 5: Repair ──
+var controlState = { U: false, X3: false };
+
+function toggleControl(which) {
+  controlState[which] = !controlState[which];
+  var btn = document.getElementById('toggle' + which);
+  if (controlState[which]) {
+    btn.textContent = which === 'U' ? 'Include U (desirability): ON' : 'Include X3 (Zestimate): ON';
+    btn.classList.add(which === 'U' ? 'active-green' : 'active-red');
+  } else {
+    btn.innerHTML = which === 'U' ? 'Include U (desirability): OFF' : 'Include X<sub>3</sub> (Zestimate): OFF';
+    btn.classList.remove('active-green', 'active-red');
+  }
+  updateRepairPlot();
+}
+
+function updateRepairPlot() {
+  var idx = parseInt(rhoSlider.value);
+  var pc = precomputed[idx];
+  if (!pc) return;
+
+  var key, specLabel;
+  if (controlState.U && controlState.X3) { key = 'withUX3'; specLabel = 'Y ~ X1 + U + X3'; }
+  else if (controlState.U) { key = 'withU'; specLabel = 'Y ~ X1 + U'; }
+  else if (controlState.X3) { key = 'withX3'; specLabel = 'Y ~ X1 + X3'; }
+  else { key = 'naive'; specLabel = 'Y ~ X1 (naive)'; }
+
+  var betas = pc[key];
+  var truth = pc.truth;
+  var mean = betas.reduce(function(a,b){return a+b;},0) / betas.length;
+  var bias = mean - truth;
+
+  var color = key === 'withU' || key === 'withUX3' ? 'rgba(39,174,96,0.7)' : (key === 'withX3' ? 'rgba(192,57,43,0.7)' : 'rgba(46,94,168,0.7)');
+  var lineColor = key === 'withU' || key === 'withUX3' ? 'rgba(39,174,96,1)' : (key === 'withX3' ? 'rgba(192,57,43,1)' : 'rgba(46,94,168,1)');
+
+  var trace = {
+    x: betas, type: 'histogram', nbinsx: 50,
+    marker: { color: color, line:{color:lineColor, width:1} }
+  };
+  var shapes = [
+    { type:'line', x0:truth, x1:truth, y0:0, y1:1, yref:'paper', line:{color:'#D4A017', width:3, dash:'dash'} }
+  ];
+
+  Plotly.newPlot('repairHist', [trace], L({
+    title: { text: specLabel, font:{size:14} },
+    xaxis: { title: 'Estimated coefficient on X1' },
+    yaxis: { title: 'Count' },
+    shapes: shapes,
+    showlegend: false
+  }), {responsive:true});
+
+  document.getElementById('repairSpec').innerHTML = specLabel;
+  document.getElementById('rp_mean').textContent = fmt(mean, 3);
+  document.getElementById('rp_truth').textContent = fmt(truth, 3);
+  var biasEl = document.getElementById('rp_bias');
+  biasEl.textContent = fmt(bias, 3);
+  biasEl.className = Math.abs(bias) < 0.15 ? 'highlight-green' : 'highlight-red';
+}
+
+// ── Beat 6: Proxy ──
+var proxySlider = document.getElementById('proxySlider');
+var proxyValEl = document.getElementById('proxyVal');
+proxySlider.addEventListener('input', function() {
+  var q = parseInt(this.value) * 5;
+  proxyValEl.textContent = q + '%';
+  updateProxyReadout();
+  updateProxyCurve();
+});
+
+function renderProxyPlot() {
+  updateProxyCurve();
+  updateProxyReadout();
+}
+
+function updateProxyCurve() {
+  var pp = proxyPrecomputed;
+  var xs = [], ys = [];
+  for (var i = 0; i <= 20; i++) {
+    if (!pp[i]) continue;
+    xs.push(i * 5);
+    ys.push(pp[i].bias);
+  }
+  var currentIdx = parseInt(proxySlider.value);
+  var currentQ = currentIdx * 5;
+
+  var trace = {
+    x: xs, y: ys, mode: 'lines+markers', type: 'scatter',
+    line: { color: '#2E5EA8', width: 3 },
+    marker: { color: '#2E5EA8', size: 6 },
+    name: 'Residual Bias'
+  };
+
+  var currentBias = pp[currentIdx] ? pp[currentIdx].bias : 0;
+  var markerTrace = {
+    x: [currentQ], y: [currentBias], mode: 'markers', type: 'scatter',
+    marker: { color: '#D4A017', size: 14, symbol: 'diamond' },
+    name: 'Current', showlegend: false
+  };
+
+  Plotly.newPlot('proxyPlot', [trace, markerTrace], L({
+    title: { text: 'Residual Bias vs Proxy Quality', font:{size:14} },
+    xaxis: { title: 'Proxy Quality (%)', range:[-2,102] },
+    yaxis: { title: 'Residual Bias' },
+    shapes: [{ type:'line', x0:-2, x1:102, y0:0, y1:0, line:{color:'#D4A017', width:2, dash:'dash'} }],
+    showlegend: false
+  }), {responsive:true});
+}
+
+function updateProxyReadout() {
+  var idx = parseInt(proxySlider.value);
+  var q = idx * 5;
+  var pp = proxyPrecomputed[idx];
+  document.getElementById('proxyVal').textContent = q + '%';
+  if (pp) {
+    document.getElementById('proxyBiasVal').textContent = fmt(pp.bias, 3);
+    document.getElementById('proxyReadout').innerHTML = 'With <strong>' + q + '%</strong> proxy quality, residual bias = <strong>' + fmt(pp.bias, 3) + '</strong>';
+  }
+}
+
+// ── Disaster Plot ──
+function renderDisasterPlot() {
+  // Simple MC: Y = 0.5*HRT + 3*Health + eps; HRT = 2*Health + noise
+  // true beta_HRT = 0.5 (harmful). Naive estimate will be negative (appears protective).
+  var localRng = mulberry32(777);
+  function lr() { var u1,u2; do{u1=localRng();}while(u1===0); u2=localRng(); return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); }
+
+  var betas = [];
+  for (var r = 0; r < 1000; r++) {
+    var xs = [], ys = [];
+    for (var i = 0; i < 200; i++) {
+      var health = lr(); // higher = healthier
+      var hrt = 0.5 + 0.8 * health + lr() * 0.5; // healthier women more likely HRT
+      var risk = 5 + 0.5 * hrt - 3 * health + lr(); // HRT increases risk, health decreases risk
+      xs.push(hrt);
+      ys.push(risk);
+    }
+    // naive OLS: risk ~ hrt
+    var n = xs.length, sx=0, sy=0, sxx=0, sxy=0;
+    for (var i=0; i<n; i++) { sx+=xs[i]; sy+=ys[i]; sxx+=xs[i]*xs[i]; sxy+=xs[i]*ys[i]; }
+    var b = (n*sxy - sx*sy) / (n*sxx - sx*sx);
+    betas.push(b);
+  }
+
+  var truth = 0.5;
+  var mean = betas.reduce(function(a,b){return a+b;},0) / betas.length;
+
+  var trace = {
+    x: betas, type: 'histogram', nbinsx: 40,
+    marker: { color: 'rgba(192,57,43,0.6)', line:{color:'rgba(192,57,43,1)', width:1} }
+  };
+
+  Plotly.newPlot('disasterPlot', [trace], L({
+    title: { text: 'Naive HRT Effect Estimates (1,000 replications)', font:{size:13} },
+    xaxis: { title: 'Estimated effect of HRT on heart disease risk' },
+    yaxis: { title: 'Count' },
+    shapes: [
+      { type:'line', x0:truth, x1:truth, y0:0, y1:1, yref:'paper', line:{color:'#D4A017', width:3, dash:'dash'} },
+      { type:'line', x0:0, x1:0, y0:0, y1:1, yref:'paper', line:{color:'#7F8C8D', width:2, dash:'dot'} }
+    ],
+    annotations: [
+      { x:truth, y:1, yref:'paper', text:'True causal effect<br>(harmful)', showarrow:true, font:{color:'#D4A017',size:11}, ax:50, ay:-25, arrowcolor:'#D4A017' },
+      { x:mean, y:0.85, yref:'paper', text:'Naive mean: '+fmt(mean,2)+'<br>(appears protective!)', showarrow:true, font:{color:'#C0392B',size:11}, ax:-60, ay:-25, arrowcolor:'#C0392B' },
+      { x:0, y:0.7, yref:'paper', text:'Zero line', showarrow:false, font:{color:'#7F8C8D',size:10}, xanchor:'left', xshift:5 }
+    ],
+    showlegend: false
+  }), {responsive:true});
+}
+
+// ══════════════════════════════════════════
+// MAIN: Precompute everything on page load
+// ══════════════════════════════════════════
+(function init() {
+  var overlay = document.getElementById('loadingOverlay');
+  var bar = document.getElementById('loadingBar');
+  var text = document.getElementById('loadingText');
+
+  // Total work: 39 rho values * REPS + 21 proxy values * REPS + base dataset
+  // We'll do it in batches using setTimeout to keep UI responsive
+
+  // Phase 1: generate base dataset and beat1 table
+  baseData = generateData(N, 0.5, 42);
+  baseResult = naiveOLS(baseData);
+
+  // Fill regression table
+  var b = baseResult.beta, se = baseResult.se;
+  var df = N - 2;
+  document.getElementById('intercept_coef').textContent = fmt(b[0], 4);
+  document.getElementById('intercept_se').textContent = fmt(se[0], 4);
+  document.getElementById('intercept_t').textContent = fmt(b[0]/se[0], 2);
+  document.getElementById('intercept_p').textContent = fmtP(pValue2Sided(b[0]/se[0], df));
+  document.getElementById('slope_coef').textContent = fmt(b[1], 4);
+  document.getElementById('slope_se').textContent = fmt(se[1], 4);
+  document.getElementById('slope_t').textContent = fmt(b[1]/se[1], 2);
+  document.getElementById('slope_p').textContent = fmtP(pValue2Sided(b[1]/se[1], df));
+  document.getElementById('r2val').textContent = fmt(baseResult.R2, 4);
+
+  // Phase 2: precompute MC for all rho values
+  var rhoIndices = [];
+  for (var ri = -9; ri <= 9; ri++) rhoIndices.push(ri);
+  var totalSteps = rhoIndices.length + 21; // rho + proxy
+  var step = 0;
+
+  function doRhoStep(idx) {
+    if (idx >= rhoIndices.length) {
+      doProxyPhase(0);
+      return;
+    }
+    var ri = rhoIndices[idx];
+    var rho = ri * 0.1;
+    var naiveBetas = [], withUBetas = [], withX3Betas = [], withUX3Betas = [];
+    var truthSum = 0;
+
+    for (var r = 0; r < REPS; r++) {
+      var d = generateData(N, rho, 1000 + ri * 10000 + r);
+      var res = naiveOLS(d);
+      naiveBetas.push(res.beta[1]);
+      var resU = olsWithU(d);
+      withUBetas.push(resU.beta[1]);
+      var resX3 = olsWithX3(d);
+      withX3Betas.push(resX3.beta[1]);
+      var resUX3 = olsWithUX3(d);
+      withUX3Betas.push(resUX3.beta[1]);
+      truthSum += trueMarginal(d);
+    }
+
+    precomputed[ri] = {
+      naive: naiveBetas,
+      withU: withUBetas,
+      withX3: withX3Betas,
+      withUX3: withUX3Betas,
+      truth: truthSum / REPS
+    };
+
+    step++;
+    var pct = Math.round(step / totalSteps * 100);
+    bar.style.width = pct + '%';
+    text.textContent = 'Computing rho = ' + rho.toFixed(2) + ' (' + pct + '%)';
+
+    setTimeout(function(){ doRhoStep(idx + 1); }, 0);
+  }
+
+  function doProxyPhase(idx) {
+    if (idx > 20) {
+      finishLoading();
+      return;
+    }
+    var quality = idx / 20; // 0..1
+    var betas = [];
+    var truthSum = 0;
+    // Use rho=0.5 base scenario
+    for (var r = 0; r < REPS; r++) {
+      var d = generateData(N, 0.5, 50000 + r);
+      var res = olsWithProxy(d, quality);
+      betas.push(res.beta[1]);
+      truthSum += trueMarginal(d);
+    }
+    var truthVal = truthSum / REPS;
+    var meanBeta = betas.reduce(function(a,b){return a+b;},0) / betas.length;
+    proxyPrecomputed[idx] = { betas: betas, truth: truthVal, bias: meanBeta - truthVal, mean: meanBeta };
+
+    step++;
+    var pct = Math.round(step / totalSteps * 100);
+    bar.style.width = pct + '%';
+    text.textContent = 'Computing proxy quality = ' + Math.round(quality*100) + '% (' + pct + '%)';
+
+    setTimeout(function(){ doProxyPhase(idx + 1); }, 0);
+  }
+
+  function finishLoading() {
+    bar.style.width = '100%';
+    text.textContent = 'Done!';
+    setTimeout(function(){ overlay.classList.add('hidden'); }, 300);
+  }
+
+  // Kick off
+  setTimeout(function(){ doRhoStep(0); }, 50);
+})();
+</script>
+
+</body>
+</html>
