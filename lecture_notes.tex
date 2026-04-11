@@ -148,17 +148,23 @@ The dataset contains the following variables:
     Students who attend more lectures tend to score higher, but we want to separate the lecture effect from the studying effect.
     Including $X_2$ in the regression prevents lecture attendance from contaminating our estimate of the studying effect.
 
-  \item \textbf{$X_3$: Self-reported confidence} (1--10, surveyed after studying but before the exam).
+  \item \textbf{$X_3$: Self-assessed performance} (1--10, surveyed right after handing in the exam).
     This is the \emph{trap}.
-    It looks like useful information---surely confident students score higher?
-    But confidence is \emph{caused} by how much you studied and how prepared you feel.
-    It is a \emph{post-treatment} variable: it sits downstream of the treatment in the causal chain.
+    It looks like useful information---surely students who felt good about the exam scored higher?
+    But that feeling is \emph{caused} by how well they actually did: students who studied hard, attended lectures, and are disciplined walk out of the exam room knowing it went well.
+    $X_3$ is a \emph{post-treatment} variable: it sits downstream of $Y$ in the causal chain.
     Including it as a control will backfire spectacularly (see \Cref{sec:causation}).
 
-  \item \textbf{$U$: Motivation and conscientiousness} (unobserved).
-    This is the \emph{hidden variable}---you cannot directly measure how motivated a student is, but motivation drives both how much they study \emph{and} how well they perform on the exam (through paying attention in class, doing practice problems, staying focused during the test).
+  \item \textbf{$U$: Self-discipline score} (unobserved by the analyst).
+    Before the semester started, every student dragged an Instagram story slider in response to the question ``How disciplined are you with your studies?''---the kind of quick poll you have seen a hundred times.
+    The slider produces a continuous value between 0 (``I have zero discipline'') and 1 (``I follow a strict study schedule'').
+    We standardise these responses to have mean~0 and standard deviation~1, giving $U \sim \mathcal{N}(0,1)$.
+
+    The crucial point: \emph{you, the analyst, do not have access to this data.}
+    It lives on Instagram's servers, not in the university's registrar system.
+    But $U$ drives both how much students study \emph{and} how well they perform on the exam (through paying attention in class, doing practice problems, staying focused during the test).
     Because $U$ affects both the treatment $X_1$ and the outcome $Y$, it is a \emph{confounder}.
-    This is what makes the analysis tricky: without observing $U$, OLS will attribute some of motivation's effect to studying, inflating the coefficient.
+    This is what makes the analysis tricky: without observing $U$, OLS will attribute some of self-discipline's effect to studying, inflating the coefficient.
 \end{itemize}
 
 Using a single recurring dataset creates continuity: when a coefficient changes from one section to the next, you'll remember the old value.
@@ -207,23 +213,23 @@ The data are generated according to the following structural equations:
 
 If these structural equations look intimidating, don't worry. Let's walk through each one in plain language.
 
-\paragraph{$U \sim \mathcal{N}(0,1)$: Motivation.}
-Motivation varies across students. Some are naturally driven, others less so. We model this as a standard normal: most students are average, a few are very motivated or very unmotivated. You never get to observe $U$ in the data---it is the hidden variable that makes everything complicated.
+\paragraph{$U \sim \mathcal{N}(0,1)$: Self-discipline.}
+Before the semester, every student dragged a slider on an Instagram story poll: ``How disciplined are you with your studies?'' The slider returns a continuous value from 0 to~1. We standardise the responses to mean~0 and standard deviation~1, giving $U \sim \mathcal{N}(0,1)$. Most students are average; a few are very disciplined or very undisciplined. Critically, \emph{you do not have this data}---it lives on Instagram's servers, not in the university's system. This is the hidden variable that makes everything complicated.
 
 \paragraph{$X_1 = 2 + 0.5\,U + \eta_1$: Hours studied.}
-Motivated students study more. A student of average motivation ($U = 0$) studies about 2 hours. Each standard deviation of extra motivation adds half an hour. The noise $\eta_1$ captures everything else that affects study time---a busy week, a competing deadline, pure randomness.
+More disciplined students study more. A student of average self-discipline ($U = 0$) studies about 2 hours. Each standard deviation of extra discipline adds half an hour. The noise $\eta_1$ captures everything else that affects study time---a busy week, a competing deadline, pure randomness.
 
 \paragraph{$X_2 = 10 + 0.3\,U + \eta_2$: Lectures attended.}
-Motivated students attend more lectures. Average attendance is 10 out of 14. Motivation pushes this up slightly---an extra standard deviation of motivation adds 0.3 lectures. The noise $\eta_2$ is larger here ($\sigma = 1$) because lecture attendance depends heavily on scheduling conflicts, illness, and other factors unrelated to motivation.
+More disciplined students attend more lectures. Average attendance is 10 out of 14. Self-discipline pushes this up slightly---an extra standard deviation adds 0.3 lectures. The noise $\eta_2$ is larger here ($\sigma = 1$) because lecture attendance depends heavily on scheduling conflicts, illness, and other factors unrelated to discipline.
 
 \paragraph{$\varepsilon \sim \mathcal{N}(0,\, 0.5 \cdot |X_1|)$: Exam noise.}
 The randomness in exam scores depends on how much you studied. Students who barely studied have tightly clustered (low) scores---there is not much variation in how badly you can do when you are unprepared. Students who studied a lot have more spread---because at high study hours, \emph{how} you study matters more than \emph{how long}, and that quality varies widely. This is \emph{heteroscedasticity}: the variance of the error term changes with a predictor.
 
 \paragraph{$Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon$: Exam score.}
-The exam score. The base score is 50---what an average student scores with minimal preparation. The first hour of studying helps enormously (the logarithm rises steeply near zero), but returns diminish: going from 1 to 2 hours helps far more than going from 9 to 10 hours. Attending one more lecture adds 3 points. Being one standard deviation more motivated adds 2 points directly---through paying attention in class, doing practice problems, staying focused during the test---things that studying hours alone do not capture.
+The exam score. The base score is 50---what an average student scores with minimal preparation. The first hour of studying helps enormously (the logarithm rises steeply near zero), but returns diminish: going from 1 to 2 hours helps far more than going from 9 to 10 hours. Attending one more lecture adds 3 points. Being one standard deviation more disciplined adds 2 points directly---through paying attention in class, doing practice problems, staying focused during the test---things that studying hours alone do not capture.
 
-\paragraph{$X_3 = 0.9\,Y + \eta_3$: Self-reported confidence.}
-After studying but before the exam, students report how confident they feel. This mostly reflects their expected score---students who studied a lot \emph{and} are well-prepared feel confident. This variable is measured \emph{after} the factors that determine $Y$, which is why including it as a control will backfire. The coefficient 0.9 means confidence tracks expected performance almost one-to-one.
+\paragraph{$X_3 = 0.9\,Y + \eta_3$: Self-assessed performance.}
+Right after handing in the exam, students rate how well they think they did on a scale from 1 to 10. This self-assessment mostly reflects the actual exam score---students who studied hard, attended lectures, and are disciplined walk out knowing it went well. The coefficient 0.9 means self-assessed performance tracks the actual score almost one-to-one. The noise $\eta_3$ captures variation in self-awareness (some students are poor judges of their own performance). Because $X_3$ is measured \emph{after} the exam---and is driven by the same factors that produced $Y$---including it as a control will backfire.
 
 \bigskip
 
@@ -236,9 +242,9 @@ The default parameter values are:
 Intercept (base score) & $\beta_0$ & 50 \\
 Study-hours effect & $\beta_1$ & 8 \\
 Lecture-attendance effect & $\beta_2$ & 3 \\
-Motivation direct effect & $\beta_U$ & 2 \\
-Motivation $\to$ study hours & $\gamma_1$ & 0.5 \\
-Motivation $\to$ lectures & $\gamma_2$ & 0.3 \\
+Self-discipline direct effect & $\beta_U$ & 2 \\
+Self-discipline $\to$ study hours & $\gamma_1$ & 0.5 \\
+Self-discipline $\to$ lectures & $\gamma_2$ & 0.3 \\
 Heteroscedasticity scale & $h$ & 0.5 \\
 Confidence $\leftarrow$ score & $\alpha$ & 0.9 \\
 Noise std (study hours) & $\sigma_{\eta_1}$ & $\sqrt{0.3} \approx 0.55$ \\
@@ -249,7 +255,7 @@ Noise std (confidence) & $\sigma_{\eta_3}$ & $\sqrt{2} \approx 1.41$ \\
 \end{center}
 
 \begin{remark}[Causal ordering]
-Generate in order: $U$ first, then $(X_1, X_2)$, then $Y$, then $X_3$. The confidence score $X_3$ is \emph{post-treatment}: it is caused by $Y$ (or more precisely, by the same factors that produce $Y$), not a cause of $Y$. It never appears in the true DGP for $Y$. Including $X_3$ as a control variable introduces collider bias (see \Cref{sec:causation}).
+Generate in order: $U$ first, then $(X_1, X_2)$, then $Y$, then $X_3$. The self-assessment $X_3$ is \emph{post-treatment}: it is caused by $Y$ (students rate their performance after taking the exam), not a cause of $Y$. It never appears in the true DGP for $Y$. Including $X_3$ as a control variable introduces collider bias (see \Cref{sec:causation}).
 \end{remark}
 
 \subsection{Why These Relationships?}\label{subsec:why-relationships}
@@ -258,15 +264,15 @@ Generate in order: $U$ first, then $(X_1, X_2)$, then $Y$, then $X_3$. The confi
 The structural equations above are not arbitrary---each one encodes a specific real-world mechanism:
 
 \begin{itemize}
-  \item \textbf{Motivation $\to$ studying (positive):} Obvious---motivated students put in more hours. This is why $U$ appears with a positive coefficient in the equation for $X_1$.
+  \item \textbf{Self-discipline $\to$ studying (positive):} Obvious---disciplined students put in more hours. This is why $U$ appears with a positive coefficient in the equation for $X_1$.
 
-  \item \textbf{Motivation $\to$ lectures (positive):} Motivated students show up more. Same logic, slightly weaker effect (0.3 vs.\ 0.5) because attendance depends more on logistics than on willpower.
+  \item \textbf{Self-discipline $\to$ lectures (positive):} Disciplined students show up more. Same logic, slightly weaker effect (0.3 vs.\ 0.5) because attendance depends more on logistics than on willpower.
 
   \item \textbf{Studying $\to$ score (logarithmic):} The first hour of studying recovers the low-hanging fruit---basic definitions, key formulas, the structure of the exam. The 10th hour yields much less---you are reviewing material you already know. Diminishing returns are built into the $\log$.
 
-  \item \textbf{Motivation $\to$ score (direct):} Motivation helps \emph{beyond} studying. Motivated students pay attention in class, ask questions, do practice problems, and stay focused during the exam. These things boost scores even holding study hours fixed. This direct effect ($\beta_U = 2$) is what creates the omitted variable bias problem.
+  \item \textbf{Self-discipline $\to$ score (direct):} Self-discipline helps \emph{beyond} studying. Disciplined students pay attention in class, ask questions, do practice problems, and stay focused during the exam. These things boost scores even holding study hours fixed. This direct effect ($\beta_U = 2$) is what creates the omitted variable bias problem.
 
-  \item \textbf{Score $\to$ confidence (positive):} Students who are well-prepared feel confident. This is \emph{not} a causal effect of confidence on scores---it is the reverse. Confidence does not cause high scores; being well-prepared causes both high scores and high confidence. Confusing the direction is exactly the mistake that leads to collider bias.
+  \item \textbf{Score $\to$ self-assessment (positive):} Students who did well on the exam know it when they walk out. This is \emph{not} a causal effect of self-assessment on scores---it is the reverse. Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias.
 \end{itemize}
 \end{keyinsight}
 
@@ -274,8 +280,8 @@ The structural equations above are not arbitrary---each one encodes a specific r
 
 The single DGP simultaneously contains all of the following pathologies:
 \begin{enumerate}[nosep]
-  \item \textbf{Omitted variable bias:} $U$ (motivation) drives both $X_1$ (hours studied) and $Y$ (exam score).
-        Omitting $U$ biases $\bhat_1$ upward---OLS attributes some of motivation's effect to studying.
+  \item \textbf{Omitted variable bias:} $U$ (self-discipline) drives both $X_1$ (hours studied) and $Y$ (exam score).
+        Omitting $U$ biases $\bhat_1$ upward---OLS attributes some of self-discipline's effect to studying.
 
   \item \textbf{Heteroscedasticity:} $\Var(\varepsilon \mid X_1) = h \cdot |X_1|$;
         students who study more have more variable scores.
@@ -290,7 +296,7 @@ The single DGP simultaneously contains all of the following pathologies:
   \item \textbf{Overfitting:} adding polynomial terms (study hours squared, cubed, etc.) inflates training $R^2$ but destroys test $R^2$.
         The model memorises noise instead of learning the signal.
 
-  \item \textbf{Collider bias / bad control:} $X_3$ (confidence) is caused by the same factors that produce $Y$;
+  \item \textbf{Collider bias / bad control:} $X_3$ (self-assessed performance) is caused by $Y$;
         conditioning on it opens a spurious path between $X_1$ and $Y$, distorting the studying coefficient.
 \end{enumerate}
 
@@ -403,7 +409,7 @@ The formula panel updates live, showing how $\beta_2 \cdot \delta_1$ produces th
 
 \begin{keyinsight}
 The bias has a \emph{sign} and a \emph{direction}.
-In the studying DGP, recall that both hours studied ($X_1$) and lectures attended ($X_2$) are positively driven by motivation ($U$), so $\delta_1 > 0$, and $\beta_2 = 3 > 0$. The bias is therefore \emph{positive}: the short regression \emph{overestimates} the effect of hours studied, because it gives $X_1$ credit for the beneficial effect of lecture attendance that travels through the shared motivation confounder.
+In the studying DGP, recall that both hours studied ($X_1$) and lectures attended ($X_2$) are positively driven by self-discipline ($U$), so $\delta_1 > 0$, and $\beta_2 = 3 > 0$. The bias is therefore \emph{positive}: the short regression \emph{overestimates} the effect of hours studied, because it gives $X_1$ credit for the beneficial effect of lecture attendance that travels through the shared self-discipline confounder.
 \end{keyinsight}
 
 \subsection{When OVB Cannot Be Signed}
@@ -415,8 +421,8 @@ In general, the sign of the total bias is indeterminate without knowledge of all
 \subsection{The Proxy Variable Approach}
 
 \begin{repairbox}
-In the studying scenario, the true confounder is motivation ($U$), which we cannot directly observe---no exam asks ``how motivated were you?'' and gets an honest answer. But suppose we can measure something related, like attendance at optional review sessions. Call this proxy $\tilde{U}$. If $\tilde{U}$ explains a fraction $q \in [0,1]$ of the variation in $U$, the residual bias is approximately $(1-q)$ times the original bias.
-At $q = 1$ (the proxy perfectly captures motivation), the bias vanishes entirely. At $q = 0$ (the proxy is useless noise), the full bias remains. In practice, even an imperfect proxy---$q = 0.5$, say---cuts the bias in half, which is a substantial improvement over ignoring the confounder entirely.
+In the studying scenario, the true confounder is self-discipline ($U$)---the Instagram slider score that lives on a social media server, not in the university's records. But suppose we can measure something related, like attendance at optional review sessions. Call this proxy $\tilde{U}$. If $\tilde{U}$ explains a fraction $q \in [0,1]$ of the variation in $U$, the residual bias is approximately $(1-q)$ times the original bias.
+At $q = 1$ (the proxy perfectly captures self-discipline), the bias vanishes entirely. At $q = 0$ (the proxy is useless noise), the full bias remains. In practice, even an imperfect proxy---$q = 0.5$, say---cuts the bias in half, which is a substantial improvement over ignoring the confounder entirely.
 \end{repairbox}
 
 \subsection{The Collider Trap: When ``Controlling For'' Backfires}
@@ -430,7 +436,7 @@ A variable $C$ is a \emph{collider} on a path if two arrows point \textsc{into} 
 A \emph{collider path} is any path between two variables that passes through a collider. Such a path is ``blocked'' by default (no spurious association flows along it) but becomes ``open'' if you condition on the collider. This is the reverse of the usual rule: for non-colliders, conditioning blocks a path; for colliders, conditioning opens one.
 
 \begin{warningbox}
-In our studying DGP, the variable $X_3$ (self-reported confidence after the exam) is defined as $X_3 = 0.9 Y + \eta_3$. Confidence is driven by the exam score $Y$, which in turn is driven by hours studied ($X_1$), lectures attended ($X_2$), and motivation ($U$). Including $X_3$ as a control variable makes things \emph{worse}, not better.
+In our studying DGP, the variable $X_3$ (self-assessed performance after the exam) is defined as $X_3 = 0.9 Y + \eta_3$. Self-assessment is driven by the actual exam score $Y$, which in turn is driven by hours studied ($X_1$), lectures attended ($X_2$), and self-discipline ($U$). Including $X_3$ as a control variable makes things \emph{worse}, not better.
 
 Why? Confidence is a \emph{post-treatment} variable---it is caused by the outcome $Y$, not the other way around. Conditioning on confidence is like asking: ``Among students who are equally confident, does studying more help?'' But think about what ``equally confident'' means. A student who studied very little but is highly confident must have some other advantage---perhaps natural talent or prior knowledge. A student who studied a great deal but is only moderately confident must have some disadvantage that studying couldn't fully overcome. By holding confidence fixed, you have manufactured a fake negative relationship between studying and these unobserved traits. You have opened a collider path $X_1 \to Y \to X_3 \leftarrow \eta_3$, and the resulting bias can be \emph{larger} than the original OVB you were trying to fix.
 
@@ -902,7 +908,7 @@ A regressor $X_j$ is \emph{endogenous} if $\Cov(X_j, \varepsilon) \neq 0$.
 This can arise from omitted variables, measurement error, or simultaneous causation (feedback loops).
 \end{definition}
 
-In the exam score DGP, studying hours ($X_1$) are endogenous because motivation ($U$) drives both studying and scores. The structural equation for scores is $Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon$, but the analyst does not observe $U$. When we regress $Y$ on $X_1$, the OLS estimate of ``the effect of studying'' includes the effect of motivation traveling through the study-hours channel. Motivated students study more \emph{and} score higher for other reasons; OLS cannot tell these apart. It lumps both effects into a single inflated coefficient.
+In the exam score DGP, studying hours ($X_1$) are endogenous because self-discipline ($U$) drives both studying and scores. The structural equation for scores is $Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon$, but the analyst does not observe $U$. When we regress $Y$ on $X_1$, the OLS estimate of ``the effect of studying'' includes the effect of self-discipline traveling through the study-hours channel. Disciplined students study more \emph{and} score higher for other reasons; OLS cannot tell these apart. It lumps both effects into a single inflated coefficient.
 
 \subsection{The Causal Graph}
 
@@ -913,10 +919,10 @@ The causal structure of the exam score DGP is:
 
 In words:
 \begin{itemize}[nosep]
-  \item Motivation ($U$) drives studying ($X_1$), which drives exam scores ($Y$).
-  \item Motivation also drives scores directly (through focus, practice habits, attentiveness).
-  \item Motivation drives lecture attendance ($X_2$), which drives scores.
-  \item Exam scores drive self-reported confidence ($X_3$).
+  \item Self-discipline ($U$) drives studying ($X_1$), which drives exam scores ($Y$).
+  \item Self-discipline also drives scores directly (through focus, practice habits, attentiveness).
+  \item Self-discipline drives lecture attendance ($X_2$), which drives scores.
+  \item Exam scores drive self-assessed performance ($X_3$).
 \end{itemize}
 
 The arrow from $Y$ to $X_3$ is what makes confidence a \emph{post-treatment} variable. Confidence does not cause high scores; being well-prepared causes both high scores and high confidence. Including $X_3$ as a control conditions on a descendant of $Y$---a dangerous move, as we will see next.
@@ -928,12 +934,12 @@ If $X_3 = \alpha Y + \eta_3$ (i.e., $X_3$ is a post-treatment variable), then th
 The bias arises because conditioning on a descendant of $Y$ partially conditions on $Y$ itself.
 \end{proposition}
 
-To understand why, think about what ``controlling for confidence'' means. Among students with the same confidence level, those who studied fewer hours must have had something else going for them---higher motivation, better background knowledge, or just luck. By holding confidence fixed, you are implicitly selecting on a combination of studying and these other factors, creating a spurious association between studying and the error term.
+To understand why, think about what ``controlling for confidence'' means. Among students with the same confidence level, those who studied fewer hours must have had something else going for them---higher self-discipline, better background knowledge, or just luck. By holding confidence fixed, you are implicitly selecting on a combination of studying and these other factors, creating a spurious association between studying and the error term.
 
 \begin{keyinsight}
 You might think: ``I'll just include every variable in my dataset as a control. That way I can't have omitted variable bias.'' This reasoning is wrong for two reasons:
 \begin{enumerate}
-  \item \textbf{You can only control for variables you observe.} If the true confounder $U$ is unmeasured, no amount of other controls helps---unless they happen to be good proxies for $U$. In our DGP, motivation is hidden. Including hours studied, lectures attended, and confidence does not capture motivation directly.
+  \item \textbf{You can only control for variables you observe.} If the true confounder $U$ is unmeasured, no amount of other controls helps---unless they happen to be good proxies for $U$. In our DGP, self-discipline is hidden. Including hours studied, lectures attended, and confidence does not capture self-discipline directly.
   \item \textbf{Some observed variables are post-treatment.} Including confidence ($X_3$) does not remove bias---it \emph{introduces} new bias. The variable $X_3$ sits downstream of the outcome $Y$ in the causal graph. Conditioning on it opens a path that was previously blocked, allowing spurious associations to flow.
 \end{enumerate}
 The right set of controls depends on the \emph{causal structure}, not on what happens to be in your spreadsheet. Adding a variable is not free; it can make things worse.
@@ -980,7 +986,7 @@ When $X$ is endogenous, OLS is stuck. No matter how large your sample, the estim
 
 The idea behind instrumental variables is to find a source of variation in $X$ that is ``clean''---uncontaminated by the confounder $U$. If we can isolate this clean variation and look at how $Y$ responds to it, we recover the causal effect.
 
-In the exam score context: studying hours are contaminated by motivation. But suppose dorm room assignments at the university are random, and your roommate's study habits influence how much \emph{you} study (peer effects). If your roommate is a diligent studier, you tend to study more; if your roommate plays video games all evening, you study less. Crucially, your roommate's study hours are correlated with \emph{your} study hours (relevance), but your roommate's habits have no direct effect on \emph{your} exam score other than through influencing how much you study (exclusion). Your roommate does not take the exam for you, does not whisper answers during the test, and does not grade your paper. This is the instrument.
+In the exam score context: studying hours are contaminated by self-discipline. But suppose dorm room assignments at the university are random, and your roommate's study habits influence how much \emph{you} study (peer effects). If your roommate is a diligent studier, you tend to study more; if your roommate plays video games all evening, you study less. Crucially, your roommate's study hours are correlated with \emph{your} study hours (relevance), but your roommate's habits have no direct effect on \emph{your} exam score other than through influencing how much you study (exclusion). Your roommate does not take the exam for you, does not whisper answers during the test, and does not grade your paper. This is the instrument.
 
 \begin{definition}[Instrument]
 A variable $Z$ is a valid \emph{instrument} for $X$ in the equation $Y = X\beta + \varepsilon$ if:
@@ -1028,7 +1034,7 @@ When the first-stage $F$-statistic is below 10, IV confidence intervals are extr
 \subsection{A Numerical Example: Roommates and Exam Scores}
 
 \begin{numermark}[title={Roommate Study Hours as an Instrument}]
-We want the causal effect of study hours ($X_1$) on exam score ($Y$). The problem: motivation ($U$) boosts both. We use roommate's average study hours ($Z$) as an instrument. Roommates are randomly assigned, so $Z$ is independent of motivation.
+We want the causal effect of study hours ($X_1$) on exam score ($Y$). The problem: self-discipline ($U$) boosts both. We use roommate's average study hours ($Z$) as an instrument. Roommates are randomly assigned, so $Z$ is independent of self-discipline.
 
 Suppose the true DGP (simplified) is:
 \begin{align*}
@@ -1040,7 +1046,7 @@ The true causal effect of one extra hour of studying is $\beta_1 = 3$ points.
 \begin{center}
 \begin{tabular}{@{}cccccc@{}}
 \toprule
-Student & $Z$ (roommate hrs) & $U$ (motivation) & $X_1 = 1+Z+U$ & $Y = 50+3X_1+2U$ & $\varepsilon$ \\
+Student & $Z$ (roommate hrs) & $U$ (self-discipline) & $X_1 = 1+Z+U$ & $Y = 50+3X_1+2U$ & $\varepsilon$ \\
 \midrule
 A & 1 & 2 & 4 & 66 & 0 \\
 B & 2 & $-1$ & 2 & 54 & $-2$ \\
@@ -1057,13 +1063,13 @@ The noise $\varepsilon$ values are chosen so that $\Cov(Z, \varepsilon) = 0$ (th
 \[
   \bols = \frac{\Cov(X_1, Y)}{\Var(X_1)} = \frac{30.5}{3.5} \approx 8.71.
 \]
-The true effect is 3, but OLS says 8.71---nearly three times too large! The reason: motivated students (high $U$) both study more and score higher. OLS attributes the motivation premium to studying.
+The true effect is 3, but OLS says 8.71---nearly three times too large! The reason: disciplined students (high $U$) both study more and score higher. OLS attributes the self-discipline premium to studying.
 
 \textbf{Why IV works.} IV uses only the variation in $X_1$ that comes from the instrument $Z$:
 \[
   \biv = \frac{\Cov(Z, Y)}{\Cov(Z, X_1)} = \frac{6.0}{2.0} = 3.0.
 \]
-Exactly the true causal effect! The instrument isolates the ``clean'' variation in study hours---the part driven by who your roommate happens to be, not by your own motivation. By looking at how scores respond to this clean variation, IV strips away the contamination.
+Exactly the true causal effect! The instrument isolates the ``clean'' variation in study hours---the part driven by who your roommate happens to be, not by your own self-discipline. By looking at how scores respond to this clean variation, IV strips away the contamination.
 
 \textbf{Verification.} We can check the instrument validity conditions:
 \begin{itemize}[nosep]
@@ -1111,7 +1117,7 @@ The Lalonde story has a direct parallel in our exam score world.
 \begin{toystory}[title={Does Tutoring Help?}]
 The university offers free tutoring sessions to any student who signs up. You collect data on 500 students: whether they attended tutoring, and their final exam score. A simple OLS regression says tutoring \emph{decreases} scores by 3 points.
 
-Should you shut down the tutoring programme? Of course not. The problem is self-selection: students who sign up for tutoring are predominantly those who are struggling---they have low motivation ($U$), missed lectures ($X_2$), and studied fewer hours ($X_1$). These are precisely the students who would have scored poorly anyway. The tutoring coefficient is negative not because tutoring hurts, but because weak students are the ones who seek it out.
+Should you shut down the tutoring programme? Of course not. The problem is self-selection: students who sign up for tutoring are predominantly those who are struggling---they have low self-discipline ($U$), missed lectures ($X_2$), and studied fewer hours ($X_1$). These are precisely the students who would have scored poorly anyway. The tutoring coefficient is negative not because tutoring hurts, but because weak students are the ones who seek it out.
 
 Now imagine an experiment: you randomly assign half the students to attend tutoring regardless of whether they would have chosen it. The experimental estimate shows tutoring \emph{raises} scores by 8 points. The observational estimate had the wrong sign because it confused ``who selects into tutoring'' with ``what tutoring does.''
 \end{toystory}
@@ -1133,7 +1139,7 @@ Formally, define
 A small RV indicates fragility: a weak confounder suffices to nullify the result.
 A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.
 
-In our tutoring example, the observational estimate that ``tutoring hurts'' has a tiny robustness value. A confounder (like motivation) with even modest partial $R^2$ with both tutoring attendance and exam score would flip the sign---which is exactly what happens when you account for self-selection in the experimental design.
+In our tutoring example, the observational estimate that ``tutoring hurts'' has a tiny robustness value. A confounder (like self-discipline) with even modest partial $R^2$ with both tutoring attendance and exam score would flip the sign---which is exactly what happens when you account for self-selection in the experimental design.
 
 \begin{keyinsight}
 The Lalonde dataset---and its tutoring analog---teaches the hardest lesson in applied statistics: a well-fitting model with clean diagnostics can still give you an answer that is not just wrong, but \emph{directionally} wrong. Diagnostics check the model's internal consistency. Only the research design can tell you whether the estimate is credible. When in doubt, compute the robustness value. If a plausible confounder could flip your result, treat the finding with extreme scepticism.
@@ -1177,7 +1183,7 @@ The design eliminates confounding \emph{locally} at the cutoff because units jus
 \subsection{Example: Scholarship Cutoff}
 
 Students with exam scores just above a threshold receive scholarships; those just below do not.
-Near the cutoff, the two groups are essentially identical---they studied similar amounts, attended similar numbers of lectures, and have similar (unobserved) motivation levels.
+Near the cutoff, the two groups are essentially identical---they studied similar amounts, attended similar numbers of lectures, and have similar (unobserved) self-discipline levels.
 The jump in outcomes at the threshold identifies the causal effect of the scholarship.
 
 \subsection{Bandwidth Choice}
@@ -1334,7 +1340,7 @@ They match---not approximately, but to every decimal place. ``Controlling for sl
 The FWL theorem does not just explain what ``controlling for'' means when you get it right. It also reveals, with painful clarity, what happens when you control for the wrong variable.
 
 \begin{keyinsight}
-When you ``control for'' $X_3$ (the post-treatment confidence score), FWL tells you what you are actually doing: you are removing the linear relationship between confidence and BOTH the outcome (exam score) and the predictor (study hours). Because confidence is driven by the same factors as the exam score---it is essentially $0.9 \cdot Y$ plus noise---stripping it out removes genuine signal, not noise. You are asking: ``among students with the \emph{same} confidence level, does studying more help?'' But students with the same confidence who studied different amounts must differ on something else (like motivation) in exactly the offsetting direction. The coefficient on study hours collapses toward zero---``controlling for'' a post-treatment variable did not clean your estimate, it destroyed it.
+When you ``control for'' $X_3$ (the post-exam self-assessment), FWL tells you what you are actually doing: you are removing the linear relationship between self-assessment and BOTH the outcome (exam score) and the predictor (study hours). Because self-assessment is driven by the actual exam score---it is essentially $0.9 \cdot Y$ plus noise---stripping it out removes genuine signal, not noise. You are asking: ``among students who rated their performance the \emph{same}, does studying more help?'' But students with the same self-assessment who studied different amounts must differ on something else (like self-discipline) in exactly the offsetting direction. The coefficient on study hours collapses toward zero---``controlling for'' a post-treatment variable did not clean your estimate, it destroyed it.
 \end{keyinsight}
 
 \begin{vizspec}[title={``The Double Residual'' --- FWL Animator}]
@@ -1419,7 +1425,7 @@ In the exam score DGP, each theorem answers a different version of the same ques
 These notes have formalised the eight core failure modes of OLS regression demonstrated in the Regression Autopsy lab series:
 
 \begin{enumerate}[nosep]
-  \item \textbf{Omitted variable bias} shifts your coefficient---OLS attributes motivation's effect to study hours, inflating the estimated return to studying.
+  \item \textbf{Omitted variable bias} shifts your coefficient---OLS attributes self-discipline's effect to study hours, inflating the estimated return to studying.
   \item \textbf{Heteroscedasticity} corrupts your standard errors---students who study more have more variable exam scores, and the default SE formula does not account for this.
   \item \textbf{Large samples} make trivial effects ``significant''---with 50{,}000 student records, a 0.01-point improvement per study hour achieves $p < 0.001$.
   \item \textbf{Misspecification} makes extrapolation fiction---fitting a line to a logarithmic truth systematically over-predicts at the extremes.
