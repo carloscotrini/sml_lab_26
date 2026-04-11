@@ -17,6 +17,8 @@
 \usepackage{fancyhdr}
 \usepackage{titlesec}
 \usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
 
 % --- Colors ---
 \definecolor{olsblue}{HTML}{2E5EA8}
@@ -233,35 +235,61 @@ Right after handing in the exam, students rate how well they think they did on a
 
 \bigskip
 
-The default parameter values are:
-\begin{center}
-\begin{tabular}{@{}lll@{}}
-\toprule
-\textbf{Parameter} & \textbf{Symbol} & \textbf{Default} \\
-\midrule
-Intercept (base score) & $\beta_0$ & 50 \\
-Study-hours effect & $\beta_1$ & 8 \\
-Lecture-attendance effect & $\beta_2$ & 3 \\
-Self-discipline direct effect & $\beta_U$ & 2 \\
-Self-discipline $\to$ study hours & $\gamma_1$ & 0.5 \\
-Self-discipline $\to$ lectures & $\gamma_2$ & 0.3 \\
-Heteroscedasticity scale & $h$ & 0.5 \\
-Confidence $\leftarrow$ score & $\alpha$ & 0.9 \\
-Noise std (study hours) & $\sigma_{\eta_1}$ & $\sqrt{0.3} \approx 0.55$ \\
-Noise std (lectures) & $\sigma_{\eta_2}$ & 1 \\
-Noise std (confidence) & $\sigma_{\eta_3}$ & $\sqrt{2} \approx 1.41$ \\
-\bottomrule
-\end{tabular}
-\end{center}
+\begin{keyinsight}[title={The Numbers Behind the Story}]
+Here are the default parameter values, tied to what they mean in the real world:
+
+\textbf{The base score} ($\beta_0 = 50$): a completely average student who barely studied and attended some lectures scores about 50 out of 100. This is the exam's difficulty anchor.
+
+\textbf{The studying payoff} ($\beta_1 = 8$): each unit increase in $\log(\text{hours studied})$ adds 8 points. Concretely: going from 1 to 2.7 hours (one log-unit) gains you 8 points. The logarithm means the first hour is worth far more than the tenth.
+
+\textbf{The lecture dividend} ($\beta_2 = 3$): each additional lecture attended adds 3 points. A student who attended all 14 lectures has a 42-point boost from lectures alone.
+
+\textbf{The self-discipline bonus} ($\beta_U = 2$): each standard deviation of self-discipline adds 2 points directly---through focus, practice, and persistence---even holding study hours and lectures fixed. This is the hidden advantage that creates the bias.
+
+\textbf{The confounding links} ($\gamma_1 = 0.5$, $\gamma_2 = 0.3$): self-discipline pushes study hours up by 0.5 per SD and lectures by 0.3 per SD. These links are why omitting $U$ biases the studying coefficient.
+
+\textbf{The noise that grows} ($h = 0.5$): exam score variance scales with study hours. Low-study students cluster tightly around low scores. High-study students spread out---how you study matters more than how long, and that varies.
+
+\textbf{The post-treatment trap} ($\alpha = 0.9$): self-assessed performance tracks the actual score almost one-to-one. Including it as a control is like partially conditioning on $Y$ itself.
+\end{keyinsight}
 
 \begin{remark}[Causal ordering]
-Generate in order: $U$ first, then $(X_1, X_2)$, then $Y$, then $X_3$. The self-assessment $X_3$ is \emph{post-treatment}: it is caused by $Y$ (students rate their performance after taking the exam), not a cause of $Y$. It never appears in the true DGP for $Y$. Including $X_3$ as a control variable introduces collider bias (see \Cref{sec:causation}).
+The causal graph below shows every relationship in the DGP. Solid arrows indicate observed relationships; the dashed node ($U$) is unobserved by the analyst. The red node ($X_3$) is post-treatment. Generate data in causal order: $U$ first, then $(X_1, X_2)$, then $Y$, then $X_3$.
+
+\begin{center}
+\begin{tikzpicture}[
+    >=Stealth,
+    node distance=2cm and 2.5cm,
+    observed/.style={draw, circle, minimum size=1cm, thick, fill=olsblue!10},
+    unobserved/.style={draw, circle, minimum size=1cm, thick, dashed, fill=biasred!15, text=biasred!80!black},
+    posttreatment/.style={draw, circle, minimum size=1cm, thick, fill=biasred!20, text=biasred!80!black},
+    every edge/.style={draw, thick, ->},
+    lbl/.style={font=\footnotesize, fill=white, inner sep=1pt},
+  ]
+  % Nodes
+  \node[unobserved] (U) {$U$};
+  \node[observed, below left=2cm and 2cm of U] (X1) {$X_1$};
+  \node[observed, below right=2cm and 2cm of U] (X2) {$X_2$};
+  \node[observed, below right=2cm and 0cm of X1] (Y) {$Y$};
+  \node[posttreatment, below=2cm of Y] (X3) {$X_3$};
+  \node[observed, right=2cm of Y] (eps) {$\varepsilon$};
+
+  % Edges
+  \draw[->] (U) -- node[lbl, left]  {$\gamma_1 = 0.5$} (X1);
+  \draw[->] (U) -- node[lbl, right] {$\gamma_2 = 0.3$} (X2);
+  \draw[->] (U) -- node[lbl, left]  {$\beta_U = 2$} (Y);
+  \draw[->] (X1) -- node[lbl, left] {$\beta_1 = 8$\,(\text{via}\;\(\log\))} (Y);
+  \draw[->] (X2) -- node[lbl, right] {$\beta_2 = 3$} (Y);
+  \draw[->] (Y) -- node[lbl, right] {$\alpha = 0.9$} (X3);
+  \draw[->] (eps) -- (Y);
+\end{tikzpicture}
+\end{center}
 \end{remark}
 
 \subsection{Why These Relationships?}\label{subsec:why-relationships}
 
 \begin{keyinsight}
-The structural equations above are not arbitrary---each one encodes a specific real-world mechanism:
+The structural equations above are not arbitrary---each one encodes a specific real-world mechanism. Refer to the causal graph above---each bullet below corresponds to one arrow in the diagram.
 
 \begin{itemize}
   \item \textbf{Self-discipline $\to$ studying (positive):} Obvious---disciplined students put in more hours. This is why $U$ appears with a positive coefficient in the equation for $X_1$.
@@ -270,7 +298,11 @@ The structural equations above are not arbitrary---each one encodes a specific r
 
   \item \textbf{Studying $\to$ score (logarithmic):} The first hour of studying recovers the low-hanging fruit---basic definitions, key formulas, the structure of the exam. The 10th hour yields much less---you are reviewing material you already know. Diminishing returns are built into the $\log$.
 
+  \item \textbf{Lectures $\to$ score (linear):} Attending lectures exposes you to material, worked examples, and the instructor's emphasis on what matters for the exam. Each additional lecture adds 3 points ($\beta_2 = 3$). This is a direct causal effect, not mediated by studying---you learn things in lecture that you wouldn't learn from the textbook alone.
+
   \item \textbf{Self-discipline $\to$ score (direct):} Self-discipline helps \emph{beyond} studying. Disciplined students pay attention in class, ask questions, do practice problems, and stay focused during the exam. These things boost scores even holding study hours fixed. This direct effect ($\beta_U = 2$) is what creates the omitted variable bias problem.
+
+  \item \textbf{Noise $\varepsilon \to$ score:} Even after accounting for studying, lectures, and self-discipline, there is randomness: a bad night's sleep, a lucky guess, a misread question.
 
   \item \textbf{Score $\to$ self-assessment (positive):} Students who did well on the exam know it when they walk out. This is \emph{not} a causal effect of self-assessment on scores---it is the reverse. Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias.
 \end{itemize}
@@ -308,6 +340,8 @@ Each notebook isolates and examines one pathology while the others remain presen
 \section{Why Your Coefficient Is Wrong: Omitted Variable Bias}\label{sec:ovb}
 
 \subsection{Setup}
+
+Imagine you are a teaching assistant analysing exam data. You have each student's exam score and the number of hours they studied---but you do \emph{not} have their lecture attendance records (those are kept by a different department and you forgot to request them). So you run the only regression you can: score on hours studied, omitting lectures. This is not laziness---it is a common real-world constraint. Data lives in silos, access requires paperwork, and deadlines don't wait. The question is: what happens to your coefficient on study hours when you are \emph{forced} to leave out a relevant variable?
 
 \begin{toystory}[title={The Sunscreen Murder Mystery}]
 Every summer, ice cream sales go up and so do drowning deaths. If you just look at the data, it seems like ice cream \emph{causes} drownings. But you forgot about the hot weather---when it's hot, people buy more ice cream AND swim more. The heat is doing the real work behind the scenes, but because you ignored it, its effect got smeared onto ice cream, making ice cream look dangerous.
@@ -429,9 +463,32 @@ At $q = 1$ (the proxy perfectly captures self-discipline), the bias vanishes ent
 
 Not all variables should be controlled for. Some variables, when included in the regression, make things \emph{worse} rather than better. To understand when this happens, we need the concept of a collider.
 
-\begin{definition}[Collider]
-A variable $C$ is a \emph{collider} on a path if two arrows point \textsc{into} it on that path: $A \to C \leftarrow B$. Conditioning on a collider (including it in the regression) \emph{opens} a spurious association between $A$ and $B$ that did not exist before. This is the opposite of what ``controlling for'' usually does.
+\begin{definition}[Path and Collider]
+In a causal graph, a \emph{path} between two variables is any sequence of arrows connecting them, regardless of the arrows' directions. For example, in the exam score graph, one path from $X_1$ to $X_3$ is $X_1 \to Y \to X_3$.
+
+A variable $C$ is a \emph{collider} on a path if two arrows point \emph{into} it on that path: $A \to C \leftarrow B$. In our graph, $Y$ is a collider on the path $X_1 \to Y \leftarrow U$, because both $X_1$ and $U$ point into $Y$.
+
+The key rule: conditioning on a collider (including it in the regression) \emph{opens} a spurious association between the variables on either side. Conditioning on a non-collider \emph{blocks} the association. This is why including $X_3$ as a control backfires: $X_3$ is a descendant of the collider $Y$, and conditioning on a descendant partially conditions on the collider itself.
 \end{definition}
+
+\begin{proposition}[Collider Bias]\label{prop:collider}
+Let $X$ and $U$ be independent, and let $C = \alpha_1 X + \alpha_2 U + \eta$ with $\alpha_1, \alpha_2 \neq 0$. Then $X$ and $U$ are unconditionally independent, but conditionally on $C$, they become dependent:
+\[
+  \Cov(X, U \mid C) \neq 0.
+\]
+\end{proposition}
+
+\begin{proof}
+Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:
+\[
+  \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
+\]
+Since $\Cov(X, U) = 0$ but $\Cov(X, C) = \alpha_1 \Var(X) \neq 0$ and $\Cov(C, U) = \alpha_2 \Var(U) \neq 0$:
+\[
+  \Cov(X, U \mid C) = -\frac{\alpha_1 \Var(X) \cdot \alpha_2 \Var(U)}{\Var(C)} \neq 0.
+\]
+Conditioning on the collider manufactured a negative association between $X$ and $U$ from nothing.
+\end{proof}
 
 A \emph{collider path} is any path between two variables that passes through a collider. Such a path is ``blocked'' by default (no spurious association flows along it) but becomes ``open'' if you condition on the collider. This is the reverse of the usual rule: for non-colliders, conditioning blocks a path; for colliders, conditioning opens one.
 
@@ -473,10 +530,12 @@ This is the key question for this entire section: \emph{what happens when the SE
 
 \subsection{The Classical Variance Formula}
 
-\begin{toystory}[title={The Bathroom Scale That Lies About Its Own Reliability}]
-You have a bathroom scale that gives the right weight \emph{on average}---step on it 100 times and the average is your true weight. But when you weigh a kitten, the readings barely wobble. When you weigh a suitcase full of books, the readings scatter all over the place. If you pretend the wobble is the same for everything, you'll think you know the suitcase's weight much more precisely than you actually do. The scale isn't biased---it's centered on the truth---but your confidence about ``how close am I?'' is completely wrong.
+\begin{toystory}[title={Drunk Darts}]
+You and your friends play darts at a pub. Sober, everyone throws at the bullseye and the darts land in a tight cluster---maybe 2 centimetres from the centre on average. After one beer, the cluster loosens a bit. After three beers, darts are hitting the wall, the floor, and occasionally the bartender. Your \emph{aim} is still the bullseye---on average, you're not biased in any direction---but the \emph{spread} of your throws grows with every drink.
 
-This is what the sandwich variance formula fixes: when the noise differs across observations, the simple formula for uncertainty is wrong, and you need the corrected version to get honest error bars.
+Here is the connection to regression: beers are the predictor ($X$), and dart accuracy is the outcome ($Y$). The average effect of beer on accuracy is estimable (it's negative---more beer, worse aim). But the \emph{variance} of the outcome depends on $X$: sober throws are predictable, drunk throws are chaotic. If you use the sober-level spread to judge your uncertainty about the drunk-level effect, you will be wildly overconfident. Your confidence interval will say ``I'm 95\% sure the effect is between $-2$ and $-1$ cm per beer'' when the true range should be ``$-8$ to $+4$ cm per beer.''
+
+This is heteroscedasticity: the noise depends on the predictor. And if you ignore it, your uncertainty estimates are a lie.
 \end{toystory}
 
 Under the standard linear model $Y = X\beta + \varepsilon$ with $\E[\varepsilon\varepsilon^\top \mid X] = \sigma^2 I_n$, the variance of the OLS estimator is
@@ -493,6 +552,16 @@ In the studying DGP, $\varepsilon \sim N(0,\; 0.5 \cdot |X_1|)$: the more a stud
 Consider apartment rents. A 20m$^2$ studio in Zurich rents for CHF 800--1{,}000 (a narrow range---there is not much a landlord can do to differentiate a tiny studio). A 200m$^2$ flat rents for CHF 3{,}000--8{,}000---the range is enormous because large apartments vary in quality, location, and luxury features. The spread of rents ``fans out'' with apartment size. That fanning is heteroscedasticity.
 \end{remark}
 
+\begin{keyinsight}[title={Heteroscedasticity in Everyday Wisdom}]
+There is a folk version of heteroscedasticity that everyone already knows:
+
+\emph{``If you never buy a lottery ticket, you'll never win---but you'll never lose either.''}
+
+\emph{``If you don't put yourself out there, nothing bad happens---but nothing good happens either.''}
+
+The common thread: low exposure means low variance (predictable but boring). High exposure means high variance (exciting but risky). In regression terms: the predictor $X$ determines not just the expected outcome, but how \emph{spread out} the outcomes are. A student who studies 1 hour will reliably score around 55. A student who studies 10 hours might score 65 or 90---because at high effort, the quality of studying matters enormously, and that quality varies.
+\end{keyinsight}
+
 \begin{theorem}[Variance Under Heteroscedasticity --- The Sandwich Formula]\label{thm:sandwich}
 When $\E[\varepsilon\varepsilon^\top \mid X] = \Omega \neq \sigma^2 I_n$, the OLS estimator $\bols$ remains \emph{unbiased} but its variance becomes
 \begin{equation}\label{eq:var-hetero}
@@ -501,6 +570,16 @@ When $\E[\varepsilon\varepsilon^\top \mid X] = \Omega \neq \sigma^2 I_n$, the OL
 This is the \textbf{sandwich formula}: the ``bread'' is $(X^\top X)^{-1}$ on each side, and the ``meat'' is $X^\top \Omega\, X$ in the middle.
 The classical formula~\eqref{eq:var-homo} underestimates or overestimates the true variance, depending on the correlation structure between $X$ and the error variances.
 \end{theorem}
+
+\begin{remark}[$\Omega$ is diagonal, not correlated]
+A common confusion: heteroscedasticity does \emph{not} mean the errors of different observations are correlated. Student A's error and Student B's error are still independent. What changes is that the \emph{size} of each error varies:
+\[
+  \Omega = \begin{pmatrix} \sigma_1^2 & 0 & \cdots & 0 \\ 0 & \sigma_2^2 & \cdots & 0 \\ \vdots & & \ddots & \vdots \\ 0 & 0 & \cdots & \sigma_n^2 \end{pmatrix}.
+\]
+The off-diagonal zeros mean: knowing Student A's error tells you nothing about Student B's. But $\sigma_1^2 \neq \sigma_2^2$---some students have noisier outcomes than others. In the dart analogy: knowing how far \emph{your} dart landed from the bullseye tells me nothing about where \emph{my} dart landed. But if you've had five beers and I've had none, your dart's spread is much larger than mine.
+
+When errors \emph{are} correlated across observations (e.g., students in the same study group share shocks), $\Omega$ has nonzero off-diagonals. That is a different problem called \emph{autocorrelation} or \emph{clustering}, which we do not address in these notes.
+\end{remark}
 
 \begin{numermark}[title={Five Students, One Exam}]
 We predict exam scores ($Y$) from hours studied ($X$) for five students. The true relationship is $Y = 50 + 8X$ with heteroscedastic noise that grows with $X$:
@@ -544,6 +623,10 @@ If the classical standard errors are used under heteroscedasticity:
 
 \subsection{The Breusch--Pagan Test}\label{subsec:bp}
 
+\begin{remark}[$R^2$: How much does $X$ explain?]
+The \textbf{coefficient of determination} $R^2$ measures the fraction of the total variation in the outcome that is explained by the predictors. If $R^2 = 0.80$, the predictors explain 80\% of the variation; the remaining 20\% is unexplained noise. An $R^2$ close to zero means the predictors have almost no explanatory power.
+\end{remark}
+
 Before we can test for heteroscedasticity, we need to be clear about what a test statistic is in general.
 
 \begin{definition}[Test Statistic]
@@ -552,14 +635,14 @@ A \emph{test statistic} is a single number computed from the data that measures 
 
 Now we can state the specific test for heteroscedasticity.
 
-\textbf{The logic.} If errors are homoscedastic, the squared residuals $\hat\varepsilon_i^2$ should be unrelated to $X$---knowing how much a student studied should tell you nothing about the \emph{size} of the prediction error. If we regress $\hat\varepsilon_i^2$ on $X$ and find a strong relationship, that is evidence against homoscedasticity.
+\textbf{The logic.} If errors are homoscedastic, the squared residuals $\hat\varepsilon_i^2$ should be unrelated to $X$---knowing how much a student studied should tell you nothing about the \emph{size} of the prediction error. If we fit a linear model with the squared residuals $\hat\varepsilon_i^2$ as the outcome and the original predictors $X$ as the inputs and find a strong relationship, that is evidence against homoscedasticity.
 
 \textbf{What ``regress squared residuals on regressors'' means.} Take the residuals from your main regression (exam score on hours studied). Square each one---this gives you a measure of how big the error was for each student, ignoring its sign. Now run a \emph{new} regression with these squared residuals as the outcome and the original hours studied as the predictor. If this auxiliary regression has a high $R^2$, then hours studied predicts the error size---i.e., the errors are heteroscedastic.
 
 \begin{definition}[Breusch--Pagan Test]
 \begin{enumerate}[nosep]
   \item Estimate the main regression $Y = X\beta + \varepsilon$ by OLS. Compute residuals $\hat\varepsilon_i$.
-  \item Regress $\hat\varepsilon_i^2$ on $X$ (the same regressors as the main regression). Compute the $R^2$ of this auxiliary regression.
+  \item Run a linear regression of $\hat\varepsilon_i^2$ on $X$ (the same regressors as the main regression). Compute the $R^2$ of this auxiliary regression.
   \item Under $H_0$: homoscedasticity, the test statistic $nR^2$ from this auxiliary regression follows a $\chi^2_p$ distribution asymptotically, where $p$ is the number of regressors (excluding the constant).
   \item Reject $H_0$ if $nR^2$ exceeds the critical value from the $\chi^2_p$ distribution.
 \end{enumerate}
@@ -569,7 +652,7 @@ Now we can state the specific test for heteroscedasticity.
 
 \textbf{Why we do not need to know $\sigma^2$.} We do not need to know the true error variance. We only need to test whether the variance \emph{changes} with $X$. The $R^2$ measures exactly that: the fraction of variance in $\hat\varepsilon_i^2$ that $X$ explains. Whether the overall level of $\hat\varepsilon_i^2$ is large or small does not matter---what matters is whether it varies systematically with the regressors.
 
-\textbf{Contrast with the $t$-statistic.} The $t$-statistic for testing a coefficient (which we will meet in \Cref{sec:significance}) requires estimating $\sigma$ via $s = \sqrt{\text{RSS}/(n-p)}$. The Breusch--Pagan test avoids this entirely: it works through $R^2$, which is scale-free. This is why we can detect heteroscedasticity without knowing the baseline variance level.
+\textbf{Contrast with the $t$-statistic.} The $t$-statistic for testing a coefficient (which we will meet in \Cref{sec:significance}) requires estimating $\sigma$ via $s = \sqrt{\text{RSS}/(n-p)}$, where $\text{RSS} = \sum_{i=1}^n \hat\varepsilon_i^2$ is the \textbf{residual sum of squares}---the total squared prediction error. The Breusch--Pagan test avoids this entirely: it works through $R^2$, which is scale-free. This is why we can detect heteroscedasticity without knowing the baseline variance level.
 
 \subsection{Robust Standard Errors}
 
@@ -582,6 +665,22 @@ where $\hat\varepsilon_i$ are the OLS residuals.  These standard errors are \emp
 
 With robust SEs, the 95\% CI recovers $\approx$95\% coverage in the studying DGP simulation.
 \end{repairbox}
+
+\begin{proof}[Derivation of the sandwich estimator]
+Start from the OLS estimator: $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$. Therefore:
+\begin{align*}
+  \bols - \beta &= (X^\top X)^{-1} X^\top \varepsilon, \\
+  \Var(\bols \mid X) &= (X^\top X)^{-1} X^\top \,\Var(\varepsilon \mid X)\, X\, (X^\top X)^{-1} \\
+    &= (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
+\end{align*}
+Under homoscedasticity, $\Omega = \sigma^2 I$, and this simplifies to $\sigma^2 (X^\top X)^{-1}$. Under heteroscedasticity, $\Omega = \operatorname{diag}(\sigma_1^2, \ldots, \sigma_n^2)$, and the middle ``meat'' $X^\top \Omega\, X = \sum_{i=1}^n \sigma_i^2 x_i x_i^\top$ cannot be simplified.
+
+The White--Huber--Eicker estimator replaces each unknown $\sigma_i^2$ with the squared residual $\hat\varepsilon_i^2$:
+\[
+  \widehat{X^\top \Omega\, X} = \sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top.
+\]
+This is consistent: as $n \to \infty$, the average $\frac{1}{n}\sum \hat\varepsilon_i^2 x_i x_i^\top$ converges to $\E[\sigma_i^2 x_i x_i^\top]$ by a law of large numbers, regardless of the form of heteroscedasticity.
+\end{proof}
 
 \begin{warningbox}
 Robust standard errors perform poorly in small samples.
@@ -597,11 +696,29 @@ The crossover point depends on the severity of heteroscedasticity, but as a roug
 
 \subsection{The Anatomy of a $t$-Statistic}
 
-\begin{toystory}[title={The Coin That's Almost Fair}]
-Imagine a coin that lands heads 50.1\% of the time instead of exactly 50\%. Flip it 20 times and you'd never notice---it looks perfectly fair. Flip it 10 million times and you can prove beyond any doubt that it's rigged. But so what? It's still basically fair---no casino would care, no bet would change. You ``detected'' a difference so tiny it means nothing in real life, just because you had an ocean of data. Statistical significance told you ``it's not exactly 50\%,'' but it never told you ``and you should care.''
+\begin{toystory}[title={The Seat Number That ``Predicts'' Your Grade}]
+The university records each student's seat number in the exam hall---a number from 1 to 200, assigned when you walk in. Seat number has absolutely \emph{zero} effect on your exam score. It is pure noise. No one seriously believes that sitting in seat 147 makes you smarter than sitting in seat 12.
 
-This is exactly what the $t$-statistic scaling with $\sqrt{n}$ shows: for any nonzero effect, no matter how trivial, collecting enough data will eventually make it ``statistically significant''---which is why significance is not the same as importance.
+But you run the regression anyway, on 50{,}000 student-exam observations collected over 10 years. The output:
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Variable & Coefficient & SE & $p$-value \\
+\midrule
+Seat number & $0.003$ & $0.001$ & $0.002$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The coefficient is $0.003$---each seat adds three \emph{thousandths} of a point. Over 200 seats, the total difference between seat 1 and seat 200 is $0.6$ points on a 100-point exam. Completely meaningless. Yet the $p$-value screams $p = 0.002$: ``highly significant!''
+
+How can a variable with zero true effect be ``highly significant''? Because with 50{,}000 observations, the standard error shrinks to $0.001$, and even a coefficient of $0.003$ is three standard errors from zero. The $t$-statistic doesn't measure importance---it measures ``how many standard errors is the coefficient from zero.'' With enough data, even the tiniest random correlation becomes ``statistically significant.''
+
+The lesson: \textbf{statistical significance tells you the effect is not exactly zero. It says nothing about whether the effect matters.}
 \end{toystory}
+
+The seat number example illustrates a general phenomenon. Let us see why it happens mathematically.
 
 The $t$-statistic for testing $H_0: \beta_j = 0$ is
 \begin{equation}\label{eq:tstat}
@@ -617,7 +734,7 @@ Since $\se(\bhat_j) = O(1/\sqrt{n})$, for any fixed $\beta_j \neq 0$:
 
 \begin{keyinsight}
 With enough data, \emph{every} non-zero effect becomes statistically significant, no matter how small.
-With $n = 50{,}000$ student-course observations across the university, the effect of seat number in the exam room becomes ``statistically significant'' ($p < 0.01$) despite a coefficient of 0.003 points per seat position---a student in seat 1 versus seat 100 would differ by 0.3 points on a 100-point exam. Statistically detectable, practically meaningless.
+As we saw in the seat number example above, with $n = 50{,}000$ observations the standard error shrinks so much that even a coefficient of $0.003$ becomes ``highly significant'' ($p = 0.002$)---despite being completely meaningless in practice. Statistically detectable, practically irrelevant.
 \end{keyinsight}
 
 \subsection{Statistical Power}
