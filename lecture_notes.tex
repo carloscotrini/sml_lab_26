@@ -130,6 +130,43 @@ Each section follows the same rhythm: a \emph{story} that makes the problem visc
 
 \newpage
 
+\section*{Prerequisites and Notation}
+
+\textbf{Prerequisites.} These notes assume:
+\begin{itemize}[nosep]
+  \item Basic probability: random variables, expectation, variance, covariance, conditional expectation.
+  \item Basic linear algebra: matrix multiplication, transpose, inverse.
+  \item Comfort with summation notation ($\sum$) and basic calculus (derivatives).
+  \item No prior statistics or econometrics is assumed --- we build everything from scratch.
+\end{itemize}
+
+\textbf{Notation.} The following symbols appear throughout:
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} \\
+\midrule
+$Y$ & Outcome variable (exam score) \\
+$X_1, X_2, \ldots$ & Predictor variables (hours studied, lectures attended, \ldots) \\
+$U$ & Unobserved confounder (self-discipline) \\
+$\varepsilon$ & Random error term (noise) \\
+$\beta, \beta_0, \beta_1, \ldots$ & True (population) coefficients --- fixed, unknown numbers \\
+$\bhat, \bhat_1, \ldots$ & OLS estimates --- random variables that depend on the sample \\
+$\E[\cdot]$ & Expected value (population average) \\
+$\Var(\cdot)$ & Variance \\
+$\Cov(\cdot, \cdot)$ & Covariance \\
+$\se(\cdot)$ & Standard error (estimated standard deviation of an estimator) \\
+$\plim$ & Probability limit (what an estimator converges to as $n \to \infty$) \\
+$\log$ & Natural logarithm (base $e$) \\
+$n$ & Sample size \\
+$p$ & Number of predictors \\
+$R^2$ & Coefficient of determination (fraction of variance explained) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+
 % ============================================================
 % 1. INTRODUCTION
 % ============================================================
@@ -1189,6 +1226,22 @@ The observation ``famous people are either talented OR lucky but rarely both'' i
 \textbf{Slider:} Fame threshold---from 10th to 90th percentile. At low thresholds (most people famous), the spurious correlation is weak. At high thresholds (top 5\%), it becomes extreme.
 \end{vizspec}
 
+\begin{keyinsight}[title={Should I Include This Variable?}]
+Before adding a variable to your regression, ask these questions in order:
+
+\begin{enumerate}
+  \item \textbf{Is it caused by the treatment ($X_1$) or the outcome ($Y$)?} If yes: \textcolor{biasred}{\textbf{Do NOT include it.}} It is post-treatment or a collider descendant. Including it introduces bias. (Example: self-assessed performance $X_3$.)
+
+  \item \textbf{Is it a confounder?} Does it cause both $X_1$ and $Y$? If yes: \textcolor{repairgreen}{\textbf{Include it.}} Omitting it creates OVB. (Example: if you could observe self-discipline $U$, include it.)
+
+  \item \textbf{Is it a pure predictor of $Y$ only?} Does it affect $Y$ but is uncorrelated with $X_1$? Including it does not change $\bhat_1$ but reduces residual variance, shrinking standard errors. \textcolor{repairgreen}{\textbf{Include it}} --- it is free precision.
+
+  \item \textbf{Is it unrelated to both $X_1$ and $Y$?} Including it wastes a degree of freedom but does little harm. \textcolor{gray}{\textbf{Harmless but pointless.}}
+\end{enumerate}
+
+When in doubt, draw the causal graph first. The graph tells you what to include, what to exclude, and why.
+\end{keyinsight}
+
 \subsection{Instrumental Variables}
 
 When $X$ is endogenous, OLS is stuck. No matter how large your sample, the estimate converges to the wrong value. The probability limit of $\bols$ includes a bias term that depends on $\Cov(X, U)$---and this term does not shrink with the sample size. You could collect data on every student in every university in the world, and OLS would still give you the wrong answer. We need a fundamentally different strategy.
@@ -1919,5 +1972,41 @@ If it fails even one, keep your guard up.}
 \end{center}
 
 \end{tcolorbox}
+
+%% =============================================================
+%%  APPENDIX C — Practice Problems
+%% =============================================================
+\section{Practice Problems}\label{app:practice}
+
+\begin{enumerate}
+
+\item \textbf{OVB (Section 3).}
+A researcher finds that students who drink more coffee score higher on exams ($\bhat_{\text{coffee}} = 2.1$, $p < 0.01$). Name a plausible omitted variable, predict the sign of the OVB, and explain whether the true effect of coffee is likely larger or smaller than 2.1.
+
+\item \textbf{Heteroscedasticity (Section 4).}
+You run a regression of exam score on hours studied and obtain a 95\% CI of $[5.2,\, 8.8]$ using classical standard errors. A colleague points out that students who study more have more variable scores. Will the true CI be wider or narrower than $[5.2,\, 8.8]$? Explain using the sandwich formula intuition.
+
+\item \textbf{Significance (Section 5).}
+A study with $n = 200{,}000$ finds that left-handed students score 0.02 points higher ($p = 0.03$). A newspaper reports: ``Left-handedness boosts exam performance.'' Write a three-sentence response using the concepts from Section 5.
+
+\item \textbf{Specification (Section 6).}
+The true DGP is $Y = 50 + 8\log(X_1)$. You fit a linear model and predict the score for a student who studied 20 hours. Compute both the linear and log predictions. Which is more trustworthy and why?
+
+\item \textbf{Overfitting (Section 7).}
+You fit polynomial models of degrees 1 through 20 on 50 students and pick the degree with the best training $R^2$. Your friend uses 5-fold cross-validation on the same data. Who will pick a higher-degree polynomial, and whose model will perform better on new data?
+
+\item \textbf{Bad Controls (Section 8).}
+After the exam, you survey students on ``How stressed were you during the exam?'' (1--10). You include stress as a control in your regression of score on hours studied. Is this a good or bad control? Draw the causal path and explain.
+
+\item \textbf{IV (Section 8).}
+Your roommate's study hours ($Z$) are proposed as an instrument for your study hours ($X_1$). State the two conditions $Z$ must satisfy. Then describe a scenario where the exclusion restriction would fail.
+
+\item \textbf{Sensitivity (Section 9).}
+An observational study finds that tutoring reduces exam scores ($\bhat = -4.2$) with a robustness value of $\text{RV} = 0.04$. An observed covariate (prior GPA) has partial $R^2 = 0.12$ with both tutoring and scores. Should you trust the result? Why or why not?
+
+\item \textbf{FWL (Section 11).}
+You regress exam score on hours studied and lectures attended. The coefficient on hours studied is 5.5. Your friend runs the FWL procedure: residualises both score and hours on lectures, then regresses the residuals. What coefficient will your friend get? Explain in one sentence why.
+
+\end{enumerate}
 
 \end{document}
