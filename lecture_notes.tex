@@ -850,6 +850,14 @@ Power increases with both $|\beta_j|$ (effect size) and $\sqrt{n}$ (sample size)
 
 This formula reveals two levers for increasing power: you can look for bigger effects (larger $|\beta_j|$), or you can collect more data (larger $n$). It also shows why under-powered studies are dangerous: with small $n$ and a modest effect, $\text{Power}$ can be as low as 10--20\%, meaning you will miss the real effect 80--90\% of the time.
 
+\begin{numermark}[title={A Power Calculation You Can Do on Paper}]
+Suppose you run a study with $n = 100$, a true effect $\beta = 2$, and noise $\sigma = 10$. At the 5\% level ($z_{0.025} = 1.96$):
+\[
+  \text{Power} \approx \Phi\!\left(\frac{2}{10/\sqrt{100}} - 1.96\right) = \Phi(2 - 1.96) = \Phi(0.04) \approx 0.52.
+\]
+Only a coin flip! You have barely better than a 50\% chance of detecting a real effect. To reach 80\% power ($\Phi^{-1}(0.8) = 0.84$), you need $|\beta|/(\sigma/\sqrt{n}) - 1.96 = 0.84$, so $\sqrt{n} = 2.80 \times \sigma / |\beta| = 2.80 \times 10 / 2 = 14$, giving $n \approx 196$. More conservatively, with a slightly noisier setting or a smaller true effect, you would need $n \approx 385$ or more. The lesson: always compute power \emph{before} running the study, not after.
+\end{numermark}
+
 \subsection{The Multiple Testing Problem}
 
 \begin{proposition}[Expected False Positives Under Multiple Testing]\label{prop:multiple-testing}
@@ -990,6 +998,10 @@ Extrapolation accuracy improves dramatically. The log transformation captures th
 
 However, even the log model is a local approximation---at extreme extrapolation, all parametric models eventually fail. A student who studies 1{,}000 hours does not score $50 + 8\log(1000) \approx 105$; fatigue, burnout, and the hard ceiling of 100 points intervene. The model is better, not perfect.
 \end{repairbox}
+
+\begin{remark}[Practical Specification Testing]
+How do you check for misspecification in practice? (1)~Plot residuals vs.\ fitted values---a U-shape or systematic pattern suggests nonlinearity that the model has missed. (2)~Try log, polynomial, or spline transformations and compare their out-of-sample performance via cross-validation; the specification that predicts best on held-out data is usually the most trustworthy. (3)~Test nested models with an $F$-test: if adding a quadratic term significantly improves the fit, the linear specification was likely wrong. No single test is definitive, but a combination of visual and quantitative checks catches most problems. When in doubt, plot your residuals first---the human eye is remarkably good at spotting structure that a summary statistic misses.
+\end{remark}
 
 \begin{vizspec}[title={``The Comfort Zone'' --- Extrapolation Explorer}]
 \textbf{Try it:} Drag a prediction point along the $x$-axis (hours studied). Within the data range (1--16 hours), the background is calm blue and the error bar is tiny. Drag past the data boundary: the background turns progressively red, the error bar explodes, and the warning escalates from ``Mild extrapolation'' to ``CATASTROPHIC: prediction is fiction.''
@@ -1257,6 +1269,10 @@ A variable $Z$ is a valid \emph{instrument} for $X$ in the equation $Y = X\beta 
   \item \textbf{Exclusion:} $\Cov(Z, \varepsilon) = 0$. The instrument affects $Y$ \emph{only} through $X$. Your roommate's hours affect your score only because they change how much you study, not through any other channel.
 \end{enumerate}
 \end{definition}
+
+\begin{remark}[The Exclusion Restriction Is Untestable]
+The exclusion restriction cannot be tested from data alone. There is no statistical test that can confirm your instrument affects $Y$ only through $X$. It must be argued on substantive grounds. This is the Achilles' heel of IV: the identification strategy is only as strong as the economic or institutional argument behind it. In the roommate example, you must \emph{argue}---not estimate---that roommate study hours have no direct effect on your exam score other than through changing how much you study. If the roommate also explains difficult concepts to you (a direct effect on $Y$), the exclusion restriction fails silently: the IV estimate will be biased, and no amount of data will reveal the problem.
+\end{remark}
 
 \begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Try It Yourself: Name That Instrument}]
 You want the causal effect of study hours ($X_1$) on exam score ($Y$), but self-discipline ($U$) confounds the relationship. For each candidate instrument below, evaluate whether it satisfies \emph{relevance} (does it affect study hours?) and \emph{exclusion} (does it affect exam scores \textbf{only} through study hours?).
@@ -1545,6 +1561,14 @@ The RDD does not require controlling for confounders.
 The design itself ensures comparability near the cutoff.
 When the autopsy report is run on the RDD estimate, all indicators are green: the regression is trustworthy because the \emph{design} is trustworthy. This is why causal inference researchers love RDDs: the credibility comes from the structure of the problem, not from statistical adjustments you hope are sufficient.
 \end{repairbox}
+
+\begin{remark}[The Manipulation Threat]
+The RDD is valid only if students cannot precisely manipulate their running variable. If students who scored 69 could retake the exam until they hit 70, the groups just above and below the cutoff would no longer be comparable. More generally, whenever agents can sort themselves across the threshold---through grade appeals, retakes, or bureaucratic discretion---the identifying assumption of ``local randomisation'' breaks down. The standard diagnostic is a \emph{density test}: plot the histogram of the running variable near the cutoff. A suspicious spike just above the cutoff (and a corresponding dip just below) is evidence of manipulation. McCrary (2008) formalised this as a test for a discontinuity in the density of~$R$ at~$c$.
+\end{remark}
+
+\begin{remark}[Classic RDD Applications]
+Classic RDD applications include Angrist and Lavy (1999), who exploited Maimonides' rule (class sizes split at 40 students) to estimate the effect of class size on test scores, and Carpenter and Dobkin (2009), who used the minimum legal drinking age as a cutoff to estimate the causal effect of alcohol access on mortality. These studies illustrate the power of the design: a sharp institutional rule creates a natural experiment that requires no randomisation.
+\end{remark}
 
 \begin{vizspec}[title={``The Cliff'' --- Bandwidth Explorer}]
 \textbf{Try it:} A scatterplot of $Y$ vs.\ exam score $R$ with a vertical cutoff line. Two local regression lines meet at the cutoff; the gap is the treatment effect. A bandwidth slider (2 to 50) controls how many points are used: narrow bandwidth shows a clean jump with wide confidence intervals, wide bandwidth smooths the jump away.
