@@ -55,6 +55,16 @@
 \newtcolorbox{vizspec}[1][]{colback=repairgreen!3, colframe=repairgreen!50!black,
   fonttitle=\bfseries, title={Visualization}, breakable, #1}
 
+% --- Named environments for recurring pedagogical patterns ---
+\newtcolorbox{coldopen}[1][]{colback=biasred!5, colframe=biasred!80!black,
+  fonttitle=\bfseries, title={Cold Open}, breakable, #1}
+\newtcolorbox{tryit}[1][]{colback=truthgold!5, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Try It Yourself}, breakable, #1}
+\newtcolorbox{predict}[1][]{colback=truthgold!5, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Predict Before You Peek}, breakable, #1}
+\newtcolorbox{participate}[1][]{colback=truthgold!10, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Audience Participation}, breakable, #1}
+
 % --- Header / Footer ---
 \pagestyle{fancy}
 \fancyhf{}
@@ -113,10 +123,78 @@ All theorems stated here are validated by Monte Carlo simulation in the correspo
 \tableofcontents
 \newpage
 
+\section*{How to Read These Notes}
+
+These notes are structured for two audiences:
+
+\begin{itemize}
+  \item \textbf{First pass (the lecture):} Read the \colorbox{truthgold!15}{Toy Story} boxes, the \colorbox{olsblue!10}{Key Insight} boxes, and the \colorbox{olsblue!5}{Numerical Examples}. Skip the theorems and proofs. This gives you the intuition and the punchlines.
+
+  \item \textbf{Second pass (exam prep):} Read the theorem statements and the ``Why is this true?'' summaries. Work through the numerical examples with pen and paper. Consult the proofs in \Cref{app:proofs} only if you want the full derivation.
+\end{itemize}
+
+Each section follows the same rhythm: a \emph{story} that makes the problem visceral, the \emph{mathematics} that makes it precise, a \emph{numerical example} you can verify on paper, and a \emph{visualization} you can play with online. If you feel lost, jump to the next coloured box --- the narrative will pick you back up.
+
+\medskip
+\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient. When you see a \emph{coefficient tracker} note at the start of a section, it summarises how the studying coefficient has changed so far---each change corresponds to a different failure mode. Follow these notes through Sections 3--10 and then check the summary table in Section 13, which puts all nine versions of the coefficient in one place. And the A-level algorithm from the Introduction will return in the Conclusion, once you have the tools to diagnose exactly what went wrong.
+
+\newpage
+
+\section*{Prerequisites and Notation}
+
+\textbf{Prerequisites.} These notes assume:
+\begin{itemize}[nosep]
+  \item Basic probability: random variables, expectation, variance, covariance, conditional expectation.
+  \item Basic linear algebra: matrix multiplication, transpose, inverse.
+  \item Comfort with summation notation ($\sum$) and basic calculus (derivatives).
+  \item No prior statistics or econometrics is assumed --- we build everything from scratch.
+\end{itemize}
+
+\textbf{Notation.} The following symbols appear throughout:
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} \\
+\midrule
+$Y$ & Outcome variable (exam score) \\
+$X_1, X_2, \ldots$ & Predictor variables (hours studied, lectures attended, \ldots) \\
+$U$ & Unobserved confounder (self-discipline) \\
+$\varepsilon$ & Random error term (noise) \\
+$\beta, \beta_0, \beta_1, \ldots$ & True (population) coefficients --- fixed, unknown numbers \\
+$\bhat, \bhat_1, \ldots$ & OLS estimates --- random variables that depend on the sample \\
+$\E[\cdot]$ & Expected value (population average) \\
+$\Var(\cdot)$ & Variance \\
+$\Cov(\cdot, \cdot)$ & Covariance \\
+$\se(\cdot)$ & Standard error (estimated standard deviation of an estimator) \\
+$\plim$ & Probability limit (what an estimator converges to as $n \to \infty$) \\
+$\log$ & Natural logarithm (base $e$) \\
+$n$ & Sample size \\
+$p$ & Number of predictors \\
+$R^2$ & Coefficient of determination (fraction of variance explained) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+
 % ============================================================
 % 1. INTRODUCTION
 % ============================================================
 \section{Introduction}\label{sec:intro}
+
+\begin{coldopen}
+A study of 50{,}000 university students found that sitting in a higher-numbered seat in the exam hall is associated with higher exam scores ($p = 0.002$). Should the university assign seats by lottery? Before you answer---read on.
+\end{coldopen}
+
+\begin{coldopen}[title={The Algorithm That Ruined 72 Hours}]
+In August 2020, the UK exam regulator Ofqual deployed a regression model to assign A-level grades to half a million students whose exams had been cancelled due to COVID-19. The model included school-level variables, prior performance, and teacher predictions. Its $R^2$ was good. Its diagnostics passed. On Tuesday, students received their grades. By Thursday, the algorithm had been scrapped.
+
+The model systematically downgraded students from disadvantaged schools. A student with identical ability and identical teacher predictions received a lower grade if their school had historically underperformed---a textbook case of conditioning on a collider (school reputation is caused by both student quality \emph{and} institutional resources). The full causal structure is more complex than a single collider, but the core error is the same: the algorithm conditioned on school-level performance, which is influenced by both individual ability and socioeconomic factors, manufacturing a spurious penalty for high-ability students at historically low-performing schools. The algorithm did not measure student ability; it measured school postcode.
+
+This course is about why. Every failure mode we study---omitted variable bias, bad controls, specification error, fragile diagnostics---was present in the Ofqual model. We will return to this example in the conclusion, once you have the vocabulary to say exactly what went wrong.
+\end{coldopen}
+
+\bigskip
 
 Regression is the most widely used tool in quantitative data analysis.
 It produces point estimates, standard errors, confidence intervals, $p$-values, and $R^2$ statistics---all of which look authoritative.
@@ -171,6 +249,16 @@ The dataset contains the following variables:
 
 Using a single recurring dataset creates continuity: when a coefficient changes from one section to the next, you'll remember the old value.
 
+\subsection{Meet the Students}
+
+Throughout these notes, we will follow two students through the data:
+
+\textbf{Anna} studied 4 hours, attended 12 lectures, and scored 82 on the exam. \textbf{Ben} also studied 4 hours and attended 12 lectures---but scored only 68. Same hours, same attendance, different scores. Why?
+
+The answer is self-discipline ($U$). Anna's Instagram slider was 0.85 (highly disciplined); Ben's was 0.15. Anna paid attention in every lecture, did practice problems unprompted, and stayed focused during the exam. Ben attended the same lectures but scrolled his phone, crammed the same 4 hours but without a plan, and lost focus during the exam.
+
+When we run OLS without observing $U$, the model sees two students with identical $X_1$ and $X_2$ and concludes that the 14-point gap is noise. It is not noise---it is the ghost. Every pathology in these notes is, at its core, about what happens to Anna and Ben when the model cannot see what makes them different.
+
 
 % ============================================================
 % 2. THE DATA GENERATING PROCESS
@@ -213,6 +301,12 @@ The data are generated according to the following structural equations:
 \end{align}
 \end{definition}
 
+\emph{In words:} the DGP says that exam scores depend on the natural log of study hours (with diminishing returns), the number of lectures attended, and a hidden self-discipline factor --- plus random noise that grows with study hours.
+
+\begin{remark}[Logarithm convention]
+Throughout these notes, $\log$ denotes the natural logarithm (base $e$), also written $\ln$ in some textbooks.
+\end{remark}
+
 If these structural equations look intimidating, don't worry. Let's walk through each one in plain language.
 
 \paragraph{$U \sim \mathcal{N}(0,1)$: Self-discipline.}
@@ -221,11 +315,15 @@ Before the semester, every student dragged a slider on an Instagram story poll: 
 \paragraph{$X_1 = 2 + 0.5\,U + \eta_1$: Hours studied.}
 More disciplined students study more. A student of average self-discipline ($U = 0$) studies about 2 hours. Each standard deviation of extra discipline adds half an hour. The noise $\eta_1$ captures everything else that affects study time---a busy week, a competing deadline, pure randomness.
 
+\begin{remark}[Negative study hours]
+Because $X_1 \sim \mathcal{N}(2, 0.25 + 0.3) = \mathcal{N}(2, 0.55)$, approximately 0.3\% of simulated students will have $X_1 < 0$ (negative study hours). In practice, we would truncate $X_1$ at zero. For mathematical convenience---so that $X_1$ remains exactly normally distributed and all our closed-form results go through cleanly---we keep the unbounded normal. If you are running simulations and encounter a negative value, this is why.
+\end{remark}
+
 \paragraph{$X_2 = 10 + 0.3\,U + \eta_2$: Lectures attended.}
 More disciplined students attend more lectures. Average attendance is 10 out of 14. Self-discipline pushes this up slightly---an extra standard deviation adds 0.3 lectures. The noise $\eta_2$ is larger here ($\sigma = 1$) because lecture attendance depends heavily on scheduling conflicts, illness, and other factors unrelated to discipline.
 
 \paragraph{$\varepsilon \sim \mathcal{N}(0,\, 0.5 \cdot |X_1|)$: Exam noise.}
-The randomness in exam scores depends on how much you studied. Students who barely studied have tightly clustered (low) scores---there is not much variation in how badly you can do when you are unprepared. Students who studied a lot have more spread---because at high study hours, \emph{how} you study matters more than \emph{how long}, and that quality varies widely. This is \emph{heteroscedasticity}: the variance of the error term changes with a predictor.
+The randomness in exam scores depends on how much you studied (where $0.5 \cdot |X_1|$ is the \emph{variance}, not the standard deviation; thus $\text{SD}(\varepsilon) = \sqrt{0.5 \cdot |X_1|}$). Students who barely studied have tightly clustered (low) scores---there is not much variation in how badly you can do when you are unprepared. Students who studied a lot have more spread---because at high study hours, \emph{how} you study matters more than \emph{how long}, and that quality varies widely. This is \emph{heteroscedasticity}: the variance of the error term changes with a predictor.
 
 \paragraph{$Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon$: Exam score.}
 The exam score. The base score is 50---what an average student scores with minimal preparation. The first hour of studying helps enormously (the logarithm rises steeply near zero), but returns diminish: going from 1 to 2 hours helps far more than going from 9 to 10 hours. Attending one more lecture adds 3 points. Being one standard deviation more disciplined adds 2 points directly---through paying attention in class, doing practice problems, staying focused during the test---things that studying hours alone do not capture.
@@ -289,22 +387,12 @@ The causal graph below shows every relationship in the DGP. Solid arrows indicat
 \subsection{Why These Relationships?}\label{subsec:why-relationships}
 
 \begin{keyinsight}
-The structural equations above are not arbitrary---each one encodes a specific real-world mechanism. Refer to the causal graph above---each bullet below corresponds to one arrow in the diagram.
+Each arrow in the causal graph above encodes a mechanism already described in the walkthrough. Two points deserve emphasis because they create the pathologies we will spend the rest of the notes diagnosing:
 
 \begin{itemize}
-  \item \textbf{Self-discipline $\to$ studying (positive):} Obvious---disciplined students put in more hours. This is why $U$ appears with a positive coefficient in the equation for $X_1$.
+  \item \textbf{The lecture effect is direct, not mediated by studying.} Attending lectures exposes you to worked examples and the instructor's emphasis on what matters for the exam---things you would not learn from the textbook alone. This is why lectures ($\beta_2 = 3$) and studying ($\beta_1 = 8$) are \emph{separate} arrows into the score, and why omitting one biases the other.
 
-  \item \textbf{Self-discipline $\to$ lectures (positive):} Disciplined students show up more. Same logic, slightly weaker effect (0.3 vs.\ 0.5) because attendance depends more on logistics than on willpower.
-
-  \item \textbf{Studying $\to$ score (logarithmic):} The first hour of studying recovers the low-hanging fruit---basic definitions, key formulas, the structure of the exam. The 10th hour yields much less---you are reviewing material you already know. Diminishing returns are built into the $\log$.
-
-  \item \textbf{Lectures $\to$ score (linear):} Attending lectures exposes you to material, worked examples, and the instructor's emphasis on what matters for the exam. Each additional lecture adds 3 points ($\beta_2 = 3$). This is a direct causal effect, not mediated by studying---you learn things in lecture that you wouldn't learn from the textbook alone.
-
-  \item \textbf{Self-discipline $\to$ score (direct):} Self-discipline helps \emph{beyond} studying. Disciplined students pay attention in class, ask questions, do practice problems, and stay focused during the exam. These things boost scores even holding study hours fixed. This direct effect ($\beta_U = 2$) is what creates the omitted variable bias problem.
-
-  \item \textbf{Noise $\varepsilon \to$ score:} Even after accounting for studying, lectures, and self-discipline, there is randomness: a bad night's sleep, a lucky guess, a misread question.
-
-  \item \textbf{Score $\to$ self-assessment (positive):} Students who did well on the exam know it when they walk out. This is \emph{not} a causal effect of self-assessment on scores---it is the reverse. Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias.
+  \item \textbf{Score $\to$ self-assessment, not the reverse.} Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias (\Cref{sec:causation}).
 \end{itemize}
 \end{keyinsight}
 
@@ -343,10 +431,12 @@ Each notebook isolates and examines one pathology while the others remain presen
 
 Imagine you are a teaching assistant analysing exam data. You have each student's exam score and the number of hours they studied---but you do \emph{not} have their lecture attendance records (those are kept by a different department and you forgot to request them). So you run the only regression you can: score on hours studied, omitting lectures. This is not laziness---it is a common real-world constraint. Data lives in silos, access requires paperwork, and deadlines don't wait. The question is: what happens to your coefficient on study hours when you are \emph{forced} to leave out a relevant variable?
 
-\begin{toystory}[title={The Sunscreen Murder Mystery}]
-Every summer, ice cream sales go up and so do drowning deaths. If you just look at the data, it seems like ice cream \emph{causes} drownings. But you forgot about the hot weather---when it's hot, people buy more ice cream AND swim more. The heat is doing the real work behind the scenes, but because you ignored it, its effect got smeared onto ice cream, making ice cream look dangerous.
+\begin{toystory}[title={The CNN Coffee Miracle}]
+In 2017, CNN ran the headline: ``Coffee drinkers live longer, study finds.'' The study followed hundreds of thousands of people and found that moderate coffee drinkers had a 16\% lower risk of death. The $p$-value was tiny. The sample size was enormous. Should you start drinking three cups a day?
 
-This is exactly what the OVB formula captures: the bias on ice cream's coefficient equals the true effect of temperature on drownings times the correlation between temperature and ice cream sales. Leave out a variable that matters and is correlated with what you included, and its ghost haunts your estimate.
+Here is the problem: people who drink moderate morning coffee also tend to exercise regularly, eat reasonably well, not smoke, and hold stable jobs with health insurance. The hidden variable $U$ is \emph{healthy lifestyle}---and it drives both coffee consumption and longevity. The coffee coefficient absorbed the ghost of kale salads and morning jogs.
+
+This is exactly what the OVB formula captures: the bias on coffee's coefficient equals the true effect of healthy lifestyle on longevity times the correlation between healthy lifestyle and coffee consumption. Both are positive, so the bias is positive---coffee looks more life-extending than it really is. Leave out a variable that matters and is correlated with what you included, and its ghost haunts your estimate.
 \end{toystory}
 
 Suppose the true model is
@@ -378,22 +468,9 @@ Then
 The term $\beta_2 \delta_1$ is the \textbf{omitted variable bias}.
 \end{theorem}
 
-Before the formal proof, here is the intuition. When you regress $Y$ on $X_1$ alone, OLS gives $X_1$ credit for \emph{all} the variation in $Y$ that is correlated with $X_1$. But some of that variation actually belongs to $X_2$---it just happens to travel through the $X_1$--$X_2$ correlation. The bias term $\beta_2 \delta_1$ measures exactly how much of $X_2$'s effect gets falsely attributed to $X_1$: $\beta_2$ is how much $X_2$ matters, and $\delta_1$ is how strongly $X_1$ and $X_2$ are correlated (specifically, the slope from regressing $X_2$ on $X_1$).
+\emph{In words:} the biased coefficient equals the true coefficient plus a contamination term: how much the omitted variable matters times how strongly it correlates with the included one.
 
-\begin{proof}
-Write the OLS estimator in population form.  From the short regression,
-\[
-  \plim\, \bhat_1^{\text{short}}
-  = \frac{\Cov(X_1, Y)}{\Var(X_1)}
-  = \frac{\Cov(X_1,\, \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon)}{\Var(X_1)}.
-\]
-Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, we obtain
-\[
-  \plim\, \bhat_1^{\text{short}}
-  = \beta_1 + \beta_2 \cdot \frac{\Cov(X_1, X_2)}{\Var(X_1)}
-  = \beta_1 + \beta_2 \, \delta_1. \qedhere
-\]
-\end{proof}
+Why is this true? Because when you regress $Y$ on $X_1$ alone, OLS gives $X_1$ credit for \emph{all} the variation in $Y$ that is correlated with $X_1$---including the part that actually belongs to $X_2$ but travels through the $X_1$--$X_2$ correlation. The bias term $\beta_2 \delta_1$ measures exactly how much of $X_2$'s effect gets falsely attributed to $X_1$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{numermark}[title={Studying, Sleeping, and Exam Scores}]
 \textbf{True DGP:} $Y = 60 + 5X_1 + 3X_2$ (no noise, for clarity), where $X_1$ is hours studied and $X_2$ is hours slept the night before the exam.
@@ -439,12 +516,30 @@ The interpretation: omitting sleep shrank the study coefficient from 5 to 2.6. B
   \item \emph{Effect-size slider} ($\beta_2$ from $-5$ to $+10$): when the omitted variable doesn't matter ($\beta_2 = 0$), there's no bias regardless of correlation.
 \end{itemize}
 The formula panel updates live, showing how $\beta_2 \cdot \delta_1$ produces the exact gap you see.
+
+\medskip
+\textbf{The ghost visualization.} Imagine the same scatterplot, but now every dot is coloured by the hidden variable $U$ (self-discipline): \textcolor{olsblue}{blue} for low-discipline students, \textcolor{biasred}{red} for high-discipline students. With $U$ invisible (all dots gray), OLS fits the steep red line---it cannot see that high-discipline students cluster in the upper-right and low-discipline students in the lower-left. The colour gradient \emph{is} the bias: it pulls the line steeper than it should be. Now reveal $U$: the colour pattern becomes visible, a second \textcolor{truthgold}{gold} ``truth'' line appears with a shallower slope, and the gap between the red and gold lines is labelled $\beta_2 \cdot \delta_1$. A translucent ghost figure hovers behind the data cloud, one hand pushing dots rightward (more studying), the other pushing dots upward (higher scores). The ghost's hands are the confounding links $\gamma_1$ and $\beta_U$, and they tilt the regression line away from the truth.
 \end{vizspec}
+
+\begin{keyinsight}[title={Before and After: The OVB Reveal}]
+\textbf{Slide 1 (the naive view):} A clean scatterplot of study hours vs.\ exam score with a steep positive regression line. Title: ``Each additional hour of studying adds 10.5 points to your exam score!'' Green checkmark. This is what OLS tells you when $U$ is hidden.
+
+\medskip
+\textbf{Slide 2 (the corrected view):} The same scatterplot, but now the ghost of self-discipline is visible behind the data cloud. The regression line has split in two: the \textcolor{biasred}{red naive line} (steep) and the \textcolor{truthgold}{gold true line} (less steep, $\approx$5.5 points per hour). Title: ``Self-discipline was doing half the work---the true studying effect is only 5.5 points.'' Red X replaces the checkmark. Between the two lines, the gap is labelled ``OVB $= \beta_2 \cdot \delta_1$.'' The lesson: what looked like a studying effect was partly a discipline effect in disguise.
+\end{keyinsight}
 
 \begin{keyinsight}
 The bias has a \emph{sign} and a \emph{direction}.
 In the studying DGP, recall that both hours studied ($X_1$) and lectures attended ($X_2$) are positively driven by self-discipline ($U$), so $\delta_1 > 0$, and $\beta_2 = 3 > 0$. The bias is therefore \emph{positive}: the short regression \emph{overestimates} the effect of hours studied, because it gives $X_1$ credit for the beneficial effect of lecture attendance that travels through the shared self-discipline confounder.
 \end{keyinsight}
+
+Think about what this means for Anna and Ben. When we omit $U$, OLS smears Anna's discipline bonus onto study hours. Ben's low score gets attributed to ``not studying enough'' when really it was ``not studying \emph{well} enough.'' Both studied 4 hours, but OLS cannot see what made those 4 hours so different.
+
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Try It Yourself: Sign the Bias}]
+A study finds that dog owners live longer than non-owners. What is the likely omitted variable? What is the sign of the bias?
+
+\emph{Hint:} Wealthy, active, healthy people are more likely to own dogs. Wealth and activity also improve longevity. So $\beta_{\text{health}} > 0$ (health helps longevity) and $\delta > 0$ (healthier people are more likely to own dogs). The OVB formula gives a \emph{positive} bias: dog ownership looks more life-extending than it really is, because it absorbs the effect of the healthy-and-wealthy lifestyle that correlates with pet ownership.
+\end{tcolorbox}
 
 \subsection{When OVB Cannot Be Signed}
 
@@ -457,6 +552,8 @@ In general, the sign of the total bias is indeterminate without knowledge of all
 \begin{repairbox}
 In the studying scenario, the true confounder is self-discipline ($U$)---the Instagram slider score that lives on a social media server, not in the university's records. But suppose we can measure something related, like attendance at optional review sessions. Call this proxy $\tilde{U}$. If $\tilde{U}$ explains a fraction $q \in [0,1]$ of the variation in $U$, the residual bias is approximately $(1-q)$ times the original bias.
 At $q = 1$ (the proxy perfectly captures self-discipline), the bias vanishes entirely. At $q = 0$ (the proxy is useless noise), the full bias remains. In practice, even an imperfect proxy---$q = 0.5$, say---cuts the bias in half, which is a substantial improvement over ignoring the confounder entirely.
+
+To see why, suppose $\tilde{U} = qU + \sqrt{1-q^2}\,\nu$ where $\nu \perp U$. Including $\tilde{U}$ in the regression removes the component of $U$ that is linearly predictable from $\tilde{U}$. The residual confounding is proportional to the unexplained variance of $U$, which is $(1-q^2) \approx 2(1-q)$ for $q$ near 1, and approximately $(1-q)$ as a rough linear approximation for moderate $q$. The exact reduction depends on the joint distribution, but $(1-q)$ captures the intuition: a proxy that explains half the variation cuts the bias roughly in half.
 \end{repairbox}
 
 \subsection{The Collider Trap: When ``Controlling For'' Backfires}
@@ -478,17 +575,7 @@ Let $X$ and $U$ be independent, and let $C = \alpha_1 X + \alpha_2 U + \eta$ wit
 \]
 \end{proposition}
 
-\begin{proof}
-Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:
-\[
-  \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
-\]
-Since $\Cov(X, U) = 0$ but $\Cov(X, C) = \alpha_1 \Var(X) \neq 0$ and $\Cov(C, U) = \alpha_2 \Var(U) \neq 0$:
-\[
-  \Cov(X, U \mid C) = -\frac{\alpha_1 \Var(X) \cdot \alpha_2 \Var(U)}{\Var(C)} \neq 0.
-\]
-Conditioning on the collider manufactured a negative association between $X$ and $U$ from nothing.
-\end{proof}
+Why is this true? Because fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$, so knowing that $X$ is large forces $U$ to be small (and vice versa)---the collider manufactures a negative association from nothing. The formal derivation is in Appendix~\ref{app:proofs}.
 
 A \emph{collider path} is any path between two variables that passes through a collider. Such a path is ``blocked'' by default (no spurious association flows along it) but becomes ``open'' if you condition on the collider. This is the reverse of the usual rule: for non-colliders, conditioning blocks a path; for colliders, conditioning opens one.
 
@@ -505,6 +592,8 @@ Why? Confidence is a \emph{post-treatment} variable---it is caused by the outcom
 % 4. HETEROSCEDASTICITY AND STANDARD ERRORS (NB 2)
 % ============================================================
 \section{Why Your Uncertainty Is Wrong: Heteroscedasticity}\label{sec:hetero}
+
+\noindent\textit{Coefficient tracker: the studying coefficient was 10.5 in Section~3 (biased by the ghost of self-discipline). Now we keep that inflated number---but discover the uncertainty around it is also a lie.}
 
 \subsection{Confidence Intervals for Regression Coefficients}
 
@@ -559,7 +648,7 @@ There is a folk version of heteroscedasticity that everyone already knows:
 
 \emph{``If you don't put yourself out there, nothing bad happens---but nothing good happens either.''}
 
-The common thread: low exposure means low variance (predictable but boring). High exposure means high variance (exciting but risky). In regression terms: the predictor $X$ determines not just the expected outcome, but how \emph{spread out} the outcomes are. A student who studies 1 hour will reliably score around 55. A student who studies 10 hours might score 65 or 90---because at high effort, the quality of studying matters enormously, and that quality varies.
+The common thread: low exposure means low variance (predictable but boring). High exposure means high variance (exciting but risky). In regression terms: the predictor $X$ determines not just the expected outcome, but how \emph{spread out} the outcomes are. A student who studies 1 hour will reliably score around 55. A student who studies 10 hours might score 65 or 90---because at high effort, the quality of studying matters enormously, and that quality varies. Anna and Ben studied the same 4 hours, but the spread of possible scores around that 4-hour mark is already wide; push them both to 10 hours and the spread widens further---exactly the ``high exposure, high variance'' pattern.
 \end{keyinsight}
 
 \begin{theorem}[Variance Under Heteroscedasticity --- The Sandwich Formula]\label{thm:sandwich}
@@ -587,19 +676,25 @@ We predict exam scores ($Y$) from hours studied ($X$) for five students. The tru
 \begin{center}
 \begin{tabular}{@{}lccccc@{}}
 \toprule
-Student & $X$ (hours) & $Y$ (score) & $\hat{Y} = 53 + 6.5X$ & Residual $\hat\varepsilon$ & $\hat\varepsilon^2$ \\
+Student & $X$ (hours) & $Y$ (score) & $\hat{Y} = 49.6 + 8.0X$ & Residual $\hat\varepsilon$ & $\hat\varepsilon^2$ \\
 \midrule
-A & 1 & 59 & 59.5 & $-0.5$ & 0.25 \\
-B & 2 & 66 & 66.0 & $+0.0$ & 0.00 \\
-C & 3 & 75 & 72.5 & $+2.5$ & 6.25 \\
-D & 4 & 72 & 79.0 & $-7.0$ & 49.00 \\
-E & 5 & 96 & 85.5 & $+10.5$ & 110.25 \\
+A & 1 & 59 & 57.6 & $+1.4$ & 1.96 \\
+B & 2 & 66 & 65.6 & $+0.4$ & 0.16 \\
+C & 3 & 75 & 73.6 & $+1.4$ & 1.96 \\
+D & 4 & 72 & 81.6 & $-9.6$ & 92.16 \\
+E & 5 & 96 & 89.6 & $+6.4$ & 40.96 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Low-$X$ students (A, B) have average $\hat\varepsilon^2 = 0.125$. High-$X$ students (D, E) have average $\hat\varepsilon^2 = 79.63$---\textbf{over 600 times larger}. The classical SE treats all five students as equally informative about the slope. But high-study students are wildly noisier, so the classical confidence interval is a lie: it claims more precision than the data actually support.
+\emph{Verification:} $\bar{X} = 3$, $\bar{Y} = 73.6$, $\hat{\beta}_1 = \sum(X_i - \bar{X})(Y_i - \bar{Y})\big/\sum(X_i - \bar{X})^2 = 80/10 = 8.0$, and $\hat{\beta}_0 = 73.6 - 8.0 \times 3 = 49.6$.
+
+Low-$X$ students (A, B) have average $\hat\varepsilon^2 = 1.06$. High-$X$ students (D, E) have average $\hat\varepsilon^2 = 66.56$---\textbf{over 60 times larger}. The classical SE treats all five students as equally informative about the slope. But high-study students are wildly noisier, so the classical confidence interval is a lie: it claims more precision than the data actually support.
 \end{numermark}
+
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Predict Before You Peek}]
+You have just seen that low-$X$ students have tiny residuals and high-$X$ students have enormous residuals. The classical 95\% confidence interval ignores this and uses a single pooled estimate of the noise. Before reading further: what fraction of these nominal 95\% confidence intervals do you think actually contain the true coefficient? Write down your guess.
+\end{tcolorbox}
 
 \begin{vizspec}[title={``The Funnel of False Confidence'' --- Coverage Simulator}]
 \textbf{Try it:} A scatterplot of hours studied vs.\ exam score shows data fanning out (the funnel). Two confidence bands overlay the regression line: classical (constant width, blue) and robust (varying width, green).
@@ -621,7 +716,15 @@ If the classical standard errors are used under heteroscedasticity:
         OLS still estimates the right number on average; it just gives you a dangerously wrong answer to ``how sure are you?''
 \end{itemize}
 
+\begin{remark}[Why is OLS still unbiased under heteroscedasticity?]
+Because unbiasedness depends only on $\E[\varepsilon \mid X] = 0$, not on the variance structure. The OLS formula $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$ has $\E[\bols \mid X] = \beta + (X^\top X)^{-1} X^\top \E[\varepsilon \mid X] = \beta$, regardless of whether $\Var(\varepsilon \mid X)$ is $\sigma^2 I$ or some other matrix $\Omega$. Heteroscedasticity corrupts the \emph{standard errors} (which depend on $\Var(\varepsilon)$), not the \emph{point estimates} (which depend only on $\E[\varepsilon]$). Your coefficient is right; your uncertainty about it is wrong.
+\end{remark}
+
 \subsection{The Breusch--Pagan Test}\label{subsec:bp}
+
+\begin{remark}[The chi-squared distribution]
+The \textbf{chi-squared distribution} with $p$ degrees of freedom, written $\chi^2_p$, is the distribution of the sum of $p$ independent squared standard normal variables: if $Z_1, \ldots, Z_p \overset{\text{iid}}{\sim} \mathcal{N}(0,1)$, then $Z_1^2 + \cdots + Z_p^2 \sim \chi^2_p$. It is always non-negative, right-skewed, and becomes approximately normal for large $p$. We use it here because the Breusch--Pagan test statistic follows a $\chi^2_p$ distribution under the null hypothesis of homoscedasticity.
+\end{remark}
 
 \begin{remark}[$R^2$: How much does $X$ explain?]
 The \textbf{coefficient of determination} $R^2$ measures the fraction of the total variation in the outcome that is explained by the predictors. If $R^2 = 0.80$, the predictors explain 80\% of the variation; the remaining 20\% is unexplained noise. An $R^2$ close to zero means the predictors have almost no explanatory power.
@@ -666,21 +769,7 @@ where $\hat\varepsilon_i$ are the OLS residuals.  These standard errors are \emp
 With robust SEs, the 95\% CI recovers $\approx$95\% coverage in the studying DGP simulation.
 \end{repairbox}
 
-\begin{proof}[Derivation of the sandwich estimator]
-Start from the OLS estimator: $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$. Therefore:
-\begin{align*}
-  \bols - \beta &= (X^\top X)^{-1} X^\top \varepsilon, \\
-  \Var(\bols \mid X) &= (X^\top X)^{-1} X^\top \,\Var(\varepsilon \mid X)\, X\, (X^\top X)^{-1} \\
-    &= (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
-\end{align*}
-Under homoscedasticity, $\Omega = \sigma^2 I$, and this simplifies to $\sigma^2 (X^\top X)^{-1}$. Under heteroscedasticity, $\Omega = \operatorname{diag}(\sigma_1^2, \ldots, \sigma_n^2)$, and the middle ``meat'' $X^\top \Omega\, X = \sum_{i=1}^n \sigma_i^2 x_i x_i^\top$ cannot be simplified.
-
-The White--Huber--Eicker estimator replaces each unknown $\sigma_i^2$ with the squared residual $\hat\varepsilon_i^2$:
-\[
-  \widehat{X^\top \Omega\, X} = \sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top.
-\]
-This is consistent: as $n \to \infty$, the average $\frac{1}{n}\sum \hat\varepsilon_i^2 x_i x_i^\top$ converges to $\E[\sigma_i^2 x_i x_i^\top]$ by a law of large numbers, regardless of the form of heteroscedasticity.
-\end{proof}
+Why does this work? Because each observation's own squared residual $\hat\varepsilon_i^2$ serves as a plug-in estimate for its unknown variance $\sigma_i^2$, letting the data speak for itself without requiring any assumption about how the variance changes with $X$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{warningbox}
 Robust standard errors perform poorly in small samples.
@@ -693,6 +782,8 @@ The crossover point depends on the severity of heteroscedasticity, but as a roug
 % 5. SIGNIFICANCE VS EFFECT SIZE (NB 3)
 % ============================================================
 \section{Why Your Significance Is Wrong: Effect Size and Power}\label{sec:significance}
+
+\noindent\textit{Coefficient tracker: the studying coefficient was 10.5 (biased) in Section~3, and 10.5 $\pm$ 1.2 (wrong CI) in Section~4. Now we ask: does the effect even matter? The ghost of self-discipline inflated the number; heteroscedasticity made us overconfident about it. This section adds a third betrayal.}
 
 \subsection{The Anatomy of a $t$-Statistic}
 
@@ -717,6 +808,22 @@ How can a variable with zero true effect be ``highly significant''? Because with
 
 The lesson: \textbf{statistical significance tells you the effect is not exactly zero. It says nothing about whether the effect matters.}
 \end{toystory}
+
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Stand Up If Significant}]
+\textbf{Classroom exercise:} Everyone who thinks the seat number effect ($p = 0.002$) is ``statistically significant,'' stand up.
+
+\emph{(Most of the room stands.)}
+
+Now: stay standing if you think the seat number effect is \emph{important enough to act on}---important enough that you would switch seats, or that the university should redesign its seating policy.
+
+\emph{(Watch the room sit down in waves as they reconsider.)}
+
+Look around. Almost everyone stood up for ``significant.'' Almost no one stayed up for ``important.'' That gap---between standing and sitting---is the entire point of this section. Your legs just taught you the difference between statistical significance and practical importance.
+\end{tcolorbox}
+
+\begin{keyinsight}
+From now on, whenever you see a ``significant'' result, ask yourself: \emph{``Is this a seat number?''} That is: is the effect statistically distinguishable from zero only because the sample is enormous, while the actual magnitude is too small to matter? With $n=2$ (just Anna and Ben), no effect is ever significant---the data is too thin. With $n = 50{,}000$, even the half-point gap between Anna's seat and Ben's seat clears the threshold for ``highly significant.'' This question will serve you well for the rest of these notes---and for the rest of your career.
+\end{keyinsight}
 
 The seat number example illustrates a general phenomenon. Let us see why it happens mathematically.
 
@@ -759,6 +866,14 @@ Power increases with both $|\beta_j|$ (effect size) and $\sqrt{n}$ (sample size)
 
 This formula reveals two levers for increasing power: you can look for bigger effects (larger $|\beta_j|$), or you can collect more data (larger $n$). It also shows why under-powered studies are dangerous: with small $n$ and a modest effect, $\text{Power}$ can be as low as 10--20\%, meaning you will miss the real effect 80--90\% of the time.
 
+\begin{numermark}[title={A Power Calculation You Can Do on Paper}]
+Suppose you run a study with $n = 100$, a true effect $\beta = 2$, and noise $\sigma = 10$. At the 5\% level ($z_{0.025} = 1.96$):
+\[
+  \text{Power} \approx \Phi\!\left(\frac{2}{10/\sqrt{100}} - 1.96\right) = \Phi(2 - 1.96) = \Phi(0.04) \approx 0.52.
+\]
+Only a coin flip! You have barely better than a 50\% chance of detecting a real effect. To reach 80\% power ($\Phi^{-1}(0.8) = 0.84$), you need $|\beta|/(\sigma/\sqrt{n}) - 1.96 = 0.84$, so $\sqrt{n} = 2.80 \times \sigma / |\beta| = 2.80 \times 10 / 2 = 14$, giving $n \approx 196$. More conservatively, with a slightly noisier setting or a smaller true effect, you would need $n \approx 385$ or more. The lesson: always compute power \emph{before} running the study, not after.
+\end{numermark}
+
 \subsection{The Multiple Testing Problem}
 
 \begin{proposition}[Expected False Positives Under Multiple Testing]\label{prop:multiple-testing}
@@ -786,6 +901,16 @@ For genome-wide association studies ($m \approx 10^6$), the corrected threshold 
 In our 200-classroom-feature example, the corrected threshold is $0.05/200 = 0.00025$---any ``significant'' result that only cleared the 0.05 bar disappears under this stricter standard.
 Always report effect sizes and confidence intervals alongside $p$-values.
 \end{repairbox}
+
+\begin{remark}[Why the Bonferroni correction works]
+The Bonferroni correction follows from the \emph{union bound}: $P(\text{at least one false positive}) = P\!\left(\bigcup_{j=1}^m A_j\right) \leq \sum_{j=1}^m P(A_j) = m \cdot (\alpha/m) = \alpha$, where $A_j$ is the event that test $j$ falsely rejects. By testing each hypothesis at level $\alpha/m$, the probability of \emph{any} false positive across all $m$ tests is at most $\alpha$.
+\end{remark}
+
+\begin{remark}[The Replication Crisis]
+The multiple testing problem is not a theoretical curiosity---it is at the heart of the \emph{replication crisis} that has shaken psychology, medicine, and economics since 2011. The Open Science Collaboration (2015) attempted to replicate 100 published psychology studies. Only 36 produced significant results the second time around. Among the casualties: the famous ``power posing'' study (Carney et al., 2010), which claimed that standing in an expansive pose for two minutes raises testosterone and lowers cortisol. The original had $p = 0.045$ with $n = 42$. Multiple replications with larger samples found no effect. The reasons are exactly what this section teaches: $p$-hacking (running many tests and reporting only the significant ones), underpowered studies (small $n$, large effect needed), and the base rate problem (most hypotheses tested are probably false, so even with $\alpha = 0.05$, a large fraction of ``discoveries'' are false positives).
+
+The lesson for your own work: a single $p < 0.05$ result from an observational study is the \emph{beginning} of an investigation, not the end. Always ask: what is the effect size? Could this survive a pre-registered replication? Is this a seat number?
+\end{remark}
 
 \begin{numermark}[title={The Keyboard That Saves 0.1 Seconds}]
 A new keyboard layout saves an average of $\beta = 0.1$ seconds per email ($\sigma = 2$ seconds). Is this ``significant''?
@@ -815,6 +940,8 @@ The effect never changed---it was always 0.1 seconds. Only the sample size grew.
 % 6. SPECIFICATION ERROR (NB 4)
 % ============================================================
 \section{Why Your Model Is Wrong: Specification Error}\label{sec:specification}
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), 10.5 $\pm$ 1.2 (wrong CI), significant but a seat number? Now the ghost strikes again---the studying coefficient was wrong not just because of omitted variables, but because we assumed the relationship was a straight line when it is actually a curve.}
 
 \subsection{The Problem of Functional Form}
 
@@ -867,11 +994,16 @@ Within the observed range, the linear model's errors look tolerable---off by a f
 
 \subsection{The Extrapolation Danger}
 
-\begin{keyinsight}
-A student who claims to have studied 30 hours in one week---the linear model predicts $\hat{Y} = 52.5 + 1.6 \times 30 = 100.5$, a score of over 100 on a 100-point exam. This is not merely inaccurate; it is \emph{logically impossible}. The log model predicts $50 + 8\log(30) \approx 77.2$. Still high, but plausible.
+\begin{keyinsight}[title={Predict Before You Peek}]
+A student claims to have studied 30 hours for the exam. Based on the linear model $\hat{Y} = 52.5 + 1.6\,X_1$, what score would you predict? Write it down before reading further.
+
+\medskip
+The linear model predicts $\hat{Y} = 52.5 + 1.6 \times 30 = 100.5$, a score of over 100 on a 100-point exam. This is not merely inaccurate; it is \emph{logically impossible}. The log model predicts $50 + 8\log(30) \approx 77.2$. Still high, but plausible.
 
 At 50 hours (a student who claims to have done nothing but study for an entire week), the linear model predicts $132.5$. The log model predicts $81.3$. One answer is absurd; the other is at least defensible.
 \end{keyinsight}
+
+Anna and Ben both studied 4 hours. The linear model says their scores should both be $52.5 + 1.6 \times 4 = 58.9$---identical, and wrong for both. The log model says $50 + 8\log(4) \approx 61.1$, which lands much closer to their actual 82 and 68 once self-discipline is layered in. Same hours, curved reality: the straight ruler misses both of them.
 
 The problem is not that the linear model is a bad model. Within the data range, it performs respectably. The problem is that the linear model makes an implicit promise about the future: it says that every additional hour of studying adds the same number of points, forever. The logarithmic model makes a different promise: each hour adds less than the last. The second promise is closer to reality, so the logarithmic model degrades gracefully outside the data range while the linear model degrades catastrophically.
 
@@ -885,6 +1017,10 @@ Extrapolation accuracy improves dramatically. The log transformation captures th
 However, even the log model is a local approximation---at extreme extrapolation, all parametric models eventually fail. A student who studies 1{,}000 hours does not score $50 + 8\log(1000) \approx 105$; fatigue, burnout, and the hard ceiling of 100 points intervene. The model is better, not perfect.
 \end{repairbox}
 
+\begin{remark}[Practical Specification Testing]
+How do you check for misspecification in practice? (1)~Plot residuals vs.\ fitted values---a U-shape or systematic pattern suggests nonlinearity that the model has missed. (2)~Try log, polynomial, or spline transformations and compare their out-of-sample performance via cross-validation; the specification that predicts best on held-out data is usually the most trustworthy. (3)~Test nested models with an $F$-test: if adding a quadratic term significantly improves the fit, the linear specification was likely wrong. No single test is definitive, but a combination of visual and quantitative checks catches most problems. When in doubt, plot your residuals first---the human eye is remarkably good at spotting structure that a summary statistic misses.
+\end{remark}
+
 \begin{vizspec}[title={``The Comfort Zone'' --- Extrapolation Explorer}]
 \textbf{Try it:} Drag a prediction point along the $x$-axis (hours studied). Within the data range (1--16 hours), the background is calm blue and the error bar is tiny. Drag past the data boundary: the background turns progressively red, the error bar explodes, and the warning escalates from ``Mild extrapolation'' to ``CATASTROPHIC: prediction is fiction.''
 
@@ -895,6 +1031,10 @@ However, even the log model is a local approximation---at extreme extrapolation,
 % 7. OVERFITTING AND BIAS-VARIANCE (NB 5)
 % ============================================================
 \section{Why Your $R^2$ Is Lying: Overfitting}\label{sec:overfitting}
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong functional form. Now we try to fix the shape by adding polynomial terms---and the ghost of self-discipline watches as a degree-15 polynomial achieves $R^2 = 0.97$ on training data and negative on test data. The model did not learn; it memorised.}
+
+In 1998, five Nobel-laureate-backed quants at Long-Term Capital Management built a model that fit 25 years of bond-spread data with breathtaking precision. Then the Russian debt crisis happened---an event outside the training data---and the model lost \$4.6 billion in four months. The fund nearly crashed the global financial system. Overfitting is not an academic curiosity; it is a \$4.6 billion mistake.
 
 \subsection{The Bias--Variance Decomposition}
 
@@ -914,22 +1054,7 @@ For any estimator $\hat{f}$ of the regression function $f$, the expected predict
 \end{equation}
 \end{theorem}
 
-\begin{proof}
-Let $\mu = \E[\hat{f}(x_0)]$.  Then
-\begin{align*}
-  \E[(Y - \hat{f})^2]
-  &= \E[(f + \varepsilon - \hat{f})^2] \\
-  &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
-  &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
-\end{align*}
-where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ (trained on separate data) and has mean zero.
-Now expand:
-\[
-  \E[(f - \hat{f})^2]
-  = (f - \mu)^2 + \E[(\hat{f} - \mu)^2]
-  = \Bias^2(\hat{f}) + \Var(\hat{f}). \qedhere
-\]
-\end{proof}
+Why is this true? Because the prediction error splits cleanly into three independent pieces: the noise cross-term vanishes (since $\varepsilon$ is independent of $\hat{f}$ and has mean zero), and the remaining squared error decomposes into a systematic part (bias squared) and a random part (variance). The formal derivation is in Appendix~\ref{app:proofs}.
 
 \subsection{Overfitting in Practice}
 
@@ -948,7 +1073,11 @@ Adding polynomial terms to a regression always increases training $R^2$ (since $
 \end{tabular}
 \end{center}
 
-A degree-15 polynomial achieves $R^2 = 0.97$ on training data but predicts \emph{worse than the sample mean} on held-out data. What happened? The polynomial has 16 free parameters. With enough flexibility, it can chase every bump and dip in the training data---including bumps that are pure noise. On new data, those noise-driven wiggles point in the wrong direction, and predictions become absurdly wrong.
+\begin{warningbox}[title={The Polynomial Beauty Contest}]
+Quick poll: Which model would you deploy? If you picked degree~15, you just hired a model that memorises the exam answers but cannot think for itself. A training $R^2$ of $0.97$ is not a sign of understanding---it is a sign of memorisation. The degree-3 model ``knows less'' but \emph{generalises} better.
+\end{warningbox}
+
+A degree-15 polynomial fit on a training set that includes Anna (82) and Ben (68) at 4 hours will bend itself into pretzels to hit both points exactly---then predict $-40$ or $+130$ for Clara, a third student who also studied 4 hours. The polynomial did not learn anything about studying; it memorised Anna and Ben and now hallucinates wildly for anyone else. A degree-15 polynomial achieves $R^2 = 0.97$ on training data but predicts \emph{worse than the sample mean} on held-out data. What happened? The polynomial has 16 free parameters. With enough flexibility, it can chase every bump and dip in the training data---including bumps that are pure noise. On new data, those noise-driven wiggles point in the wrong direction, and predictions become absurdly wrong.
 
 This is the core trap: a model that ``explains'' 97\% of the variation in your data might be explaining mostly noise. Training $R^2$ always goes up with complexity; test $R^2$ eventually crashes.
 
@@ -963,6 +1092,28 @@ The CV estimate of prediction error is
   \text{CV}(k) = \frac{1}{k} \sum_{j=1}^{k} \MSE_j.
 \]
 \end{definition}
+
+\begin{numermark}[title={Cross-Validation: Picking the Right Model}]
+We have 20 students' data and two candidate models: a linear model ($Y = a + bX_1$) and a log model ($Y = a + b\log X_1$). We use 5-fold CV:
+
+\begin{center}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+\textbf{Fold} & \textbf{Linear MSE} & \textbf{Log MSE} \\
+\midrule
+1 & 42.3 & 28.1 \\
+2 & 38.7 & 25.9 \\
+3 & 51.2 & 31.4 \\
+4 & 44.1 & 27.8 \\
+5 & 39.8 & 26.3 \\
+\midrule
+\textbf{Average} & \textbf{43.2} & \textbf{27.9} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The log model wins on every single fold---its average MSE is 35\% lower. This is not a coincidence: the log model matches the true DGP ($Y$ depends on $\log X_1$), while the linear model systematically misses the diminishing-returns curve. Cross-validation detected the misspecification that training $R^2$ alone could not.
+\end{numermark}
 
 The idea is that each fold takes a turn being the ``held-out'' data. By averaging across folds, you get an honest estimate of how well the model predicts data it has never seen. In the exam score dataset, cross-validation correctly identifies the log-linear model as the best specification, outperforming all polynomial models.
 
@@ -1007,18 +1158,28 @@ Model A always predicts 7 regardless of the training data---zero variance, but i
 \textbf{The aha moment:} At degree 1, twenty nearly identical lines all miss the true curve (stable but wrong). At degree 15, twenty polynomials pass through their training points perfectly but look completely different from each other---wild oscillations everywhere (unstable and absurd). Press ``Animate'' and watch the sweet spot at degree 3--4.
 \end{vizspec}
 
+In the exam score dataset, the bias-variance tradeoff plays out as follows. A degree-1 polynomial (straight line through study hours) has high bias---it systematically misses the logarithmic curvature---but low variance: twenty different samples produce nearly identical lines. A degree-15 polynomial has zero bias on training data but enormous variance: twenty samples produce twenty wildly different wiggly curves, each fitting its own noise. The sweet spot (degree 3--4, or better yet the correctly specified log model) balances these forces: enough flexibility to capture the curvature, not so much that it memorises the noise.
+
 % ============================================================
 % 8. BAD CONTROLS AND CAUSATION (NB 6)
 % ============================================================
 \section{Why Your Causal Claim Is Wrong: Endogeneity and Bad Controls}\label{sec:causation}
 
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised noise. Now we try ``controlling for'' post-exam confidence---and the ghost of self-discipline does not just haunt the estimate, it destroys it. The studying coefficient collapses toward zero. Another ghost, another way to be wrong.}
+
 \subsection{Endogeneity}
+
+\begin{keyinsight}[title={The ``Hot Guys Are Jerks'' Study}]
+In 2016, a study at Brunel University found that men with more attractive bodies were more selfish and less egalitarian. SheKnows.com announced: ``Really hot guys are also really not nice, says science.'' Gossip blogs celebrated: science had confirmed what everyone knew from dating. But had it? By the end of this section, you will see that the entire correlation could be an artifact of who you are looking at.
+\end{keyinsight}
 
 \begin{toystory}[title={Why Every Movie Star's Spouse Seems Boring}]
 Among famous actors, their spouses seem to be unusually un-funny or un-attractive. Does fame make you marry dull people? No---you're only looking at people who are already famous. People become famous either by being extremely talented or by being extremely good-looking (or both). Once you filter for ``is famous,'' the talented-but-plain people and the gorgeous-but-untalented people get mixed together, creating a fake tradeoff that doesn't exist in the general population. By restricting your attention to a group defined by the outcome of the very thing you're studying, you manufactured a relationship from thin air.
 
 This is exactly what collider bias describes: when you control for a variable that is \emph{caused by} the things you're studying, you create a spurious association that didn't exist before---more controls made the answer worse, not better.
 \end{toystory}
+
+The comedian Pete Davidson---who has dated Ariana Grande, Kate Beckinsale, and Kim Kardashian---is a walking embodiment of this paradox. He once told Page Six that people were obsessed with his dating life ``because I'm ugly.'' But Davidson is famous for being extremely funny, not for his looks. The ``mismatch'' is manufactured by the fame filter: you only noticed Davidson because he cleared the talent threshold, so his looks seem below average \emph{relative to his famous partners}. Among non-famous comedians, nobody would bat an eye.
 
 \begin{definition}[Endogeneity]
 A regressor $X_j$ is \emph{endogenous} if $\Cov(X_j, \varepsilon) \neq 0$.
@@ -1068,6 +1229,8 @@ Controlling for post-treatment variables or colliders \emph{introduces} bias rat
 Variable selection for causal inference requires understanding the causal structure, not just statistical association.
 \end{warningbox}
 
+Return to Anna and Ben. If we control for self-assessed performance, Anna and Ben---who rated themselves 8 and 5 respectively---get separated into different strata, and the model loses the variation it needs. Among students who rated themselves 8, everyone looks like Anna; among those who rated themselves 5, everyone looks like Ben. The collider has sliced the data in exactly the wrong place.
+
 \begin{numermark}[title={Talent, Luck, and the Fame Filter}]
 People have Talent (0 or 1) and Luck (0 or 1), independently assigned. A person is Famous if they have Talent OR Luck (or both).
 
@@ -1097,6 +1260,22 @@ The observation ``famous people are either talented OR lucky but rarely both'' i
 \textbf{Slider:} Fame threshold---from 10th to 90th percentile. At low thresholds (most people famous), the spurious correlation is weak. At high thresholds (top 5\%), it becomes extreme.
 \end{vizspec}
 
+\begin{keyinsight}[title={Should I Include This Variable?}]
+Before adding a variable to your regression, ask these questions in order:
+
+\begin{enumerate}
+  \item \textbf{Is it caused by the treatment ($X_1$) or the outcome ($Y$)?} If yes: \textcolor{biasred}{\textbf{Do NOT include it.}} It is post-treatment or a collider descendant. Including it introduces bias. (Example: self-assessed performance $X_3$.)
+
+  \item \textbf{Is it a confounder?} Does it cause both $X_1$ and $Y$? If yes: \textcolor{repairgreen}{\textbf{Include it.}} Omitting it creates OVB. (Example: if you could observe self-discipline $U$, include it.)
+
+  \item \textbf{Is it a pure predictor of $Y$ only?} Does it affect $Y$ but is uncorrelated with $X_1$? Including it does not change $\bhat_1$ but reduces residual variance, shrinking standard errors. \textcolor{repairgreen}{\textbf{Include it}} --- it is free precision.
+
+  \item \textbf{Is it unrelated to both $X_1$ and $Y$?} Including it wastes a degree of freedom but does little harm. \textcolor{gray}{\textbf{Harmless but pointless.}}
+\end{enumerate}
+
+When in doubt, draw the causal graph first. The graph tells you what to include, what to exclude, and why.
+\end{keyinsight}
+
 \subsection{Instrumental Variables}
 
 When $X$ is endogenous, OLS is stuck. No matter how large your sample, the estimate converges to the wrong value. The probability limit of $\bols$ includes a bias term that depends on $\Cov(X, U)$---and this term does not shrink with the sample size. You could collect data on every student in every university in the world, and OLS would still give you the wrong answer. We need a fundamentally different strategy.
@@ -1112,6 +1291,24 @@ A variable $Z$ is a valid \emph{instrument} for $X$ in the equation $Y = X\beta 
   \item \textbf{Exclusion:} $\Cov(Z, \varepsilon) = 0$. The instrument affects $Y$ \emph{only} through $X$. Your roommate's hours affect your score only because they change how much you study, not through any other channel.
 \end{enumerate}
 \end{definition}
+
+\begin{remark}[The Exclusion Restriction Is Untestable]
+The exclusion restriction cannot be tested from data alone. There is no statistical test that can confirm your instrument affects $Y$ only through $X$. It must be argued on substantive grounds. This is the Achilles' heel of IV: the identification strategy is only as strong as the economic or institutional argument behind it. In the roommate example, you must \emph{argue}---not estimate---that roommate study hours have no direct effect on your exam score other than through changing how much you study. If the roommate also explains difficult concepts to you (a direct effect on $Y$), the exclusion restriction fails silently: the IV estimate will be biased, and no amount of data will reveal the problem.
+\end{remark}
+
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Try It Yourself: Name That Instrument}]
+You want the causal effect of study hours ($X_1$) on exam score ($Y$), but self-discipline ($U$) confounds the relationship. For each candidate instrument below, evaluate whether it satisfies \emph{relevance} (does it affect study hours?) and \emph{exclusion} (does it affect exam scores \textbf{only} through study hours?).
+
+\begin{enumerate}[label=(\alph*)]
+  \item \textbf{The student's IQ score.} Relevance: plausible---smarter students may study differently. Exclusion: \textcolor{biasred}{\textbf{fails.}} IQ directly affects exam scores through faster comprehension, better reasoning, and test-taking ability, independent of study hours. IQ is a confounder, not an instrument.
+
+  \item \textbf{Whether the library was open late that week} (determined by a random maintenance schedule). Relevance: yes---when the library closes early, students have fewer hours available to study. Exclusion: \textcolor{repairgreen}{\textbf{plausible.}} The maintenance schedule is random, so it is unrelated to student ability or discipline. Library closures affect exam scores only by limiting study time. \emph{This is a valid instrument.}
+
+  \item \textbf{The student's Instagram screen time.} Relevance: plausible---more screen time likely means fewer study hours. Exclusion: \textcolor{biasred}{\textbf{fails.}} Screen time reflects self-discipline, which directly affects exam scores through focus, persistence, and class engagement. The instrument is contaminated by the very confounder we are trying to bypass.
+\end{enumerate}
+
+The lesson: a valid instrument must provide variation in $X$ that is ``clean''---uncontaminated by any backdoor path to $Y$. Options (a) and (c) fail because they are entangled with the confounder $U$. Only (b), which is driven by an external random event, passes both conditions.
+\end{tcolorbox}
 
 \begin{theorem}[IV Consistency]\label{thm:iv}
 If $Z$ is a valid instrument, the IV estimator
@@ -1188,6 +1385,10 @@ The true effect is 3, but OLS says 8.71---nearly three times too large! The reas
 \]
 Exactly the true causal effect! The instrument isolates the ``clean'' variation in study hours---the part driven by who your roommate happens to be, not by your own self-discipline. By looking at how scores respond to this clean variation, IV strips away the contamination.
 
+\begin{keyinsight}[title={The First Correct Coefficient}]
+Stop and appreciate this. For the first time in these notes, we have a coefficient that equals the truth---not because we observed the confounder, but because we found a clever way around it. The ghost of self-discipline is still there, still unobserved. But the instrument let us see through it. After five sections of biased, misspecified, overfit, and collider-damaged estimates, this is the first number you can trust.
+\end{keyinsight}
+
 \textbf{Verification.} We can check the instrument validity conditions:
 \begin{itemize}[nosep]
   \item \emph{Relevance:} $\Cov(Z, X_1) = 2.0 \neq 0$. Roommate hours do predict your study hours. \checkmark
@@ -1209,6 +1410,8 @@ In this numerical example, $\bols = 8.71$ while $\beta_{\text{true}} = 3$. The b
 % 9. THE REAL WORLD (NB 7)
 % ============================================================
 \section{The Real World --- When All Pathologies Strike at Once}\label{sec:realworld}
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised noise, destroyed by bad controls. Now we meet the tutoring regression: coefficient $= -3$. The ghost is not just present---it flipped the sign. The ghost is running the show.}
 
 \subsection{The Lalonde Dataset}
 
@@ -1236,7 +1439,7 @@ The university offers free tutoring sessions to any student who signs up. You co
 
 Should you shut down the tutoring programme? Of course not. The problem is self-selection: students who sign up for tutoring are predominantly those who are struggling---they have low self-discipline ($U$), missed lectures ($X_2$), and studied fewer hours ($X_1$). These are precisely the students who would have scored poorly anyway. The tutoring coefficient is negative not because tutoring hurts, but because weak students are the ones who seek it out.
 
-Now imagine an experiment: you randomly assign half the students to attend tutoring regardless of whether they would have chosen it. The experimental estimate shows tutoring \emph{raises} scores by 8 points. The observational estimate had the wrong sign because it confused ``who selects into tutoring'' with ``what tutoring does.''
+Anna (self-discipline 0.85) does not sign up---she already has a study plan and feels she does not need it. Ben (self-discipline 0.15) does sign up, because he knows he is falling behind. The tutoring group fills up with Bens; the control group fills up with Annas. When OLS compares the two groups, it is not measuring the effect of tutoring---it is measuring the gap between Annas and Bens. Now imagine an experiment: you randomly assign half the students to attend tutoring regardless of whether they would have chosen it. The experimental estimate shows tutoring \emph{raises} scores by 8 points. The observational estimate had the wrong sign because it confused ``who selects into tutoring'' with ``what tutoring does.''
 \end{toystory}
 
 This is the observational researcher's nightmare. You cannot diagnose the problem by staring at the regression output. The model looks fine. The standard errors are well-behaved. The $R^2$ is respectable. Yet the central conclusion is not just imprecise---it points in the wrong direction entirely.
@@ -1244,6 +1447,10 @@ This is the observational researcher's nightmare. You cannot diagnose the proble
 \subsection{Sensitivity Analysis: Cinelli--Hazlett Framework}
 
 When you cannot run an experiment, you can at least ask: \emph{how strong would a hidden confounder need to be to explain away my result?} The Cinelli--Hazlett framework formalises this question.
+
+\begin{remark}[Partial $R^2$]
+The \textbf{partial $R^2$} of a variable $X$ with respect to an outcome $Y$, after controlling for other variables $W$, measures how much \emph{additional} variation $X$ explains beyond what $W$ already explains. Formally: regress $Y$ on $W$ to get residuals $\tilde{Y}$, regress $X$ on $W$ to get residuals $\tilde{X}$, then the partial $R^2$ is the ordinary $R^2$ from regressing $\tilde{Y}$ on $\tilde{X}$. A partial $R^2$ of 0.10 means $X$ explains 10\% of the variation in $Y$ that the other variables left on the table. This is the natural measure for the Cinelli--Hazlett framework, because it captures how much ``unexplained work'' a confounder would need to do.
+\end{remark}
 
 \begin{definition}[Robustness Value]
 The \textbf{robustness value} (RV) is the minimum strength of association (measured in partial~$R^2$) that an unobserved confounder would need to have with both the treatment and the outcome to explain away the observed result.
@@ -1254,20 +1461,58 @@ Formally, define
   \text{RV}_{q,\alpha} = \min\{r : \text{adjusted estimate crosses } q \cdot \bhat \text{ at level } \alpha\}.
 \]
 A small RV indicates fragility: a weak confounder suffices to nullify the result.
-A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.
+A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.%
+\footnote{The robustness value can be derived as follows. The bias-adjusted estimate under a hypothetical confounder with partial $R^2$ values $R^2_{Y \sim W \mid \mathbf{X}, D} = r_Y$ and $R^2_{D \sim W \mid \mathbf{X}} = r_D$ is approximately $\hat\beta_{\text{adj}} = \hat\beta - \hat\beta \cdot f(r_Y, r_D)$, where $f$ is a function of the two partial $R^2$ values. The robustness value $\text{RV}$ solves $\hat\beta_{\text{adj}} = 0$ for the case $r_Y = r_D = r$, giving the minimum symmetric confounding strength that would explain away the result. See Cinelli and Hazlett (2020) for the complete derivation.}
 
 In our tutoring example, the observational estimate that ``tutoring hurts'' has a tiny robustness value. A confounder (like self-discipline) with even modest partial $R^2$ with both tutoring attendance and exam score would flip the sign---which is exactly what happens when you account for self-selection in the experimental design.
+
+\begin{numermark}[title={How Fragile Is the Tutoring Estimate?}]
+The observational regression of exam score on tutoring attendance (with controls for prior GPA and attendance) yields $\bhat_{\text{tutor}} = -4.2$ with $\se = 1.8$ and $t = -2.33$ ($p = 0.02$). The estimate is ``significant'' --- tutoring appears to \emph{hurt}.
+
+How strong would an unobserved confounder need to be to explain this away?
+
+Using the Cinelli--Hazlett framework, we compute the \textbf{robustness value}: $\text{RV} = 0.04$. This means: a confounder that explains just 4\% of the residual variance in \emph{both} tutoring attendance and exam scores would be enough to reduce the coefficient to zero.
+
+Is 4\% a lot? Compare it to the observed covariates:
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Covariate} & \textbf{Partial $R^2$ with tutoring} & \textbf{Partial $R^2$ with score} \\
+\midrule
+Prior GPA & 0.12 & 0.18 \\
+Lecture attendance & 0.08 & 0.09 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Both observed covariates have partial $R^2$ values far above the robustness value of 0.04. An unobserved confounder weaker than lecture attendance would suffice to flip the sign. The result is \textbf{extremely fragile}: self-discipline ($U$), which we know exists but cannot measure, almost certainly exceeds this threshold.
+
+\textbf{Contrast with the experimental estimate:} The randomised trial gave $\bhat_{\text{tutor}} = +1{,}800$. The observational estimate was not just wrong --- it had the wrong \emph{sign}. The robustness value warned us: the result was one weak confounder away from flipping.
+\end{numermark}
 
 \begin{keyinsight}
 The Lalonde dataset---and its tutoring analog---teaches the hardest lesson in applied statistics: a well-fitting model with clean diagnostics can still give you an answer that is not just wrong, but \emph{directionally} wrong. Diagnostics check the model's internal consistency. Only the research design can tell you whether the estimate is credible. When in doubt, compute the robustness value. If a plausible confounder could flip your result, treat the finding with extreme scepticism.
 \end{keyinsight}
+
+\begin{remark}[The COVID Smoking Paradox]
+A striking modern example of collider bias in the wild: early in the COVID-19 pandemic, data from Chinese hospitals seemed to show that smokers were \emph{protected} against COVID-19---only 8\% of hospitalised COVID patients were smokers, versus 26\% in the general population. Headlines announced a ``smoker's paradox.'' The explanation? Hospitalisation is a collider: smokers were already in hospitals for smoking-related illness. Among hospitalised patients, smokers appeared less likely to have COVID---a completely spurious protective effect. Griffith et al.\ (2020) demonstrated this formally using UK Biobank data. The lesson: whenever you condition on a variable that is caused by both the treatment and the outcome, expect to see ghosts.
+\end{remark}
 
 % ============================================================
 % 10. REGRESSION DISCONTINUITY DESIGN (NB 8)
 % ============================================================
 \section{The Redemption --- Regression Discontinuity Design}\label{sec:rdd}
 
+\begin{remark}[Potential outcomes]
+The \textbf{potential outcomes} framework imagines two versions of each individual: $Y_1$ (the outcome they \emph{would} experience with treatment) and $Y_0$ (the outcome they \emph{would} experience without treatment). The causal effect for individual $i$ is $Y_{1i} - Y_{0i}$. The fundamental problem of causal inference is that we can never observe both $Y_1$ and $Y_0$ for the same person---each individual is either treated or not, so one potential outcome is always missing. RDD, introduced next, cleverly sidesteps this problem by comparing individuals who are nearly identical but fall on opposite sides of a treatment cutoff.
+\end{remark}
+
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised, destroyed by bad controls, wrong sign. Eight ways to be wrong. Now---for the first time---the coefficient earns our trust. The ghost of self-discipline cannot haunt a design where treatment is assigned by a cutoff, not by choice.}
+
 \subsection{When Design Earns Trust}
+
+After eight sections of everything going wrong, you might be wondering: is regression ever trustworthy? The answer is yes---but only when the \emph{research design} earns that trust. This section is the redemption arc.
 
 Regression works brilliantly when the world provides a natural experiment.
 The \textbf{regression discontinuity design} (RDD) exploits a sharp threshold to identify causal effects---no randomisation required.
@@ -1302,6 +1547,7 @@ The design eliminates confounding \emph{locally} at the cutoff because units jus
 Students with exam scores just above a threshold receive scholarships; those just below do not.
 Near the cutoff, the two groups are essentially identical---they studied similar amounts, attended similar numbers of lectures, and have similar (unobserved) self-discipline levels.
 The jump in outcomes at the threshold identifies the causal effect of the scholarship.
+At the scholarship cutoff, Anna-and-Ben pairs exist on both sides. The design works because near the cutoff, Annas and Bens are equally likely to be just above or just below---self-discipline no longer determines which side you land on.
 
 \subsection{Bandwidth Choice}
 
@@ -1344,6 +1590,14 @@ The design itself ensures comparability near the cutoff.
 When the autopsy report is run on the RDD estimate, all indicators are green: the regression is trustworthy because the \emph{design} is trustworthy. This is why causal inference researchers love RDDs: the credibility comes from the structure of the problem, not from statistical adjustments you hope are sufficient.
 \end{repairbox}
 
+\begin{remark}[The Manipulation Threat]
+The RDD is valid only if students cannot precisely manipulate their running variable. If students who scored 69 could retake the exam until they hit 70, the groups just above and below the cutoff would no longer be comparable. More generally, whenever agents can sort themselves across the threshold---through grade appeals, retakes, or bureaucratic discretion---the identifying assumption of ``local randomisation'' breaks down. The standard diagnostic is a \emph{density test}: plot the histogram of the running variable near the cutoff. A suspicious spike just above the cutoff (and a corresponding dip just below) is evidence of manipulation. McCrary (2008) formalised this as a test for a discontinuity in the density of~$R$ at~$c$.
+\end{remark}
+
+\begin{remark}[Classic RDD Applications]
+Classic RDD applications include Angrist and Lavy (1999), who exploited Maimonides' rule (class sizes split at 40 students) to estimate the effect of class size on test scores, and Carpenter and Dobkin (2009), who used the minimum legal drinking age as a cutoff to estimate the causal effect of alcohol access on mortality. These studies illustrate the power of the design: a sharp institutional rule creates a natural experiment that requires no randomisation.
+\end{remark}
+
 \begin{vizspec}[title={``The Cliff'' --- Bandwidth Explorer}]
 \textbf{Try it:} A scatterplot of $Y$ vs.\ exam score $R$ with a vertical cutoff line. Two local regression lines meet at the cutoff; the gap is the treatment effect. A bandwidth slider (2 to 50) controls how many points are used: narrow bandwidth shows a clean jump with wide confidence intervals, wide bandwidth smooths the jump away.
 
@@ -1354,6 +1608,8 @@ When the autopsy report is run on the RDD estimate, all indicators are green: th
 % 11. THE FRISCH-WAUGH-LOVELL THEOREM (NB 1.5)
 % ============================================================
 \section{What ``Controlling For'' Actually Means --- The Frisch--Waugh--Lovell Theorem}\label{sec:fwl}
+
+\noindent\textit{Coefficient tracker: we have seen the studying coefficient be inflated, misshapen, memorised, destroyed, and sign-flipped. Every time someone said ``controlling for,'' something happened to that number. This section finally explains what ``controlling for'' actually means---mechanically, algebraically, with no ambiguity.}
 
 \subsection{Motivation}
 
@@ -1392,29 +1648,17 @@ That is, $\bhat_1$ from the full regression is \emph{identical} (to numerical pr
 \end{enumerate}
 \end{theorem}
 
-\begin{proof}
-The OLS normal equations for the partitioned model $Y = X_1\beta_1 + X_2\beta_2 + \varepsilon$ give
-\[
-  \begin{pmatrix} X_1^\top X_1 & X_1^\top X_2 \\ X_2^\top X_1 & X_2^\top X_2 \end{pmatrix}
-  \begin{pmatrix} \bhat_1 \\ \bhat_2 \end{pmatrix}
-  =
-  \begin{pmatrix} X_1^\top Y \\ X_2^\top Y \end{pmatrix}.
-\]
-From the second block, $\bhat_2 = (X_2^\top X_2)^{-1} X_2^\top (Y - X_1 \bhat_1)$.
-Substituting into the first block and simplifying:
-\begin{align*}
-  X_1^\top X_1 \bhat_1 + X_1^\top X_2 (X_2^\top X_2)^{-1} X_2^\top(Y - X_1\bhat_1) &= X_1^\top Y \\
-  X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] X_1\, \bhat_1 &= X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] Y \\
-  X_1^\top M_2 X_1\, \bhat_1 &= X_1^\top M_2 Y.
-\end{align*}
-Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
-\end{proof}
+Why is this true? Because the partitioned normal equations let you solve for $\bhat_1$ by substituting out $\bhat_2$, and the algebra naturally produces the residual-maker matrix $M_2$ on both sides---showing that ``controlling for $X_2$'' is literally projecting $X_2$ out of both $Y$ and $X_1$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{keyinsight}
 ``Controlling for'' means residualising---stripping out the linear relationship with the control variables from \emph{both} sides of the equation. Not just the outcome. Not just the predictor. Both.
 The partial regression plot (also called an added-variable plot) visualises this: it plots $\tilde{Y}$ against $\tilde{X}_1$.
 The slope of this scatterplot \emph{is} $\bhat_1$ from the full multiple regression.
 \end{keyinsight}
+
+\begin{remark}
+FWL is not just a theoretical curiosity. When you read a paper that says ``controlling for age and income, education increases wages by\ldots'', the author is (perhaps unknowingly) describing exactly the FWL procedure: strip age and income out of both sides, then measure what is left.
+\end{remark}
 
 \subsection{Numerical Example}
 
@@ -1428,11 +1672,11 @@ We want the effect of exercise ($X_1$, hours) on mood ($Y$, score 1--20), contro
 \toprule
 Person & $X_1$ (exercise) & $X_2$ (sleep) & $Y$ (mood) \\
 \midrule
-A & 1 & 2 & 3 \\
-B & 2 & 4 & 7 \\
-C & 3 & 6 & 10 \\
-D & 5 & 8 & 18 \\
-E & 4 & 10 & 12 \\
+Anna & 1 & 2 & 3 \\
+Ben & 2 & 4 & 7 \\
+Clara & 3 & 6 & 10 \\
+Daniel & 5 & 8 & 18 \\
+Eva & 4 & 10 & 12 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1449,7 +1693,7 @@ Residuals: $\tilde{X}_1 = (-0.2,\; -0.1,\; 0.0,\; +1.1,\; -0.8)$.
 
 \textbf{Full multiple regression} ($Y$ on $X_1$ and $X_2$): coefficient on $X_1 = \mathbf{4.684}$.
 
-They match---not approximately, but to every decimal place. ``Controlling for sleep'' literally means: remove everything sleep can explain from \emph{both} mood and exercise, then see what is left.
+They match---not approximately, but to every decimal place. The coefficient that ``explains'' Anna's mood and Ben's mood together in the full regression is the \emph{same} number you recover by residualising sleep out of both sides. ``Controlling for sleep'' literally means: remove everything sleep can explain from \emph{both} mood and exercise, then see what is left.
 \end{numermark}
 
 \subsection{What Happens with Bad Controls}
@@ -1471,6 +1715,8 @@ When you ``control for'' $X_3$ (the post-exam self-assessment), FWL tells you wh
 % ============================================================
 \section{Diagnostic Toolkit Summary}\label{sec:diagnostics}
 
+\noindent\textit{Coefficient tracker: the studying coefficient has been 10.5 (biased), 10.5 $\pm$ 1.2 (wrong CI), ``significant'' but trivial (seat number), 1.6 per hour (wrong shape), $R^2 = 0.97$ (memorised), near zero (destroyed by bad control), $-3$ (wrong sign), 3.0 (IV---finally correct), and 5.0 (RDD---correct by design). Nine versions of the same question. The diagnostics below would have flagged at most two of these problems.}
+
 Think of these diagnostics as the instrument panel in a cockpit. Each gauge checks one specific condition---but all gauges reading green does not mean the flight plan is correct.
 
 The following diagnostics are used across all notebooks:
@@ -1483,9 +1729,9 @@ The following diagnostics are used across all notebooks:
 Residuals vs.\ Fitted & Nonlinearity, heteroscedasticity & Residuals should show no pattern; funnel shape indicates heteroscedasticity \\
 Normal Q--Q plot & Non-normality of residuals & Points should lie on the 45$^\circ$ line \\
 Scale--Location & Heteroscedasticity & $\sqrt{|\text{standardised residuals}|}$ should be flat against fitted values \\
-Residuals vs.\ Leverage & Influential observations & Points with high leverage \emph{and} large residuals (Cook's $d > 1$) are influential \\
+Residuals vs.\ Leverage & Influential observations & Points with high leverage \emph{and} large residuals (Cook's $d > 1$) are influential. Cook's distance measures how much the fitted values change when observation~$i$ is deleted: $d_i = \frac{(\hat{Y} - \hat{Y}_{(i)})^\top (\hat{Y} - \hat{Y}_{(i)})}{p \cdot \hat\sigma^2}$. \\
 \midrule
-VIF & Multicollinearity & $\text{VIF}_j > 10$ suggests problematic collinearity \\
+VIF & Multicollinearity & $\text{VIF}_j > 10$ suggests problematic collinearity. The \emph{Variance Inflation Factor} for predictor~$j$ is $\text{VIF}_j = 1/(1 - R_j^2)$, where $R_j^2$ is the $R^2$ from regressing $X_j$ on all other predictors. A VIF of~10 means that collinearity inflates the variance of $\bhat_j$ by a factor of~10. \\
 Breusch--Pagan & Heteroscedasticity & $H_0$: homoscedasticity; reject if $p < \alpha$ \\
 Durbin--Watson & Autocorrelation & Statistic near 2 indicates no autocorrelation \\
 Jarque--Bera & Non-normality & $H_0$: residuals are normally distributed \\
@@ -1504,6 +1750,29 @@ Diagnostics check whether the model's assumptions about the error term are satis
 % ============================================================
 \section{Theorem Map: How the Results Connect}\label{sec:theoremmap}
 
+\noindent\textit{Coefficient tracker --- the full history:}
+\begin{center}
+\small
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{Section} & \textbf{Coefficient} & \textbf{What was wrong} \\
+\midrule
+3 (OVB) & 10.5 & Inflated by the ghost of self-discipline \\
+4 (Heteroscedasticity) & 10.5 $\pm$ 1.2 & CI too narrow (wrong SEs) \\
+5 (Significance) & 0.003*** (seat number) & Meaningless but ``significant'' \\
+6 (Specification) & 1.6 per hour (linear) & Wrong shape---log truth, linear fit \\
+7 (Overfitting) & degree-15 poly, $R^2 = 0.97$ & Memorising noise \\
+8 (Bad controls) & $\approx 0$ (controlling for confidence) & Destroyed by collider \\
+9 (Real world) & $-3$ (tutoring) & Wrong sign---the ghost is running the show \\
+8 (IV) & \textbf{3.0} (via roommate) & \textbf{Finally correct} \\
+10 (RDD) & \textbf{5.0} (scholarship cutoff) & \textbf{Correct by design} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Nine versions of the same question. Seven wrong answers. Two right ones. The two right ones did not come from better statistics---they came from better \emph{design}.
+
+\medskip
 Before the final summary, let us step back and see how all nine results connect. Each theorem in this course relaxes an assumption that the previous one relied on, forming a chain of progressively more honest conclusions.
 
 \begin{center}
@@ -1525,6 +1794,8 @@ Before the final summary, let us step back and see how all nine results connect.
 \end{tabular}
 \end{center}
 
+Read the table from top to bottom and you see a story: each theorem relaxes one assumption that the previous theorem relied on. Classical regression assumes everything is fine. Each section showed you one way it is not---and the next section's theorem is the response.
+
 The meta-lesson: each theorem relaxes an assumption that justified the previous conclusion.
 Classical variance assumes homoscedasticity---the sandwich estimator does not.
 The linear model assumes the true function is linear---the linear projection result tells you what OLS estimates when it is not.
@@ -1539,6 +1810,16 @@ In the exam score DGP, each theorem answers a different version of the same ques
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
 
+Remember the Ofqual algorithm from the Introduction? The one that decided half a million students' futures on a Tuesday and was scrapped by Thursday? You now have the vocabulary to say exactly what went wrong:
+\begin{itemize}[nosep]
+  \item It had \textbf{omitted variable bias}---it used school-level averages instead of individual ability. The ghost of student potential was hiding inside the school-reputation coefficient.
+  \item It had \textbf{specification error}---it assumed linear relationships between prior results and predicted grades.
+  \item It had \textbf{bad controls}---it conditioned on school characteristics that were downstream of socioeconomic status, a collider.
+  \item And no one ran the \textbf{sensitivity analysis} that would have revealed how fragile the estimates were.
+\end{itemize}
+Every failure mode we studied was present. All gauges were green. The plane flew to the wrong destination. And half a million students paid the price.
+
+\medskip
 These notes have formalised the eight core failure modes of OLS regression demonstrated in the Regression Autopsy lab series:
 
 \begin{enumerate}[nosep]
@@ -1559,10 +1840,258 @@ The diagnostics tell you whether the \emph{model} is internally consistent; only
 Every section in these notes followed the same arc: a toy story made you feel the problem, the theorem made it precise, a numerical example made it concrete, and a visualisation let you play with it. If you remember only one thing, remember this: regression is not a magic box that turns data into truth. It is a tool with assumptions, and every number it produces is only as honest as those assumptions. Your job is not to believe the output---it is to interrogate it.
 \end{keyinsight}
 
+Remember the seat number from the beginning? You now know it was ``significant'' only because $n$ was huge and $\se$ was tiny---not because seats matter. Remember the coffee study? You can sign the bias. Remember the ``hot guys are jerks'' article? You can draw the collider. Remember the ghost of self-discipline that haunted the studying coefficient from Section~3 onward? You have watched it inflate, distort, destroy, and flip the sign of every estimate it touched---until a clever research design finally exorcised it. You have seen regression fail eight different ways, and for each failure, you know the diagnosis, the repair, and the repair's limits.
+
+The next time someone shows you a regression table and says ``the model is fine, the $R^2$ is high, the residuals look clean,'' your first question should be: is this a Lalonde? Is there a ghost in this regression? Is this a seat number? These three questions---about confounding, about the research design, and about practical importance---will serve you longer than any formula in these notes.
+
 \vspace{1cm}
 \begin{center}
 \textit{This does not mean you should stop using regression.\\
 It means you are finally ready to start.}
 \end{center}
+
+% ============================================================
+% APPENDIX: PROOFS AND DERIVATIONS
+% ============================================================
+\appendix
+\section{Proofs and Derivations}\label{app:proofs}
+
+This appendix collects the formal proofs and derivations referenced throughout the main text.
+
+\subsection{Proof of the OVB Formula (Theorem~\ref{thm:ovb})}
+
+\begin{proof}
+Write the OLS estimator in population form.  From the short regression,
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \frac{\Cov(X_1, Y)}{\Var(X_1)}
+  = \frac{\Cov(X_1,\, \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon)}{\Var(X_1)}.
+\]
+Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, we obtain
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \beta_1 + \beta_2 \cdot \frac{\Cov(X_1, X_2)}{\Var(X_1)}
+  = \beta_1 + \beta_2 \, \delta_1. \qedhere
+\]
+\end{proof}
+
+\subsection{Proof of Collider Bias (Proposition~\ref{prop:collider})}
+
+\begin{proof}
+Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:\footnote{This is the standard formula for conditional covariance in a multivariate normal distribution. For jointly normal $(X, U, C)$: $\Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U)$. It follows from the projection properties of the multivariate normal: conditioning on $C$ is equivalent to regressing out $C$, and the residual covariance is the original covariance minus the part explained by $C$.}
+\[
+  \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
+\]
+Since $\Cov(X, U) = 0$ but $\Cov(X, C) = \alpha_1 \Var(X) \neq 0$ and $\Cov(C, U) = \alpha_2 \Var(U) \neq 0$:
+\[
+  \Cov(X, U \mid C) = -\frac{\alpha_1 \Var(X) \cdot \alpha_2 \Var(U)}{\Var(C)} \neq 0.
+\]
+Conditioning on the collider manufactured a negative association between $X$ and $U$ from nothing.
+\end{proof}
+
+\subsection{Derivation of the Sandwich Estimator (Theorem~\ref{thm:sandwich})}
+
+\begin{proof}[Derivation of the sandwich estimator]
+Start from the OLS estimator: $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$. Therefore:
+\begin{align*}
+  \bols - \beta &= (X^\top X)^{-1} X^\top \varepsilon, \\
+  \Var(\bols \mid X) &= (X^\top X)^{-1} X^\top \,\Var(\varepsilon \mid X)\, X\, (X^\top X)^{-1} \\
+    &= (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
+\end{align*}
+Under homoscedasticity, $\Omega = \sigma^2 I$, and this simplifies to $\sigma^2 (X^\top X)^{-1}$. Under heteroscedasticity, $\Omega = \operatorname{diag}(\sigma_1^2, \ldots, \sigma_n^2)$, and the middle ``meat'' $X^\top \Omega\, X = \sum_{i=1}^n \sigma_i^2 x_i x_i^\top$ cannot be simplified.
+
+The White--Huber--Eicker estimator replaces each unknown $\sigma_i^2$ with the squared residual $\hat\varepsilon_i^2$:
+\[
+  \widehat{X^\top \Omega\, X} = \sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top.
+\]
+This is consistent: as $n \to \infty$, the average $\frac{1}{n}\sum \hat\varepsilon_i^2 x_i x_i^\top$ converges to $\E[\sigma_i^2 x_i x_i^\top]$ by a law of large numbers, regardless of the form of heteroscedasticity.
+\end{proof}
+
+\subsection{Proof of the Bias--Variance Decomposition (Theorem~\ref{thm:biasvar})}
+
+\begin{proof}
+Let $\mu = \E[\hat{f}(x_0)]$.  Then
+\begin{align*}
+  \E[(Y - \hat{f})^2]
+  &= \E[(f + \varepsilon - \hat{f})^2] \\
+  &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
+  &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
+\end{align*}
+where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ and has mean zero.
+
+\begin{remark}[Independence of noise and fitted model]
+This independence assumption is subtle but critical: $\varepsilon$ is the noise in the \emph{new} test observation, while $\hat{f}$ was trained on \emph{different} data. Because the test point was not used in training, its noise $\varepsilon$ is independent of the fitted model $\hat{f}$. If we evaluated prediction error on the \emph{training} data instead, this independence would fail, and the decomposition would not hold---which is precisely why training error is an unreliable estimate of prediction error.
+\end{remark}
+Now expand:
+\[
+  \E[(f - \hat{f})^2]
+  = (f - \mu)^2 + \E[(\hat{f} - \mu)^2]
+  = \Bias^2(\hat{f}) + \Var(\hat{f}). \qedhere
+\]
+\end{proof}
+
+\subsection{Proof of the Frisch--Waugh--Lovell Theorem (Theorem~\ref{thm:fwl})}
+
+\begin{proof}
+The OLS normal equations for the partitioned model $Y = X_1\beta_1 + X_2\beta_2 + \varepsilon$ give
+\[
+  \begin{pmatrix} X_1^\top X_1 & X_1^\top X_2 \\ X_2^\top X_1 & X_2^\top X_2 \end{pmatrix}
+  \begin{pmatrix} \bhat_1 \\ \bhat_2 \end{pmatrix}
+  =
+  \begin{pmatrix} X_1^\top Y \\ X_2^\top Y \end{pmatrix}.
+\]
+From the second block, $\bhat_2 = (X_2^\top X_2)^{-1} X_2^\top (Y - X_1 \bhat_1)$.
+Substituting into the first block and simplifying:
+\begin{align*}
+  X_1^\top X_1 \bhat_1 + X_1^\top X_2 (X_2^\top X_2)^{-1} X_2^\top(Y - X_1\bhat_1) &= X_1^\top Y \\
+  X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] X_1\, \bhat_1 &= X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] Y \\
+  X_1^\top M_2 X_1\, \bhat_1 &= X_1^\top M_2 Y.
+\end{align*}
+Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
+\end{proof}
+
+% ============================================================
+% APPENDIX B: STATISTICAL BS DETECTOR
+% ============================================================
+\section{Statistical BS Detector --- One-Page Cheat Sheet}\label{app:bsdetector}
+
+\begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries\large,
+  title={\centering Statistical BS Detector}, breakable,
+  boxrule=1.5pt, arc=4pt, top=8pt, bottom=8pt]
+
+Pin this to your wall. Before you trust any regression result, run it through these five questions.
+
+\bigskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={1.\quad ``Is this a seat number?''}, boxrule=0.8pt]
+\emph{Significant but meaningless.}
+A huge sample can make any non-zero effect ``statistically significant.'' Check the \textbf{magnitude} of the coefficient, not just the $p$-value. Would the effect change anyone's decision? If $\bhat = 0.003$ points per seat number, who cares?
+
+\smallskip
+\textbf{Ask:} What is the actual size of the effect in real-world units? Is it big enough to matter?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={2.\quad ``Where's the ghost?''}, boxrule=0.8pt]
+\emph{What is the omitted variable?}
+Every observational regression has at least one important variable that was not measured. Identify it, sign the bias ($\beta_2 \delta_1$), and ask whether the coefficient you care about would get bigger or smaller if the ghost were included.
+
+\smallskip
+\textbf{Ask:} What unmeasured factor affects both the treatment and the outcome? Which direction does it bias the estimate?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={3.\quad ``Is this a collider?''}, boxrule=0.8pt]
+\emph{Are they conditioning on a post-treatment variable?}
+If a control variable is \emph{caused by} the treatment or the outcome, including it manufactures a spurious association. More controls $\neq$ better. Draw the causal graph: does any arrow point \emph{into} a control variable from both the treatment and the outcome (or their causes)?
+
+\smallskip
+\textbf{Ask:} For each control variable---did the treatment or outcome help \emph{cause} it? If yes, drop it.
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={4.\quad ``How fragile is this?''}, boxrule=0.8pt]
+\emph{What is the robustness value?}
+The Cinelli--Hazlett robustness value ($RV_{q=1}$) tells you: how strong would an unobserved confounder have to be---relative to the strongest observed covariate---to explain away the result? If $RV = 3\%$, a very weak ghost kills the finding. If $RV = 40\%$, you need a ghost stronger than anything in the model.
+
+\smallskip
+\textbf{Ask:} What is the $RV$? Is it larger or smaller than the partial $R^2$ of the strongest observed control?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={5.\quad ``Would this replicate?''}, boxrule=0.8pt]
+\emph{Sample size, effect size, pre-registration.}
+Small samples with large claimed effects are the most likely to be false positives. Check: (a)~Is $n$ large enough for the effect size? (b)~Was the analysis pre-registered, or could the authors have tried 20 specifications and reported the best one? (c)~Has anyone replicated it?
+
+\smallskip
+\textbf{Ask:} What is the sample size? Is the effect size plausible? Was the hypothesis specified before looking at the data?
+\end{tcolorbox}
+
+\bigskip
+
+\begin{center}
+\textit{If a claim survives all five questions, it might be real.\\
+If it fails even one, keep your guard up.}
+\end{center}
+
+\end{tcolorbox}
+
+%% =============================================================
+%%  APPENDIX C — Practice Problems
+%% =============================================================
+\section{Practice Problems}\label{app:practice}
+
+\begin{enumerate}
+
+\item \textbf{OVB (Section 3).}
+A researcher finds that students who drink more coffee score higher on exams ($\bhat_{\text{coffee}} = 2.1$, $p < 0.01$). Name a plausible omitted variable, predict the sign of the OVB, and explain whether the true effect of coffee is likely larger or smaller than 2.1.
+
+\item \textbf{Heteroscedasticity (Section 4).}
+You run a regression of exam score on hours studied and obtain a 95\% CI of $[5.2,\, 8.8]$ using classical standard errors. A colleague points out that students who study more have more variable scores. Will the true CI be wider or narrower than $[5.2,\, 8.8]$? Explain using the sandwich formula intuition.
+
+\item \textbf{Significance (Section 5).}
+A study with $n = 200{,}000$ finds that left-handed students score 0.02 points higher ($p = 0.03$). A newspaper reports: ``Left-handedness boosts exam performance.'' Write a three-sentence response using the concepts from Section 5.
+
+\item \textbf{Specification (Section 6).}
+The true DGP is $Y = 50 + 8\log(X_1)$. You fit a linear model and predict the score for a student who studied 20 hours. Compute both the linear and log predictions. Which is more trustworthy and why?
+
+\item \textbf{Overfitting (Section 7).}
+You fit polynomial models of degrees 1 through 20 on 50 students and pick the degree with the best training $R^2$. Your friend uses 5-fold cross-validation on the same data. Who will pick a higher-degree polynomial, and whose model will perform better on new data?
+
+\item \textbf{Bad Controls (Section 8).}
+After the exam, you survey students on ``How stressed were you during the exam?'' (1--10). You include stress as a control in your regression of score on hours studied. Is this a good or bad control? Draw the causal path and explain.
+
+\item \textbf{IV (Section 8).}
+Your roommate's study hours ($Z$) are proposed as an instrument for your study hours ($X_1$). State the two conditions $Z$ must satisfy. Then describe a scenario where the exclusion restriction would fail.
+
+\item \textbf{Sensitivity (Section 9).}
+An observational study finds that tutoring reduces exam scores ($\bhat = -4.2$) with a robustness value of $\text{RV} = 0.04$. An observed covariate (prior GPA) has partial $R^2 = 0.12$ with both tutoring and scores. Should you trust the result? Why or why not?
+
+\item \textbf{FWL (Section 11).}
+You regress exam score on hours studied and lectures attended. The coefficient on hours studied is 5.5. Your friend runs the FWL procedure: residualises both score and hours on lectures, then regresses the residuals. What coefficient will your friend get? Explain in one sentence why.
+
+\end{enumerate}
+
+\subsection*{Answer Key}
+
+\begin{enumerate}
+
+\item \textbf{OVB.}
+The omitted variable is a healthy lifestyle: health-conscious people both drink more coffee (e.g.\ at cafés after morning runs) and live longer. Because healthy lifestyle is positively correlated with both coffee consumption and longevity, the OVB is positive. The true causal effect of coffee is therefore likely \emph{smaller} than 2.1.
+
+\item \textbf{Heteroscedasticity.}
+The true CI will be \emph{wider}. Classical standard errors underestimate the variance for high-study students (where score variability is greatest), so the reported interval $[5.2,\,8.8]$ is too narrow. Robust (sandwich) standard errors would give a wider, more honest interval.
+
+\item \textbf{Significance.}
+This is a seat number. The effect is 0.02 points---trivially small on a 100-point exam. With $n=200{,}000$, even noise becomes ``significant.'' Report the effect size, not the $p$-value.
+
+\item \textbf{Specification.}
+The linear model predicts $50 + \hat\beta_1 \cdot 20$ (likely overshooting, since it cannot capture the plateau). The log model predicts $50 + 8\log(20) \approx 74$. Because the true DGP is logarithmic, the log prediction is far more trustworthy.
+
+\item \textbf{Overfitting.}
+You will pick a higher-degree polynomial, because training $R^2$ always increases with model complexity. Your friend's model will perform better on new data, because cross-validation penalises overfitting and selects a degree that generalises.
+
+\item \textbf{Bad Controls.}
+This is a bad control. Stress is post-treatment: it is caused by how the exam went, which itself depends on how much the student studied. Including stress conditions on a descendant of $Y$, opening a spurious path and biasing the coefficient on hours studied.
+
+\item \textbf{IV.}
+The two conditions are relevance ($\Cov(Z, X_1) \neq 0$: your roommate's hours predict yours) and exclusion ($\Cov(Z, \varepsilon) = 0$: the roommate's hours affect your score \emph{only} through your own hours). Exclusion fails if, for example, your roommate helps you study specific exam material---then $Z$ has a direct effect on your score.
+
+\item \textbf{Sensitivity.}
+No. The robustness value $\text{RV} = 0.04$ means a confounder explaining just 4\% of residual variance in both treatment and outcome would nullify the result. Prior GPA already has partial $R^2 = 0.12$, far exceeding this threshold. The result is fragile and should not be trusted.
+
+\item \textbf{FWL.}
+The coefficient will be exactly 5.5. The FWL theorem guarantees that the coefficient from the residual-on-residual regression is identical to the multiple regression coefficient---to numerical precision.
+
+\end{enumerate}
 
 \end{document}
