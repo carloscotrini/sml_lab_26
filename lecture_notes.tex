@@ -126,7 +126,7 @@ These notes are structured for two audiences:
 Each section follows the same rhythm: a \emph{story} that makes the problem visceral, the \emph{mathematics} that makes it precise, a \emph{numerical example} you can verify on paper, and a \emph{visualization} you can play with online. If you feel lost, jump to the next coloured box --- the narrative will pick you back up.
 
 \medskip
-\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient.
+\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient. When you see a \emph{coefficient tracker} note at the start of a section, it summarises how the studying coefficient has changed so far---each change corresponds to a different failure mode. And the A-level algorithm from the Introduction will return in the Conclusion, once you have the tools to diagnose exactly what went wrong.
 
 \newpage
 
@@ -137,6 +137,14 @@ Each section follows the same rhythm: a \emph{story} that makes the problem visc
 
 \begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries, title={Cold Open}]
 A study of 50{,}000 university students found that sitting in a higher-numbered seat in the exam hall is associated with higher exam scores ($p = 0.002$). Should the university assign seats by lottery? Before you answer---read on.
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries, title={The Algorithm That Ruined 72 Hours}]
+In August 2020, the UK exam regulator Ofqual deployed a regression model to assign A-level grades to half a million students whose exams had been cancelled due to COVID-19. The model included school-level variables, prior performance, and teacher predictions. Its $R^2$ was good. Its diagnostics passed. On Tuesday, students received their grades. By Thursday, the algorithm had been scrapped.
+
+The model systematically downgraded students from disadvantaged schools. A student with identical ability and identical teacher predictions received a lower grade if their school had historically underperformed---a textbook case of conditioning on a collider (school reputation is caused by both student quality \emph{and} institutional resources). The algorithm did not measure student ability; it measured school postcode.
+
+This course is about why. Every failure mode we study---omitted variable bias, bad controls, specification error, fragile diagnostics---was present in the Ofqual model. We will return to this example in the conclusion, once you have the vocabulary to say exactly what went wrong.
 \end{tcolorbox}
 
 \bigskip
@@ -378,6 +386,12 @@ Here is the problem: people who drink moderate morning coffee also tend to exerc
 This is exactly what the OVB formula captures: the bias on coffee's coefficient equals the true effect of healthy lifestyle on longevity times the correlation between healthy lifestyle and coffee consumption. Both are positive, so the bias is positive---coffee looks more life-extending than it really is. Leave out a variable that matters and is correlated with what you included, and its ghost haunts your estimate.
 \end{toystory}
 
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={The Coefficient Auction}]
+Before I show you any regression output: shout your guess. What is the effect of one additional hour of studying on exam scores? Write down a number.
+
+If you guessed something between 5 and 10 points per hour, you are in good company---that is where most people's intuitions land. Hold on to that number. We are about to watch it change, and each change will teach you something about what OLS is actually doing.
+\end{tcolorbox}
+
 Suppose the true model is
 \begin{equation}\label{eq:long}
   Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon, \qquad \E[\varepsilon \mid X_1, X_2] = 0,
@@ -453,7 +467,17 @@ The interpretation: omitting sleep shrank the study coefficient from 5 to 2.6. B
   \item \emph{Effect-size slider} ($\beta_2$ from $-5$ to $+10$): when the omitted variable doesn't matter ($\beta_2 = 0$), there's no bias regardless of correlation.
 \end{itemize}
 The formula panel updates live, showing how $\beta_2 \cdot \delta_1$ produces the exact gap you see.
+
+\medskip
+\textbf{The ghost visualization.} Imagine the same scatterplot, but now every dot is coloured by the hidden variable $U$ (self-discipline): \textcolor{olsblue}{blue} for low-discipline students, \textcolor{biasred}{red} for high-discipline students. With $U$ invisible (all dots gray), OLS fits the steep red line---it cannot see that high-discipline students cluster in the upper-right and low-discipline students in the lower-left. The colour gradient \emph{is} the bias: it pulls the line steeper than it should be. Now reveal $U$: the colour pattern becomes visible, a second \textcolor{truthgold}{gold} ``truth'' line appears with a shallower slope, and the gap between the red and gold lines is labelled $\beta_2 \cdot \delta_1$. A translucent ghost figure hovers behind the data cloud, one hand pushing dots rightward (more studying), the other pushing dots upward (higher scores). The ghost's hands are the confounding links $\gamma_1$ and $\beta_U$, and they tilt the regression line away from the truth.
 \end{vizspec}
+
+\begin{keyinsight}[title={Before and After: The OVB Reveal}]
+\textbf{Slide 1 (the naive view):} A clean scatterplot of study hours vs.\ exam score with a steep positive regression line. Title: ``Each additional hour of studying adds 10.5 points to your exam score!'' Green checkmark. This is what OLS tells you when $U$ is hidden.
+
+\medskip
+\textbf{Slide 2 (the corrected view):} The same scatterplot, but now the ghost of self-discipline is visible behind the data cloud. The regression line has split in two: the \textcolor{biasred}{red naive line} (steep) and the \textcolor{truthgold}{gold true line} (less steep, $\approx$5.5 points per hour). Title: ``Self-discipline was doing half the work---the true studying effect is only 5.5 points.'' Red X replaces the checkmark. Between the two lines, the gap is labelled ``OVB $= \beta_2 \cdot \delta_1$.'' The lesson: what looked like a studying effect was partly a discipline effect in disguise.
+\end{keyinsight}
 
 \begin{keyinsight}
 The bias has a \emph{sign} and a \emph{direction}.
@@ -515,6 +539,8 @@ Why? Confidence is a \emph{post-treatment} variable---it is caused by the outcom
 % 4. HETEROSCEDASTICITY AND STANDARD ERRORS (NB 2)
 % ============================================================
 \section{Why Your Uncertainty Is Wrong: Heteroscedasticity}\label{sec:hetero}
+
+\noindent\textit{Coefficient tracker: the studying coefficient was 10.5 in Section~3 (biased by the ghost of self-discipline). Now we keep that inflated number---but discover the uncertainty around it is also a lie.}
 
 \subsection{Confidence Intervals for Regression Coefficients}
 
@@ -639,6 +665,10 @@ If the classical standard errors are used under heteroscedasticity:
 
 \subsection{The Breusch--Pagan Test}\label{subsec:bp}
 
+\begin{remark}[The chi-squared distribution]
+The \textbf{chi-squared distribution} with $p$ degrees of freedom, written $\chi^2_p$, is the distribution of the sum of $p$ independent squared standard normal variables: if $Z_1, \ldots, Z_p \overset{\text{iid}}{\sim} \mathcal{N}(0,1)$, then $Z_1^2 + \cdots + Z_p^2 \sim \chi^2_p$. It is always non-negative, right-skewed, and becomes approximately normal for large $p$. We use it here because the Breusch--Pagan test statistic follows a $\chi^2_p$ distribution under the null hypothesis of homoscedasticity.
+\end{remark}
+
 \begin{remark}[$R^2$: How much does $X$ explain?]
 The \textbf{coefficient of determination} $R^2$ measures the fraction of the total variation in the outcome that is explained by the predictors. If $R^2 = 0.80$, the predictors explain 80\% of the variation; the remaining 20\% is unexplained noise. An $R^2$ close to zero means the predictors have almost no explanatory power.
 \end{remark}
@@ -696,6 +726,8 @@ The crossover point depends on the severity of heteroscedasticity, but as a roug
 % ============================================================
 \section{Why Your Significance Is Wrong: Effect Size and Power}\label{sec:significance}
 
+\noindent\textit{Coefficient tracker: the studying coefficient was 10.5 (biased) in Section~3, and 10.5 $\pm$ 1.2 (wrong CI) in Section~4. Now we ask: does the effect even matter? The ghost of self-discipline inflated the number; heteroscedasticity made us overconfident about it. This section adds a third betrayal.}
+
 \subsection{The Anatomy of a $t$-Statistic}
 
 \begin{toystory}[title={The Seat Number That ``Predicts'' Your Grade}]
@@ -719,6 +751,18 @@ How can a variable with zero true effect be ``highly significant''? Because with
 
 The lesson: \textbf{statistical significance tells you the effect is not exactly zero. It says nothing about whether the effect matters.}
 \end{toystory}
+
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Stand Up If Significant}]
+\textbf{Classroom exercise:} Everyone who thinks the seat number effect ($p = 0.002$) is ``statistically significant,'' stand up.
+
+\emph{(Most of the room stands.)}
+
+Now: stay standing if you think the seat number effect is \emph{important enough to act on}---important enough that you would switch seats, or that the university should redesign its seating policy.
+
+\emph{(Watch the room sit down in waves as they reconsider.)}
+
+Look around. Almost everyone stood up for ``significant.'' Almost no one stayed up for ``important.'' That gap---between standing and sitting---is the entire point of this section. Your legs just taught you the difference between statistical significance and practical importance.
+\end{tcolorbox}
 
 \begin{keyinsight}
 From now on, whenever you see a ``significant'' result, ask yourself: \emph{``Is this a seat number?''} That is: is the effect statistically distinguishable from zero only because the sample is enormous, while the actual magnitude is too small to matter? This question will serve you well for the rest of these notes---and for the rest of your career.
@@ -828,6 +872,8 @@ The effect never changed---it was always 0.1 seconds. Only the sample size grew.
 % ============================================================
 \section{Why Your Model Is Wrong: Specification Error}\label{sec:specification}
 
+\noindent\textit{Coefficient tracker: 10.5 (biased), 10.5 $\pm$ 1.2 (wrong CI), significant but a seat number? Now the ghost strikes again---the studying coefficient was wrong not just because of omitted variables, but because we assumed the relationship was a straight line when it is actually a curve.}
+
 \subsection{The Problem of Functional Form}
 
 \begin{toystory}[title={The Straight Ruler on a Winding Road}]
@@ -911,6 +957,8 @@ However, even the log model is a local approximation---at extreme extrapolation,
 % 7. OVERFITTING AND BIAS-VARIANCE (NB 5)
 % ============================================================
 \section{Why Your $R^2$ Is Lying: Overfitting}\label{sec:overfitting}
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong functional form. Now we try to fix the shape by adding polynomial terms---and the ghost of self-discipline watches as a degree-15 polynomial achieves $R^2 = 0.97$ on training data and negative on test data. The model did not learn; it memorised.}
 
 \subsection{The Bias--Variance Decomposition}
 
@@ -1039,6 +1087,8 @@ Model A always predicts 7 regardless of the training data---zero variance, but i
 % ============================================================
 \section{Why Your Causal Claim Is Wrong: Endogeneity and Bad Controls}\label{sec:causation}
 
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised noise. Now we try ``controlling for'' post-exam confidence---and the ghost of self-discipline does not just haunt the estimate, it destroys it. The studying coefficient collapses toward zero. Another ghost, another way to be wrong.}
+
 \subsection{Endogeneity}
 
 \begin{keyinsight}[title={The ``Hot Guys Are Jerks'' Study}]
@@ -1146,6 +1196,20 @@ A variable $Z$ is a valid \emph{instrument} for $X$ in the equation $Y = X\beta 
 \end{enumerate}
 \end{definition}
 
+\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Try It Yourself: Name That Instrument}]
+You want the causal effect of study hours ($X_1$) on exam score ($Y$), but self-discipline ($U$) confounds the relationship. For each candidate instrument below, evaluate whether it satisfies \emph{relevance} (does it affect study hours?) and \emph{exclusion} (does it affect exam scores \textbf{only} through study hours?).
+
+\begin{enumerate}[label=(\alph*)]
+  \item \textbf{The student's IQ score.} Relevance: plausible---smarter students may study differently. Exclusion: \textcolor{biasred}{\textbf{fails.}} IQ directly affects exam scores through faster comprehension, better reasoning, and test-taking ability, independent of study hours. IQ is a confounder, not an instrument.
+
+  \item \textbf{Whether the library was open late that week} (determined by a random maintenance schedule). Relevance: yes---when the library closes early, students have fewer hours available to study. Exclusion: \textcolor{repairgreen}{\textbf{plausible.}} The maintenance schedule is random, so it is unrelated to student ability or discipline. Library closures affect exam scores only by limiting study time. \emph{This is a valid instrument.}
+
+  \item \textbf{The student's Instagram screen time.} Relevance: plausible---more screen time likely means fewer study hours. Exclusion: \textcolor{biasred}{\textbf{fails.}} Screen time reflects self-discipline, which directly affects exam scores through focus, persistence, and class engagement. The instrument is contaminated by the very confounder we are trying to bypass.
+\end{enumerate}
+
+The lesson: a valid instrument must provide variation in $X$ that is ``clean''---uncontaminated by any backdoor path to $Y$. Options (a) and (c) fail because they are entangled with the confounder $U$. Only (b), which is driven by an external random event, passes both conditions.
+\end{tcolorbox}
+
 \begin{theorem}[IV Consistency]\label{thm:iv}
 If $Z$ is a valid instrument, the IV estimator
 \begin{equation}\label{eq:iv}
@@ -1243,6 +1307,8 @@ In this numerical example, $\bols = 8.71$ while $\beta_{\text{true}} = 3$. The b
 % ============================================================
 \section{The Real World --- When All Pathologies Strike at Once}\label{sec:realworld}
 
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised noise, destroyed by bad controls. Now we meet the tutoring regression: coefficient $= -3$. The ghost is not just present---it flipped the sign. The ghost is running the show.}
+
 \subsection{The Lalonde Dataset}
 
 The previous sections studied one pathology at a time in a clean simulated world. Real data is not so polite---every pathology arrives simultaneously, and none announces itself.
@@ -1277,6 +1343,10 @@ This is the observational researcher's nightmare. You cannot diagnose the proble
 \subsection{Sensitivity Analysis: Cinelli--Hazlett Framework}
 
 When you cannot run an experiment, you can at least ask: \emph{how strong would a hidden confounder need to be to explain away my result?} The Cinelli--Hazlett framework formalises this question.
+
+\begin{remark}[Partial $R^2$]
+The \textbf{partial $R^2$} of a variable $X$ with respect to an outcome $Y$, after controlling for other variables $W$, measures how much \emph{additional} variation $X$ explains beyond what $W$ already explains. Formally: regress $Y$ on $W$ to get residuals $\tilde{Y}$, regress $X$ on $W$ to get residuals $\tilde{X}$, then the partial $R^2$ is the ordinary $R^2$ from regressing $\tilde{Y}$ on $\tilde{X}$. A partial $R^2$ of 0.10 means $X$ explains 10\% of the variation in $Y$ that the other variables left on the table. This is the natural measure for the Cinelli--Hazlett framework, because it captures how much ``unexplained work'' a confounder would need to do.
+\end{remark}
 
 \begin{definition}[Robustness Value]
 The \textbf{robustness value} (RV) is the minimum strength of association (measured in partial~$R^2$) that an unobserved confounder would need to have with both the treatment and the outcome to explain away the observed result.
@@ -1327,6 +1397,13 @@ A striking modern example of collider bias in the wild: early in the COVID-19 pa
 % 10. REGRESSION DISCONTINUITY DESIGN (NB 8)
 % ============================================================
 \section{The Redemption --- Regression Discontinuity Design}\label{sec:rdd}
+
+\begin{remark}[Potential outcomes]
+The \textbf{potential outcomes} framework imagines two versions of each individual: $Y_1$ (the outcome they \emph{would} experience with treatment) and $Y_0$ (the outcome they \emph{would} experience without treatment). The causal effect for individual $i$ is $Y_{1i} - Y_{0i}$. The fundamental problem of causal inference is that we can never observe both $Y_1$ and $Y_0$ for the same person---each individual is either treated or not, so one potential outcome is always missing. RDD, introduced next, cleverly sidesteps this problem by comparing individuals who are nearly identical but fall on opposite sides of a treatment cutoff.
+\end{remark}
+
+
+\noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong shape, memorised, destroyed by bad controls, wrong sign. Eight ways to be wrong. Now---for the first time---the coefficient earns our trust. The ghost of self-discipline cannot haunt a design where treatment is assigned by a cutoff, not by choice.}
 
 \subsection{When Design Earns Trust}
 
@@ -1417,6 +1494,8 @@ When the autopsy report is run on the RDD estimate, all indicators are green: th
 % 11. THE FRISCH-WAUGH-LOVELL THEOREM (NB 1.5)
 % ============================================================
 \section{What ``Controlling For'' Actually Means --- The Frisch--Waugh--Lovell Theorem}\label{sec:fwl}
+
+\noindent\textit{Coefficient tracker: we have seen the studying coefficient be inflated, misshapen, memorised, destroyed, and sign-flipped. Every time someone said ``controlling for,'' something happened to that number. This section finally explains what ``controlling for'' actually means---mechanically, algebraically, with no ambiguity.}
 
 \subsection{Motivation}
 
@@ -1522,6 +1601,8 @@ When you ``control for'' $X_3$ (the post-exam self-assessment), FWL tells you wh
 % ============================================================
 \section{Diagnostic Toolkit Summary}\label{sec:diagnostics}
 
+\noindent\textit{Coefficient tracker: the studying coefficient has been 10.5 (biased), 10.5 $\pm$ 1.2 (wrong CI), ``significant'' but trivial (seat number), 1.6 per hour (wrong shape), $R^2 = 0.97$ (memorised), near zero (destroyed by bad control), $-3$ (wrong sign), 3.0 (IV---finally correct), and 5.0 (RDD---correct by design). Nine versions of the same question. The diagnostics below would have flagged at most two of these problems.}
+
 Think of these diagnostics as the instrument panel in a cockpit. Each gauge checks one specific condition---but all gauges reading green does not mean the flight plan is correct.
 
 The following diagnostics are used across all notebooks:
@@ -1555,6 +1636,29 @@ Diagnostics check whether the model's assumptions about the error term are satis
 % ============================================================
 \section{Theorem Map: How the Results Connect}\label{sec:theoremmap}
 
+\noindent\textit{Coefficient tracker --- the full history:}
+\begin{center}
+\small
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{Section} & \textbf{Coefficient} & \textbf{What was wrong} \\
+\midrule
+3 (OVB) & 10.5 & Inflated by the ghost of self-discipline \\
+4 (Heteroscedasticity) & 10.5 $\pm$ 1.2 & CI too narrow (wrong SEs) \\
+5 (Significance) & 0.003*** (seat number) & Meaningless but ``significant'' \\
+6 (Specification) & 1.6 per hour (linear) & Wrong shape---log truth, linear fit \\
+7 (Overfitting) & degree-15 poly, $R^2 = 0.97$ & Memorising noise \\
+8 (Bad controls) & $\approx 0$ (controlling for confidence) & Destroyed by collider \\
+9 (Real world) & $-3$ (tutoring) & Wrong sign---the ghost is running the show \\
+8 (IV) & \textbf{3.0} (via roommate) & \textbf{Finally correct} \\
+10 (RDD) & \textbf{5.0} (scholarship cutoff) & \textbf{Correct by design} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Nine versions of the same question. Seven wrong answers. Two right ones. The two right ones did not come from better statistics---they came from better \emph{design}.
+
+\medskip
 Before the final summary, let us step back and see how all nine results connect. Each theorem in this course relaxes an assumption that the previous one relied on, forming a chain of progressively more honest conclusions.
 
 \begin{center}
@@ -1592,6 +1696,16 @@ In the exam score DGP, each theorem answers a different version of the same ques
 % ============================================================
 \section{Conclusion}\label{sec:conclusion}
 
+Remember the Ofqual algorithm from the Introduction? The one that decided half a million students' futures on a Tuesday and was scrapped by Thursday? You now have the vocabulary to say exactly what went wrong:
+\begin{itemize}[nosep]
+  \item It had \textbf{omitted variable bias}---it used school-level averages instead of individual ability. The ghost of student potential was hiding inside the school-reputation coefficient.
+  \item It had \textbf{specification error}---it assumed linear relationships between prior results and predicted grades.
+  \item It had \textbf{bad controls}---it conditioned on school characteristics that were downstream of socioeconomic status, a collider.
+  \item And no one ran the \textbf{sensitivity analysis} that would have revealed how fragile the estimates were.
+\end{itemize}
+Every failure mode we studied was present. All gauges were green. The plane flew to the wrong destination. And half a million students paid the price.
+
+\medskip
 These notes have formalised the eight core failure modes of OLS regression demonstrated in the Regression Autopsy lab series:
 
 \begin{enumerate}[nosep]
@@ -1612,7 +1726,9 @@ The diagnostics tell you whether the \emph{model} is internally consistent; only
 Every section in these notes followed the same arc: a toy story made you feel the problem, the theorem made it precise, a numerical example made it concrete, and a visualisation let you play with it. If you remember only one thing, remember this: regression is not a magic box that turns data into truth. It is a tool with assumptions, and every number it produces is only as honest as those assumptions. Your job is not to believe the output---it is to interrogate it.
 \end{keyinsight}
 
-Remember the seat number from the beginning? You now know it was ``significant'' only because $n$ was huge and $\se$ was tiny---not because seats matter. Remember the coffee study? You can sign the bias. Remember the ``hot guys are jerks'' article? You can draw the collider. You have seen regression fail eight different ways, and for each failure, you know the diagnosis, the repair, and the repair's limits.
+Remember the seat number from the beginning? You now know it was ``significant'' only because $n$ was huge and $\se$ was tiny---not because seats matter. Remember the coffee study? You can sign the bias. Remember the ``hot guys are jerks'' article? You can draw the collider. Remember the ghost of self-discipline that haunted the studying coefficient from Section~3 onward? You have watched it inflate, distort, destroy, and flip the sign of every estimate it touched---until a clever research design finally exorcised it. You have seen regression fail eight different ways, and for each failure, you know the diagnosis, the repair, and the repair's limits.
+
+The next time someone shows you a regression table and says ``the model is fine, the $R^2$ is high, the residuals look clean,'' your first question should be: is this a Lalonde? Is there a ghost in this regression? Is this a seat number? These three questions---about confounding, about the research design, and about practical importance---will serve you longer than any formula in these notes.
 
 \vspace{1cm}
 \begin{center}
