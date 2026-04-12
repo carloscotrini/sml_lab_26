@@ -390,22 +390,7 @@ Then
 The term $\beta_2 \delta_1$ is the \textbf{omitted variable bias}.
 \end{theorem}
 
-Before the formal proof, here is the intuition. When you regress $Y$ on $X_1$ alone, OLS gives $X_1$ credit for \emph{all} the variation in $Y$ that is correlated with $X_1$. But some of that variation actually belongs to $X_2$---it just happens to travel through the $X_1$--$X_2$ correlation. The bias term $\beta_2 \delta_1$ measures exactly how much of $X_2$'s effect gets falsely attributed to $X_1$: $\beta_2$ is how much $X_2$ matters, and $\delta_1$ is how strongly $X_1$ and $X_2$ are correlated (specifically, the slope from regressing $X_2$ on $X_1$).
-
-\begin{proof}
-Write the OLS estimator in population form.  From the short regression,
-\[
-  \plim\, \bhat_1^{\text{short}}
-  = \frac{\Cov(X_1, Y)}{\Var(X_1)}
-  = \frac{\Cov(X_1,\, \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon)}{\Var(X_1)}.
-\]
-Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, we obtain
-\[
-  \plim\, \bhat_1^{\text{short}}
-  = \beta_1 + \beta_2 \cdot \frac{\Cov(X_1, X_2)}{\Var(X_1)}
-  = \beta_1 + \beta_2 \, \delta_1. \qedhere
-\]
-\end{proof}
+Why is this true? Because when you regress $Y$ on $X_1$ alone, OLS gives $X_1$ credit for \emph{all} the variation in $Y$ that is correlated with $X_1$---including the part that actually belongs to $X_2$ but travels through the $X_1$--$X_2$ correlation. The bias term $\beta_2 \delta_1$ measures exactly how much of $X_2$'s effect gets falsely attributed to $X_1$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{numermark}[title={Studying, Sleeping, and Exam Scores}]
 \textbf{True DGP:} $Y = 60 + 5X_1 + 3X_2$ (no noise, for clarity), where $X_1$ is hours studied and $X_2$ is hours slept the night before the exam.
@@ -496,17 +481,7 @@ Let $X$ and $U$ be independent, and let $C = \alpha_1 X + \alpha_2 U + \eta$ wit
 \]
 \end{proposition}
 
-\begin{proof}
-Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:
-\[
-  \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
-\]
-Since $\Cov(X, U) = 0$ but $\Cov(X, C) = \alpha_1 \Var(X) \neq 0$ and $\Cov(C, U) = \alpha_2 \Var(U) \neq 0$:
-\[
-  \Cov(X, U \mid C) = -\frac{\alpha_1 \Var(X) \cdot \alpha_2 \Var(U)}{\Var(C)} \neq 0.
-\]
-Conditioning on the collider manufactured a negative association between $X$ and $U$ from nothing.
-\end{proof}
+Why is this true? Because fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$, so knowing that $X$ is large forces $U$ to be small (and vice versa)---the collider manufactures a negative association from nothing. The formal derivation is in Appendix~\ref{app:proofs}.
 
 A \emph{collider path} is any path between two variables that passes through a collider. Such a path is ``blocked'' by default (no spurious association flows along it) but becomes ``open'' if you condition on the collider. This is the reverse of the usual rule: for non-colliders, conditioning blocks a path; for colliders, conditioning opens one.
 
@@ -690,21 +665,7 @@ where $\hat\varepsilon_i$ are the OLS residuals.  These standard errors are \emp
 With robust SEs, the 95\% CI recovers $\approx$95\% coverage in the studying DGP simulation.
 \end{repairbox}
 
-\begin{proof}[Derivation of the sandwich estimator]
-Start from the OLS estimator: $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$. Therefore:
-\begin{align*}
-  \bols - \beta &= (X^\top X)^{-1} X^\top \varepsilon, \\
-  \Var(\bols \mid X) &= (X^\top X)^{-1} X^\top \,\Var(\varepsilon \mid X)\, X\, (X^\top X)^{-1} \\
-    &= (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
-\end{align*}
-Under homoscedasticity, $\Omega = \sigma^2 I$, and this simplifies to $\sigma^2 (X^\top X)^{-1}$. Under heteroscedasticity, $\Omega = \operatorname{diag}(\sigma_1^2, \ldots, \sigma_n^2)$, and the middle ``meat'' $X^\top \Omega\, X = \sum_{i=1}^n \sigma_i^2 x_i x_i^\top$ cannot be simplified.
-
-The White--Huber--Eicker estimator replaces each unknown $\sigma_i^2$ with the squared residual $\hat\varepsilon_i^2$:
-\[
-  \widehat{X^\top \Omega\, X} = \sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top.
-\]
-This is consistent: as $n \to \infty$, the average $\frac{1}{n}\sum \hat\varepsilon_i^2 x_i x_i^\top$ converges to $\E[\sigma_i^2 x_i x_i^\top]$ by a law of large numbers, regardless of the form of heteroscedasticity.
-\end{proof}
+Why does this work? Because each observation's own squared residual $\hat\varepsilon_i^2$ serves as a plug-in estimate for its unknown variance $\sigma_i^2$, letting the data speak for itself without requiring any assumption about how the variance changes with $X$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{warningbox}
 Robust standard errors perform poorly in small samples.
@@ -814,6 +775,12 @@ For genome-wide association studies ($m \approx 10^6$), the corrected threshold 
 In our 200-classroom-feature example, the corrected threshold is $0.05/200 = 0.00025$---any ``significant'' result that only cleared the 0.05 bar disappears under this stricter standard.
 Always report effect sizes and confidence intervals alongside $p$-values.
 \end{repairbox}
+
+\begin{remark}[The Replication Crisis]
+The multiple testing problem is not a theoretical curiosity---it is at the heart of the \emph{replication crisis} that has shaken psychology, medicine, and economics since 2011. The Open Science Collaboration (2015) attempted to replicate 100 published psychology studies. Only 36 produced significant results the second time around. The reasons are exactly what this section teaches: $p$-hacking (running many tests and reporting only the significant ones), underpowered studies (small $n$, large effect needed), and the base rate problem (most hypotheses tested are probably false, so even with $\alpha = 0.05$, a large fraction of ``discoveries'' are false positives).
+
+The lesson for your own work: a single $p < 0.05$ result from an observational study is the \emph{beginning} of an investigation, not the end. Always ask: what is the effect size? Could this survive a pre-registered replication? Is this a seat number?
+\end{remark}
 
 \begin{numermark}[title={The Keyboard That Saves 0.1 Seconds}]
 A new keyboard layout saves an average of $\beta = 0.1$ seconds per email ($\sigma = 2$ seconds). Is this ``significant''?
@@ -946,22 +913,7 @@ For any estimator $\hat{f}$ of the regression function $f$, the expected predict
 \end{equation}
 \end{theorem}
 
-\begin{proof}
-Let $\mu = \E[\hat{f}(x_0)]$.  Then
-\begin{align*}
-  \E[(Y - \hat{f})^2]
-  &= \E[(f + \varepsilon - \hat{f})^2] \\
-  &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
-  &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
-\end{align*}
-where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ (trained on separate data) and has mean zero.
-Now expand:
-\[
-  \E[(f - \hat{f})^2]
-  = (f - \mu)^2 + \E[(\hat{f} - \mu)^2]
-  = \Bias^2(\hat{f}) + \Var(\hat{f}). \qedhere
-\]
-\end{proof}
+Why is this true? Because the prediction error splits cleanly into three independent pieces: the noise cross-term vanishes (since $\varepsilon$ is independent of $\hat{f}$ and has mean zero), and the remaining squared error decomposes into a systematic part (bias squared) and a random part (variance). The formal derivation is in Appendix~\ref{app:proofs}.
 
 \subsection{Overfitting in Practice}
 
@@ -999,6 +951,28 @@ The CV estimate of prediction error is
   \text{CV}(k) = \frac{1}{k} \sum_{j=1}^{k} \MSE_j.
 \]
 \end{definition}
+
+\begin{numermark}[title={Cross-Validation: Picking the Right Model}]
+We have 20 students' data and two candidate models: a linear model ($Y = a + bX_1$) and a log model ($Y = a + b\log X_1$). We use 5-fold CV:
+
+\begin{center}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+\textbf{Fold} & \textbf{Linear MSE} & \textbf{Log MSE} \\
+\midrule
+1 & 42.3 & 28.1 \\
+2 & 38.7 & 25.9 \\
+3 & 51.2 & 31.4 \\
+4 & 44.1 & 27.8 \\
+5 & 39.8 & 26.3 \\
+\midrule
+\textbf{Average} & \textbf{43.2} & \textbf{27.9} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The log model wins on every single fold---its average MSE is 35\% lower. This is not a coincidence: the log model matches the true DGP ($Y$ depends on $\log X_1$), while the linear model systematically misses the diminishing-returns curve. Cross-validation detected the misspecification that training $R^2$ alone could not.
+\end{numermark}
 
 The idea is that each fold takes a turn being the ``held-out'' data. By averaging across folds, you get an honest estimate of how well the model predicts data it has never seen. In the exam score dataset, cross-validation correctly identifies the log-linear model as the best specification, outperforming all polynomial models.
 
@@ -1440,23 +1414,7 @@ That is, $\bhat_1$ from the full regression is \emph{identical} (to numerical pr
 \end{enumerate}
 \end{theorem}
 
-\begin{proof}
-The OLS normal equations for the partitioned model $Y = X_1\beta_1 + X_2\beta_2 + \varepsilon$ give
-\[
-  \begin{pmatrix} X_1^\top X_1 & X_1^\top X_2 \\ X_2^\top X_1 & X_2^\top X_2 \end{pmatrix}
-  \begin{pmatrix} \bhat_1 \\ \bhat_2 \end{pmatrix}
-  =
-  \begin{pmatrix} X_1^\top Y \\ X_2^\top Y \end{pmatrix}.
-\]
-From the second block, $\bhat_2 = (X_2^\top X_2)^{-1} X_2^\top (Y - X_1 \bhat_1)$.
-Substituting into the first block and simplifying:
-\begin{align*}
-  X_1^\top X_1 \bhat_1 + X_1^\top X_2 (X_2^\top X_2)^{-1} X_2^\top(Y - X_1\bhat_1) &= X_1^\top Y \\
-  X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] X_1\, \bhat_1 &= X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] Y \\
-  X_1^\top M_2 X_1\, \bhat_1 &= X_1^\top M_2 Y.
-\end{align*}
-Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
-\end{proof}
+Why is this true? Because the partitioned normal equations let you solve for $\bhat_1$ by substituting out $\bhat_2$, and the algebra naturally produces the residual-maker matrix $M_2$ on both sides---showing that ``controlling for $X_2$'' is literally projecting $X_2$ out of both $Y$ and $X_1$. The formal derivation is in Appendix~\ref{app:proofs}.
 
 \begin{keyinsight}
 ``Controlling for'' means residualising---stripping out the linear relationship with the control variables from \emph{both} sides of the equation. Not just the outcome. Not just the predictor. Both.
@@ -1620,5 +1578,101 @@ Remember the seat number from the beginning? You now know it was ``significant''
 \textit{This does not mean you should stop using regression.\\
 It means you are finally ready to start.}
 \end{center}
+
+% ============================================================
+% APPENDIX: PROOFS AND DERIVATIONS
+% ============================================================
+\appendix
+\section{Proofs and Derivations}\label{app:proofs}
+
+This appendix collects the formal proofs and derivations referenced throughout the main text.
+
+\subsection{Proof of the OVB Formula (Theorem~\ref{thm:ovb})}
+
+\begin{proof}
+Write the OLS estimator in population form.  From the short regression,
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \frac{\Cov(X_1, Y)}{\Var(X_1)}
+  = \frac{\Cov(X_1,\, \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \varepsilon)}{\Var(X_1)}.
+\]
+Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, we obtain
+\[
+  \plim\, \bhat_1^{\text{short}}
+  = \beta_1 + \beta_2 \cdot \frac{\Cov(X_1, X_2)}{\Var(X_1)}
+  = \beta_1 + \beta_2 \, \delta_1. \qedhere
+\]
+\end{proof}
+
+\subsection{Proof of Collider Bias (Proposition~\ref{prop:collider})}
+
+\begin{proof}
+Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:
+\[
+  \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
+\]
+Since $\Cov(X, U) = 0$ but $\Cov(X, C) = \alpha_1 \Var(X) \neq 0$ and $\Cov(C, U) = \alpha_2 \Var(U) \neq 0$:
+\[
+  \Cov(X, U \mid C) = -\frac{\alpha_1 \Var(X) \cdot \alpha_2 \Var(U)}{\Var(C)} \neq 0.
+\]
+Conditioning on the collider manufactured a negative association between $X$ and $U$ from nothing.
+\end{proof}
+
+\subsection{Derivation of the Sandwich Estimator (Theorem~\ref{thm:sandwich})}
+
+\begin{proof}[Derivation of the sandwich estimator]
+Start from the OLS estimator: $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$. Therefore:
+\begin{align*}
+  \bols - \beta &= (X^\top X)^{-1} X^\top \varepsilon, \\
+  \Var(\bols \mid X) &= (X^\top X)^{-1} X^\top \,\Var(\varepsilon \mid X)\, X\, (X^\top X)^{-1} \\
+    &= (X^\top X)^{-1} X^\top \Omega\, X\, (X^\top X)^{-1}.
+\end{align*}
+Under homoscedasticity, $\Omega = \sigma^2 I$, and this simplifies to $\sigma^2 (X^\top X)^{-1}$. Under heteroscedasticity, $\Omega = \operatorname{diag}(\sigma_1^2, \ldots, \sigma_n^2)$, and the middle ``meat'' $X^\top \Omega\, X = \sum_{i=1}^n \sigma_i^2 x_i x_i^\top$ cannot be simplified.
+
+The White--Huber--Eicker estimator replaces each unknown $\sigma_i^2$ with the squared residual $\hat\varepsilon_i^2$:
+\[
+  \widehat{X^\top \Omega\, X} = \sum_{i=1}^n \hat\varepsilon_i^2\, x_i x_i^\top.
+\]
+This is consistent: as $n \to \infty$, the average $\frac{1}{n}\sum \hat\varepsilon_i^2 x_i x_i^\top$ converges to $\E[\sigma_i^2 x_i x_i^\top]$ by a law of large numbers, regardless of the form of heteroscedasticity.
+\end{proof}
+
+\subsection{Proof of the Bias--Variance Decomposition (Theorem~\ref{thm:biasvar})}
+
+\begin{proof}
+Let $\mu = \E[\hat{f}(x_0)]$.  Then
+\begin{align*}
+  \E[(Y - \hat{f})^2]
+  &= \E[(f + \varepsilon - \hat{f})^2] \\
+  &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
+  &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
+\end{align*}
+where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ (trained on separate data) and has mean zero.
+Now expand:
+\[
+  \E[(f - \hat{f})^2]
+  = (f - \mu)^2 + \E[(\hat{f} - \mu)^2]
+  = \Bias^2(\hat{f}) + \Var(\hat{f}). \qedhere
+\]
+\end{proof}
+
+\subsection{Proof of the Frisch--Waugh--Lovell Theorem (Theorem~\ref{thm:fwl})}
+
+\begin{proof}
+The OLS normal equations for the partitioned model $Y = X_1\beta_1 + X_2\beta_2 + \varepsilon$ give
+\[
+  \begin{pmatrix} X_1^\top X_1 & X_1^\top X_2 \\ X_2^\top X_1 & X_2^\top X_2 \end{pmatrix}
+  \begin{pmatrix} \bhat_1 \\ \bhat_2 \end{pmatrix}
+  =
+  \begin{pmatrix} X_1^\top Y \\ X_2^\top Y \end{pmatrix}.
+\]
+From the second block, $\bhat_2 = (X_2^\top X_2)^{-1} X_2^\top (Y - X_1 \bhat_1)$.
+Substituting into the first block and simplifying:
+\begin{align*}
+  X_1^\top X_1 \bhat_1 + X_1^\top X_2 (X_2^\top X_2)^{-1} X_2^\top(Y - X_1\bhat_1) &= X_1^\top Y \\
+  X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] X_1\, \bhat_1 &= X_1^\top\!\big[I - X_2(X_2^\top X_2)^{-1} X_2^\top\big] Y \\
+  X_1^\top M_2 X_1\, \bhat_1 &= X_1^\top M_2 Y.
+\end{align*}
+Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
+\end{proof}
 
 \end{document}
