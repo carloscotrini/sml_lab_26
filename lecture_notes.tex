@@ -126,7 +126,7 @@ These notes are structured for two audiences:
 Each section follows the same rhythm: a \emph{story} that makes the problem visceral, the \emph{mathematics} that makes it precise, a \emph{numerical example} you can verify on paper, and a \emph{visualization} you can play with online. If you feel lost, jump to the next coloured box --- the narrative will pick you back up.
 
 \medskip
-\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient. When you see a \emph{coefficient tracker} note at the start of a section, it summarises how the studying coefficient has changed so far---each change corresponds to a different failure mode. And the A-level algorithm from the Introduction will return in the Conclusion, once you have the tools to diagnose exactly what went wrong.
+\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient. When you see a \emph{coefficient tracker} note at the start of a section, it summarises how the studying coefficient has changed so far---each change corresponds to a different failure mode. Follow these notes through Sections 3--10 and then check the summary table in Section 13, which puts all nine versions of the coefficient in one place. And the A-level algorithm from the Introduction will return in the Conclusion, once you have the tools to diagnose exactly what went wrong.
 
 \newpage
 
@@ -385,12 +385,6 @@ Here is the problem: people who drink moderate morning coffee also tend to exerc
 
 This is exactly what the OVB formula captures: the bias on coffee's coefficient equals the true effect of healthy lifestyle on longevity times the correlation between healthy lifestyle and coffee consumption. Both are positive, so the bias is positive---coffee looks more life-extending than it really is. Leave out a variable that matters and is correlated with what you included, and its ghost haunts your estimate.
 \end{toystory}
-
-\begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={The Coefficient Auction}]
-Before I show you any regression output: shout your guess. What is the effect of one additional hour of studying on exam scores? Write down a number.
-
-If you guessed something between 5 and 10 points per hour, you are in good company---that is where most people's intuitions land. Hold on to that number. We are about to watch it change, and each change will teach you something about what OLS is actually doing.
-\end{tcolorbox}
 
 Suppose the true model is
 \begin{equation}\label{eq:long}
@@ -927,10 +921,9 @@ Within the observed range, the linear model's errors look tolerable---off by a f
 
 \begin{keyinsight}[title={Predict Before You Peek}]
 A student claims to have studied 30 hours for the exam. Based on the linear model $\hat{Y} = 52.5 + 1.6\,X_1$, what score would you predict? Write it down before reading further.
-\end{keyinsight}
 
-\begin{keyinsight}
-A student who claims to have studied 30 hours in one week---the linear model predicts $\hat{Y} = 52.5 + 1.6 \times 30 = 100.5$, a score of over 100 on a 100-point exam. This is not merely inaccurate; it is \emph{logically impossible}. The log model predicts $50 + 8\log(30) \approx 77.2$. Still high, but plausible.
+\medskip
+The linear model predicts $\hat{Y} = 52.5 + 1.6 \times 30 = 100.5$, a score of over 100 on a 100-point exam. This is not merely inaccurate; it is \emph{logically impossible}. The log model predicts $50 + 8\log(30) \approx 77.2$. Still high, but plausible.
 
 At 50 hours (a student who claims to have done nothing but study for an entire week), the linear model predicts $132.5$. The log model predicts $81.3$. One answer is absurd; the other is at least defensible.
 \end{keyinsight}
@@ -1831,5 +1824,80 @@ Substituting into the first block and simplifying:
 \end{align*}
 Hence $\bhat_1 = (X_1^\top M_2 X_1)^{-1} X_1^\top M_2 Y$.
 \end{proof}
+
+% ============================================================
+% APPENDIX B: STATISTICAL BS DETECTOR
+% ============================================================
+\section{Statistical BS Detector --- One-Page Cheat Sheet}\label{app:bsdetector}
+
+\begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries\large,
+  title={\centering Statistical BS Detector}, breakable,
+  boxrule=1.5pt, arc=4pt, top=8pt, bottom=8pt]
+
+Pin this to your wall. Before you trust any regression result, run it through these five questions.
+
+\bigskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={1.\quad ``Is this a seat number?''}, boxrule=0.8pt]
+\emph{Significant but meaningless.}
+A huge sample can make any non-zero effect ``statistically significant.'' Check the \textbf{magnitude} of the coefficient, not just the $p$-value. Would the effect change anyone's decision? If $\bhat = 0.003$ points per seat number, who cares?
+
+\smallskip
+\textbf{Ask:} What is the actual size of the effect in real-world units? Is it big enough to matter?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={2.\quad ``Where's the ghost?''}, boxrule=0.8pt]
+\emph{What is the omitted variable?}
+Every observational regression has at least one important variable that was not measured. Identify it, sign the bias ($\beta_2 \delta_1$), and ask whether the coefficient you care about would get bigger or smaller if the ghost were included.
+
+\smallskip
+\textbf{Ask:} What unmeasured factor affects both the treatment and the outcome? Which direction does it bias the estimate?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={3.\quad ``Is this a collider?''}, boxrule=0.8pt]
+\emph{Are they conditioning on a post-treatment variable?}
+If a control variable is \emph{caused by} the treatment or the outcome, including it manufactures a spurious association. More controls $\neq$ better. Draw the causal graph: does any arrow point \emph{into} a control variable from both the treatment and the outcome (or their causes)?
+
+\smallskip
+\textbf{Ask:} For each control variable---did the treatment or outcome help \emph{cause} it? If yes, drop it.
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={4.\quad ``How fragile is this?''}, boxrule=0.8pt]
+\emph{What is the robustness value?}
+The Cinelli--Hazlett robustness value ($RV_{q=1}$) tells you: how strong would an unobserved confounder have to be---relative to the strongest observed covariate---to explain away the result? If $RV = 3\%$, a very weak ghost kills the finding. If $RV = 40\%$, you need a ghost stronger than anything in the model.
+
+\smallskip
+\textbf{Ask:} What is the $RV$? Is it larger or smaller than the partial $R^2$ of the strongest observed control?
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=truthgold!10, colframe=truthgold!80!black, fonttitle=\bfseries,
+  title={5.\quad ``Would this replicate?''}, boxrule=0.8pt]
+\emph{Sample size, effect size, pre-registration.}
+Small samples with large claimed effects are the most likely to be false positives. Check: (a)~Is $n$ large enough for the effect size? (b)~Was the analysis pre-registered, or could the authors have tried 20 specifications and reported the best one? (c)~Has anyone replicated it?
+
+\smallskip
+\textbf{Ask:} What is the sample size? Is the effect size plausible? Was the hypothesis specified before looking at the data?
+\end{tcolorbox}
+
+\bigskip
+
+\begin{center}
+\textit{If a claim survives all five questions, it might be real.\\
+If it fails even one, keep your guard up.}
+\end{center}
+
+\end{tcolorbox}
 
 \end{document}
