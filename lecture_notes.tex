@@ -239,6 +239,16 @@ The dataset contains the following variables:
 
 Using a single recurring dataset creates continuity: when a coefficient changes from one section to the next, you'll remember the old value.
 
+\subsection{Meet the Students}
+
+Throughout these notes, we will follow two students through the data:
+
+\textbf{Anna} studied 4 hours, attended 12 lectures, and scored 82 on the exam. \textbf{Ben} also studied 4 hours and attended 12 lectures---but scored only 68. Same hours, same attendance, different scores. Why?
+
+The answer is self-discipline ($U$). Anna's Instagram slider was 0.85 (highly disciplined); Ben's was 0.15. Anna paid attention in every lecture, did practice problems unprompted, and stayed focused during the exam. Ben attended the same lectures but scrolled his phone, crammed the same 4 hours but without a plan, and lost focus during the exam.
+
+When we run OLS without observing $U$, the model sees two students with identical $X_1$ and $X_2$ and concludes that the 14-point gap is noise. It is not noise---it is the ghost. Every pathology in these notes is, at its core, about what happens to Anna and Ben when the model cannot see what makes them different.
+
 
 % ============================================================
 % 2. THE DATA GENERATING PROCESS
@@ -365,22 +375,12 @@ The causal graph below shows every relationship in the DGP. Solid arrows indicat
 \subsection{Why These Relationships?}\label{subsec:why-relationships}
 
 \begin{keyinsight}
-The structural equations above are not arbitrary---each one encodes a specific real-world mechanism. Refer to the causal graph above---each bullet below corresponds to one arrow in the diagram.
+Each arrow in the causal graph above encodes a mechanism already described in the walkthrough. Two points deserve emphasis because they create the pathologies we will spend the rest of the notes diagnosing:
 
 \begin{itemize}
-  \item \textbf{Self-discipline $\to$ studying (positive):} Obvious---disciplined students put in more hours. This is why $U$ appears with a positive coefficient in the equation for $X_1$.
+  \item \textbf{The lecture effect is direct, not mediated by studying.} Attending lectures exposes you to worked examples and the instructor's emphasis on what matters for the exam---things you would not learn from the textbook alone. This is why lectures ($\beta_2 = 3$) and studying ($\beta_1 = 8$) are \emph{separate} arrows into the score, and why omitting one biases the other.
 
-  \item \textbf{Self-discipline $\to$ lectures (positive):} Disciplined students show up more. Same logic, slightly weaker effect (0.3 vs.\ 0.5) because attendance depends more on logistics than on willpower.
-
-  \item \textbf{Studying $\to$ score (logarithmic):} The first hour of studying recovers the low-hanging fruit---basic definitions, key formulas, the structure of the exam. The 10th hour yields much less---you are reviewing material you already know. Diminishing returns are built into the $\log$.
-
-  \item \textbf{Lectures $\to$ score (linear):} Attending lectures exposes you to material, worked examples, and the instructor's emphasis on what matters for the exam. Each additional lecture adds 3 points ($\beta_2 = 3$). This is a direct causal effect, not mediated by studying---you learn things in lecture that you wouldn't learn from the textbook alone.
-
-  \item \textbf{Self-discipline $\to$ score (direct):} Self-discipline helps \emph{beyond} studying. Disciplined students pay attention in class, ask questions, do practice problems, and stay focused during the exam. These things boost scores even holding study hours fixed. This direct effect ($\beta_U = 2$) is what creates the omitted variable bias problem.
-
-  \item \textbf{Noise $\varepsilon \to$ score:} Even after accounting for studying, lectures, and self-discipline, there is randomness: a bad night's sleep, a lucky guess, a misread question.
-
-  \item \textbf{Score $\to$ self-assessment (positive):} Students who did well on the exam know it when they walk out. This is \emph{not} a causal effect of self-assessment on scores---it is the reverse. Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias.
+  \item \textbf{Score $\to$ self-assessment, not the reverse.} Feeling good about the exam does not cause a high score; doing well causes both the high score and the good feeling. Confusing the direction is exactly the mistake that leads to collider bias (\Cref{sec:causation}).
 \end{itemize}
 \end{keyinsight}
 
@@ -518,6 +518,8 @@ The formula panel updates live, showing how $\beta_2 \cdot \delta_1$ produces th
 The bias has a \emph{sign} and a \emph{direction}.
 In the studying DGP, recall that both hours studied ($X_1$) and lectures attended ($X_2$) are positively driven by self-discipline ($U$), so $\delta_1 > 0$, and $\beta_2 = 3 > 0$. The bias is therefore \emph{positive}: the short regression \emph{overestimates} the effect of hours studied, because it gives $X_1$ credit for the beneficial effect of lecture attendance that travels through the shared self-discipline confounder.
 \end{keyinsight}
+
+Think about what this means for Anna and Ben. When we omit $U$, OLS smears Anna's discipline bonus onto study hours. Ben's low score gets attributed to ``not studying enough'' when really it was ``not studying \emph{well} enough.'' Both studied 4 hours, but OLS cannot see what made those 4 hours so different.
 
 \begin{tcolorbox}[colback=truthgold!5, colframe=truthgold!80!black, fonttitle=\bfseries, title={Try It Yourself: Sign the Bias}]
 A study finds that dog owners live longer than non-owners. What is the likely omitted variable? What is the sign of the bias?
@@ -1016,6 +1018,8 @@ How do you check for misspecification in practice? (1)~Plot residuals vs.\ fitte
 
 \noindent\textit{Coefficient tracker: 10.5 (biased), wrong CI, significant-but-trivial, wrong functional form. Now we try to fix the shape by adding polynomial terms---and the ghost of self-discipline watches as a degree-15 polynomial achieves $R^2 = 0.97$ on training data and negative on test data. The model did not learn; it memorised.}
 
+In 1998, five Nobel-laureate-backed quants at Long-Term Capital Management built a model that fit 25 years of bond-spread data with breathtaking precision. Then the Russian debt crisis happened---an event outside the training data---and the model lost \$4.6 billion in four months. The fund nearly crashed the global financial system. Overfitting is not an academic curiosity; it is a \$4.6 billion mistake.
+
 \subsection{The Bias--Variance Decomposition}
 
 \begin{toystory}[title={The Three Dartboard Players}]
@@ -1209,6 +1213,8 @@ Controlling for post-treatment variables or colliders \emph{introduces} bias rat
 Variable selection for causal inference requires understanding the causal structure, not just statistical association.
 \end{warningbox}
 
+Return to Anna and Ben. If we control for self-assessed performance, Anna and Ben---who rated themselves 8 and 5 respectively---get separated into different strata, and the model loses the variation it needs. Among students who rated themselves 8, everyone looks like Anna; among those who rated themselves 5, everyone looks like Ben. The collider has sliced the data in exactly the wrong place.
+
 \begin{numermark}[title={Talent, Luck, and the Fame Filter}]
 People have Talent (0 or 1) and Luck (0 or 1), independently assigned. A person is Famous if they have Talent OR Luck (or both).
 
@@ -1362,6 +1368,8 @@ The true effect is 3, but OLS says 8.71---nearly three times too large! The reas
   \biv = \frac{\Cov(Z, Y)}{\Cov(Z, X_1)} = \frac{6.0}{2.0} = 3.0.
 \]
 Exactly the true causal effect! The instrument isolates the ``clean'' variation in study hours---the part driven by who your roommate happens to be, not by your own self-discipline. By looking at how scores respond to this clean variation, IV strips away the contamination.
+
+Stop and appreciate this. For the first time in these notes, we have a coefficient that equals the truth---not because we observed the confounder, but because we found a clever way around it. The ghost is still there, still unobserved. But the instrument let us see through it.
 
 \textbf{Verification.} We can check the instrument validity conditions:
 \begin{itemize}[nosep]
@@ -1521,6 +1529,7 @@ The design eliminates confounding \emph{locally} at the cutoff because units jus
 Students with exam scores just above a threshold receive scholarships; those just below do not.
 Near the cutoff, the two groups are essentially identical---they studied similar amounts, attended similar numbers of lectures, and have similar (unobserved) self-discipline levels.
 The jump in outcomes at the threshold identifies the causal effect of the scholarship.
+At the scholarship cutoff, Anna-and-Ben pairs exist on both sides. The design works because near the cutoff, Annas and Bens are equally likely to be just above or just below---self-discipline no longer determines which side you land on.
 
 \subsection{Bandwidth Choice}
 
