@@ -271,15 +271,111 @@ A data generating process (DGP) is a set of equations that describes how nature 
 
 In real life, we don't know the DGP---that's the whole problem. If we knew exactly how exam scores are produced, we wouldn't need statistics. But by working with a known DGP in a classroom, we can check whether OLS gets the right answer. When it doesn't, we learn exactly why. Every gap between truth and estimate can be traced back to a specific feature of the DGP that OLS failed to handle.
 
-\subsection{What Is OLS?}\label{subsec:what-ols}
+\subsection{Where Does OLS Come From?}\label{subsec:what-ols}
 
-Given a dataset of $n$ observations with an outcome vector $\mathbf{y}$ and a design matrix $\mathbf{X}$ (whose columns are the variables we include in the regression), the \textbf{ordinary least squares (OLS)} estimator is
+Before we can analyse why OLS fails, we need to know where it comes from. This subsection derives the OLS formula from first principles, starting from the most basic version of the learning problem and building up to the full matrix expression. A reader with a first course in linear algebra can follow every step.
+
+\subsubsection*{Step 1: Observe, Hypothesise, Validate}
+
+Statistical learning, in Vapnik's framing, proceeds in three steps:
+\begin{enumerate}[nosep]
+  \item \textbf{Observe} data: pairs $(x_i, y_i)$, for $i = 1, \ldots, n$.
+  \item \textbf{Hypothesise} a rule that maps inputs to outputs. The simplest hypothesis is linear: $\hat{y} = w\, x$.
+  \item \textbf{Predict and validate}: pick a value of the parameter $w$, compute predictions $\hat{y}_i = w\, x_i$ for each observation, and compare to the true $y_i$.
+\end{enumerate}
+
+For example, suppose we have collected four observations of (hours studied, exam score):
+
+\begin{center}
+\begin{tabular}{@{}cc@{}}
+\toprule
+$x$ (hours) & $y$ (score) \\
+\midrule
+5.2 & 85 \\
+4.3 & 72 \\
+9.7 & 94 \\
+8.1 & 88 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+We hypothesise that score is linear in hours: $\hat{y} = w\, x$. We need to find a $w$ that fits the data well.
+
+\subsubsection*{Step 2: The Fitting Loop}
+
+How do we choose $w$? Start with any guess, then improve it. The classical update rule is:
+\[
+  w \leftarrow w + \alpha\, (y - \hat{y})
+\]
+where $\alpha > 0$ is a small step size called the \emph{learning rate}. If the prediction was too low ($y > \hat{y}$), increase $w$; if too high, decrease it. Repeat until the residual $y - \hat{y}$ is smaller than some tolerance $\varepsilon$.
+
+\begin{keyinsight}[title={The Learning Algorithm}]
+\textbf{Input:} a data point $(x, y) \in \mathbb{R} \times \mathbb{R}$; tolerance $\varepsilon > 0$.
+\begin{enumerate}[nosep]
+  \item Guess $w$.
+  \item Repeat:
+  \begin{enumerate}[nosep]
+    \item Predict: $\hat{y} = w\, x$.
+    \item Compute residual: $r = y - \hat{y}$.
+    \item Update: $w \leftarrow w + \alpha\, r$.
+  \end{enumerate}
+  until $|r| < \varepsilon$.
+\end{enumerate}
+\textbf{Output:} a value $w$ such that $\hat{y} = w\, x$ matches the single observation $y$.
+\end{keyinsight}
+
+This works for a single data point. But we have many.
+
+\subsubsection*{Step 3: Many Data Points --- The Loss Function}
+
+With $n$ observations $\{(x_i, y_i)\}_{1 \le i \le n} \subset \mathbb{R} \times \mathbb{R}$, no single $w$ will perfectly fit all of them (unless every point lies exactly on a line). We must compromise. The natural compromise is to find $w$ that minimises the average squared residual:
+\[
+  \ell(w) \;=\; \frac{1}{n} \sum_{i=1}^{n} (y_i - w\, x_i)^2.
+\]
+This function $\ell$ is called the \emph{loss}. The squared-loss choice is ancient---it dates to Gauss and Legendre around 1800---and it has two virtues: (i) it penalises large errors more than small ones, and (ii) it is smooth, so calculus applies. Taking the derivative and setting it to zero gives the $w$ that minimises $\ell$.
+
+\subsubsection*{Step 4: Many Inputs --- Multivariate Regression}
+
+What if each observation has $d$ inputs instead of one? We now have $x_i \in \mathbb{R}^d$ and a parameter vector $w \in \mathbb{R}^d$. The hypothesis becomes:
+\[
+  \hat{y} = w^\top x = w_1 x_1 + w_2 x_2 + \cdots + w_d x_d.
+\]
+(We can absorb an intercept $w_0$ by adding a constant column of ones to $x$.) The loss generalises as:
+\[
+  \ell(w) \;=\; \frac{1}{n} \sum_{i=1}^{n} (y_i - w^\top x_i)^2.
+\]
+
+\subsubsection*{Step 5: Deriving OLS}
+
+It is convenient to stack everything into matrices. Let $\mathbf{X} \in \mathbb{R}^{n \times d}$ have row $i$ equal to $x_i^\top$, and let $\mathbf{y} \in \mathbb{R}^n$ have entries $y_i$. Define the residual vector:
+\[
+  \mathbf{r} \;=\; \mathbf{y} - \mathbf{X} w
+  \;=\; \begin{pmatrix} y_1 - w^\top x_1 \\ \vdots \\ y_n - w^\top x_n \end{pmatrix}.
+\]
+Then $n\, \ell(w) = \sum_{i=1}^n r_i^2 = \|\mathbf{r}\|^2 = \|\mathbf{y} - \mathbf{X} w\|^2$.
+
+To find the minimiser, take the gradient with respect to $w$ and set it to zero:
+\[
+  \nabla_w \, \|\mathbf{y} - \mathbf{X} w\|^2 \;=\; -2\, \mathbf{X}^\top (\mathbf{y} - \mathbf{X} w) \;=\; \mathbf{0}.
+\]
+This simplifies to the \emph{normal equations}:
+\[
+  \mathbf{X}^\top \mathbf{X}\, w \;=\; \mathbf{X}^\top \mathbf{y}.
+\]
+If $\mathbf{X} \in \mathbb{R}^{n \times d}$ has rank $d$ (which requires $n \ge d$ and no perfectly collinear columns), then $\mathbf{X}^\top \mathbf{X} \in \mathbb{R}^{d \times d}$ is invertible and we can solve explicitly:
 \begin{equation}\label{eq:ols}
-  \bhat = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}.
+  \boxed{\;\bhat \;=\; (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}.\;}
 \end{equation}
-OLS finds the coefficients that minimise the sum of squared residuals---the vertical distances between the data points and the fitted line.
 
-Here is the single most important idea in these notes: \textbf{$\bhat$ is a random variable.} If you collected a different sample of 500 students, you'd get a different $\bhat$. The true $\beta$ is a fixed number---it is a property of the DGP. The estimator $\bhat$ is a random variable---it depends on which students happened to be in your sample.
+This is the \textbf{ordinary least squares (OLS) estimator}. Every coefficient we compute in these notes comes from this formula. OLS finds the $w$ that minimises the sum of squared residuals---the vertical distances between the data points and the fitted hyperplane.
+
+\begin{remark}[Why the rank condition matters]
+If $\mathbf{X}^\top \mathbf{X}$ is not invertible, the normal equations have infinitely many solutions---there is no unique ``best'' $w$. Geometrically, some columns of $\mathbf{X}$ are linearly dependent: two of your predictors carry the same information, and OLS cannot separate their effects. This is called \emph{perfect multicollinearity}. In practice you avoid it by checking your predictors for redundancy before running the regression.
+\end{remark}
+
+\subsubsection*{The Most Important Idea in These Notes}
+
+Having derived $\bhat$, we must understand what it is. \textbf{$\bhat$ is a random variable.} If you collected a different sample of $n$ students, you would get a different $\bhat$. The true $\beta$ is a fixed number---it is a property of the DGP. The estimator $\bhat$ is a random variable---it depends on which students happened to be in your sample.
 
 This distinction is the foundation of everything that follows. When we say ``$\bhat$ is biased,'' we mean that if you repeated the experiment thousands of times, the \emph{average} of all the $\bhat$'s would not equal the true $\beta$. When we say ``the standard error is wrong,'' we mean the formula that predicts how much $\bhat$ varies across samples is giving the wrong answer.
 
