@@ -813,37 +813,102 @@
     }
 
     // stage 3: (X1, X2) scatter — show U's fingerprint
+    // stage 3: 1D number line for X2, matching the stage 2 pattern.
+    // U is encoded by colour (blue = low, gold = high).
     function renderStage3() {
       clearAll();
-      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
-      yScale = d3.scaleLinear().domain([6, 14]).range([ih, 0]);
-      axes('X₁: hours studied', 'X₂: lectures attended');
+      xScale = d3.scaleLinear().domain([6, 14]).range([0, iw]);
+      const centreY = ih / 2;
+      const baseline = 10; // U = 0 student attends 10 lectures
+      ensureArrowMarker();
 
-      const d = state.sample;
-      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
-        .attr('cx', i => xScale(d.X1[i]))
-        .attr('cy', i => yScale(d.X2[i]))
-        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0)
-        .transition().delay((_,i)=>i*5).duration(400).attr('opacity', 0.55);
+      // axis line + ticks
+      const axisG = gOverlay.append('g').attr('class', 'x2-axis');
+      axisG.append('line')
+        .attr('x1', xScale(6)).attr('x2', xScale(14))
+        .attr('y1', centreY).attr('y2', centreY)
+        .attr('stroke', '#444').attr('stroke-width', 1);
+      const ticks = [6, 8, 10, 12, 14];
+      ticks.forEach(t => {
+        axisG.append('line')
+          .attr('x1', xScale(t)).attr('x2', xScale(t))
+          .attr('y1', centreY - 5).attr('y2', centreY + 5)
+          .attr('stroke', '#444');
+        axisG.append('text')
+          .attr('x', xScale(t)).attr('y', centreY + 20)
+          .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#444')
+          .text(t);
+      });
+      axisG.append('text')
+        .attr('x', xScale(14)).attr('y', centreY + 40)
+        .attr('text-anchor', 'end').attr('font-size', 12).attr('fill', '#222')
+        .attr('font-style', 'italic')
+        .text('X₂: lectures attended');
 
-      // population regression line of X2 on X1 (rough slope from data)
-      const xBar = mean(d.X1), yBar = mean(d.X2);
-      let num=0, den=0;
-      for (let i=0;i<d.X1.length;i++) { num += (d.X1[i]-xBar)*(d.X2[i]-yBar); den += (d.X1[i]-xBar)**2; }
-      const slope = den>0 ? num/den : 0;
-      const intercept = yBar - slope*xBar;
-      const xs = [0.2, 4];
-      gTrueCurve.append('line')
-        .attr('x1', xScale(xs[0])).attr('y1', yScale(intercept+slope*xs[0]))
-        .attr('x2', xScale(xs[1])).attr('y2', yScale(intercept+slope*xs[1]))
-        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.4).attr('opacity', 0.35);
+      // baseline marker at X2 = 10 (U=0 student)
+      axisG.append('line')
+        .attr('x1', xScale(baseline)).attr('x2', xScale(baseline))
+        .attr('y1', centreY - 60).attr('y2', centreY + 10)
+        .attr('stroke', '#888').attr('stroke-dasharray', '3 3').attr('stroke-width', 1);
+      axisG.append('text')
+        .attr('x', xScale(baseline)).attr('y', centreY - 68)
+        .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#888')
+        .text('baseline (U = 0)');
 
-      const aliceX1 = 2 + state.gamma1*state.aliceU;
-      const aliceX2 = 10 + state.gamma2*state.aliceU;
-      const bobX1  = 2 + state.gamma1*state.bobU;
-      const bobX2  = 10 + state.gamma2*state.bobU;
-      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceX1)},${yScale(aliceX2)})`);
-      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobX1)},${yScale(bobX2)})`);
+      // rug plot: 50 students on the line, coloured by U
+      const rng = seededRandom(state.seed + 300);
+      const uColour = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]).clamp(true)(u));
+      for (let i = 0; i < 50; i++) {
+        const u = randn(rng);
+        const x2 = 10 + state.gamma2 * u + randn(rng);
+        const jitter = (Math.random() - 0.5) * 10;
+        gCloud.append('circle')
+          .attr('cx', xScale(Math.max(6, Math.min(14, x2))))
+          .attr('cy', centreY + jitter)
+          .attr('r', 4).attr('fill', uColour(u)).attr('opacity', 0.75)
+          .attr('stroke', '#fff').attr('stroke-width', 0.5);
+      }
+
+      // U-colour legend in the corner
+      const legend = gOverlay.append('g').attr('transform', `translate(${iw - 150}, 20)`);
+      if (defs.select('#uGrad').empty()) {
+        const g = defs.append('linearGradient').attr('id', 'uGrad').attr('x1','0%').attr('x2','100%');
+        g.append('stop').attr('offset','0%').attr('stop-color','#2E5EA8');
+        g.append('stop').attr('offset','100%').attr('stop-color','#D4A017');
+      }
+      legend.append('rect').attr('width', 120).attr('height', 10).attr('fill', 'url(#uGrad)');
+      legend.append('text').attr('x', 0).attr('y', -4).attr('font-size', 10).attr('fill', '#666').text('colour = U value');
+      legend.append('text').attr('x', 0).attr('y', 24).attr('font-size', 10).attr('fill', '#666').text('low');
+      legend.append('text').attr('x', 120).attr('y', 24).attr('text-anchor', 'end').attr('font-size', 10).attr('fill', '#666').text('high');
+
+      // Alice and Bob on the axis
+      const aliceX2 = 10 + state.gamma2 * state.aliceU;
+      const bobX2   = 10 + state.gamma2 * state.bobU;
+      const arrowOffsetAlice = -35;
+      const arrowOffsetBob = 35;
+
+      gOverlay.append('line')
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetAlice)
+        .attr('x2', xScale(aliceX2)).attr('y2', centreY + arrowOffsetAlice)
+        .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
+      gOverlay.append('text')
+        .attr('x', (xScale(baseline) + xScale(aliceX2)) / 2).attr('y', centreY + arrowOffsetAlice - 5)
+        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
+        .text(`+ 0.3 × ${state.aliceU.toFixed(2)} = ${(state.gamma2 * state.aliceU).toFixed(2)}`);
+
+      gOverlay.append('line')
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetBob)
+        .attr('x2', xScale(bobX2)).attr('y2', centreY + arrowOffsetBob)
+        .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
+      gOverlay.append('text')
+        .attr('x', (xScale(baseline) + xScale(bobX2)) / 2).attr('y', centreY + arrowOffsetBob + 15)
+        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
+        .text(`+ 0.3 × (${state.bobU.toFixed(2)}) = ${(state.gamma2 * state.bobU).toFixed(2)}`);
+
+      renderAvatar(gAliceBob, 'alice', 24).attr('transform', `translate(${xScale(aliceX2)},${centreY + arrowOffsetAlice})`);
+      renderAvatar(gAliceBob, 'bob', 24).attr('transform', `translate(${xScale(bobX2)},${centreY + arrowOffsetBob})`);
     }
 
     // shared helper: U -> colour (blue -> gold gradient)
