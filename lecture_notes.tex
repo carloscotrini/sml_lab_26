@@ -1435,7 +1435,8 @@ Formally, define
   \text{RV}_{q,\alpha} = \min\{r : \text{adjusted estimate crosses } q \cdot \bhat \text{ at level } \alpha\}.
 \]
 A small RV indicates fragility: a weak confounder suffices to nullify the result.
-A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.
+A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.%
+\footnote{The robustness value can be derived as follows. The bias-adjusted estimate under a hypothetical confounder with partial $R^2$ values $R^2_{Y \sim W \mid \mathbf{X}, D} = r_Y$ and $R^2_{D \sim W \mid \mathbf{X}} = r_D$ is approximately $\hat\beta_{\text{adj}} = \hat\beta - \hat\beta \cdot f(r_Y, r_D)$, where $f$ is a function of the two partial $R^2$ values. The robustness value $\text{RV}$ solves $\hat\beta_{\text{adj}} = 0$ for the case $r_Y = r_D = r$, giving the minimum symmetric confounding strength that would explain away the result. See Cinelli and Hazlett (2020) for the complete derivation.}
 
 In our tutoring example, the observational estimate that ``tutoring hurts'' has a tiny robustness value. A confounder (like self-discipline) with even modest partial $R^2$ with both tutoring attendance and exam score would flip the sign---which is exactly what happens when you account for self-selection in the experimental design.
 
@@ -2030,6 +2031,39 @@ An observational study finds that tutoring reduces exam scores ($\bhat = -4.2$) 
 
 \item \textbf{FWL (Section 11).}
 You regress exam score on hours studied and lectures attended. The coefficient on hours studied is 5.5. Your friend runs the FWL procedure: residualises both score and hours on lectures, then regresses the residuals. What coefficient will your friend get? Explain in one sentence why.
+
+\end{enumerate}
+
+\subsection*{Answer Key}
+
+\begin{enumerate}
+
+\item \textbf{OVB.}
+The omitted variable is a healthy lifestyle: health-conscious people both drink more coffee (e.g.\ at cafés after morning runs) and live longer. Because healthy lifestyle is positively correlated with both coffee consumption and longevity, the OVB is positive. The true causal effect of coffee is therefore likely \emph{smaller} than 2.1.
+
+\item \textbf{Heteroscedasticity.}
+The true CI will be \emph{wider}. Classical standard errors underestimate the variance for high-study students (where score variability is greatest), so the reported interval $[5.2,\,8.8]$ is too narrow. Robust (sandwich) standard errors would give a wider, more honest interval.
+
+\item \textbf{Significance.}
+This is a seat number. The effect is 0.02 points---trivially small on a 100-point exam. With $n=200{,}000$, even noise becomes ``significant.'' Report the effect size, not the $p$-value.
+
+\item \textbf{Specification.}
+The linear model predicts $50 + \hat\beta_1 \cdot 20$ (likely overshooting, since it cannot capture the plateau). The log model predicts $50 + 8\log(20) \approx 74$. Because the true DGP is logarithmic, the log prediction is far more trustworthy.
+
+\item \textbf{Overfitting.}
+You will pick a higher-degree polynomial, because training $R^2$ always increases with model complexity. Your friend's model will perform better on new data, because cross-validation penalises overfitting and selects a degree that generalises.
+
+\item \textbf{Bad Controls.}
+This is a bad control. Stress is post-treatment: it is caused by how the exam went, which itself depends on how much the student studied. Including stress conditions on a descendant of $Y$, opening a spurious path and biasing the coefficient on hours studied.
+
+\item \textbf{IV.}
+The two conditions are relevance ($\Cov(Z, X_1) \neq 0$: your roommate's hours predict yours) and exclusion ($\Cov(Z, \varepsilon) = 0$: the roommate's hours affect your score \emph{only} through your own hours). Exclusion fails if, for example, your roommate helps you study specific exam material---then $Z$ has a direct effect on your score.
+
+\item \textbf{Sensitivity.}
+No. The robustness value $\text{RV} = 0.04$ means a confounder explaining just 4\% of residual variance in both treatment and outcome would nullify the result. Prior GPA already has partial $R^2 = 0.12$, far exceeding this threshold. The result is fragile and should not be trusted.
+
+\item \textbf{FWL.}
+The coefficient will be exactly 5.5. The FWL theorem guarantees that the coefficient from the residual-on-residual regression is identical to the multiple regression coefficient---to numerical precision.
 
 \end{enumerate}
 
