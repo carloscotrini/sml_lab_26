@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A spiral introduction to the DGP — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="shared/style.css" />
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-anna: #d4722c;
+      --c-ben:  #3c8dbc;
+      --c-noise: #9aa0a6;
+      --c-truth: #7b2cbf;
+      --c-est:  #2d8659;
+      --c-warn: #b5654a;
+      --c-border: #e4dfd5;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    a { color: var(--c-truth); }
+
+    /* top nav bar (separate from the persistent viz top bar) */
+    .pg-nav {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+    }
+    .pg-nav a { color: var(--c-ink-muted); text-decoration: none; }
+    .pg-nav a:hover { text-decoration: underline; }
+
+    /* persistent top bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: var(--c-bg);
+      border-bottom: 1px solid var(--c-border);
+      display: grid;
+      grid-template-columns: 220px 1fr 260px;
+      align-items: center;
+      padding: 10px 24px;
+      gap: 24px;
+      min-height: 74px;
+    }
+    .u-widget {
+      width: 200px;
+      height: 60px;
+      border: 1px solid var(--c-border);
+      border-radius: 4px;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .u-widget .veil {
+      position: absolute; inset: 0;
+      background: rgba(150,150,155,0.72);
+      backdrop-filter: blur(2px);
+      transition: opacity .9s ease;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .u-widget .veil.lifted { opacity: 0; }
+    .u-widget .label {
+      position: absolute;
+      bottom: 2px; left: 6px;
+      font-size: 10px;
+      color: var(--c-ink-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+
+    .formula-tracker {
+      font-size: 14px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 70px;
+      overflow: hidden;
+    }
+    .formula-tracker .f-line {
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    .formula-tracker .f-line.visible { opacity: 1; transform: translateY(0); }
+
+    .stage-indicator {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--c-ink-muted);
+      text-align: right;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .stage-indicator .num { color: var(--c-truth); font-weight: 600; }
+
+    /* main scrollytelling layout */
+    .scrolly {
+      display: grid;
+      grid-template-columns: minmax(340px, 45%) 1fr;
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .narrative {
+      padding: 40px 12px 40px 0;
+    }
+    .stage {
+      min-height: 82vh;
+      padding: 60px 0;
+      border-bottom: 1px dashed transparent;
+    }
+    .stage h2 {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 16px;
+      color: var(--c-ink);
+    }
+    .stage .kicker {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-truth);
+      margin-bottom: 8px;
+    }
+    .stage p { margin: 0 0 14px; }
+    .stage blockquote {
+      border-left: 3px solid var(--c-truth);
+      padding: 4px 0 4px 14px;
+      margin: 16px 0;
+      font-style: italic;
+      color: var(--c-ink);
+    }
+    .stage .controls {
+      margin-top: 18px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .stage .controls label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--c-ink-muted);
+    }
+    .stage .controls label .val {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 12px;
+      color: var(--c-ink);
+      min-width: 48px;
+      text-align: right;
+    }
+    .stage .controls input[type=range] { flex: 1; }
+    .stage .controls button {
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid var(--c-truth);
+      color: var(--c-truth);
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .stage .controls button:hover { background: var(--c-truth); color: #fff; }
+    .stage .controls button.climax {
+      border-color: var(--c-anna);
+      color: #fff;
+      background: linear-gradient(90deg, var(--c-anna), var(--c-ben));
+      font-weight: 600;
+      padding: 10px 16px;
+      font-size: 14px;
+    }
+    .stage .controls button.climax:hover { filter: brightness(1.08); }
+    .stage .controls .toggle-row {
+      display: flex; align-items: center; gap: 10px; font-size: 14px;
+    }
+    .stage .warning {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--c-warn);
+      background: rgba(181, 101, 74, 0.08);
+      color: var(--c-warn);
+      font-size: 13px;
+      border-radius: 3px;
+      display: none;
+    }
+    .stage .warning.on { display: block; }
+
+    .viz-pane {
+      position: sticky;
+      top: 94px;
+      height: calc(100vh - 120px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .viz-pane svg {
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+    }
+
+    /* stage 8 coda */
+    .coda {
+      max-width: 760px;
+      margin: 40px auto 80px;
+      padding: 0 24px;
+    }
+    .coda .nav-next {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 10px 18px;
+      background: var(--c-truth);
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .coda .nav-next:hover { filter: brightness(1.1); }
+
+    /* responsive */
+    @media (max-width: 860px) {
+      .scrolly { grid-template-columns: 1fr; }
+      .viz-pane {
+        position: sticky;
+        top: 90px;
+        height: 50vh;
+        order: -1;
+      }
+      .narrative { padding: 20px 0; }
+      .topbar { grid-template-columns: 1fr; gap: 8px; min-height: 0; padding: 8px 12px; }
+      .u-widget { width: 100%; height: 50px; }
+      .formula-tracker { max-height: 80px; font-size: 12px; }
+      .stage-indicator { text-align: left; }
+    }
+
+    /* reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: opacity .2s !important; }
+    }
+
+    /* avatar halo filters applied inline */
+    .avatar text.name {
+      font-family: var(--serif);
+      font-size: 13px;
+      fill: var(--c-ink);
+    }
+
+    /* residual stick default */
+    .resid { stroke: var(--c-noise); stroke-width: 1.2; opacity: 0.6; }
+    .resid.anna-tone { stroke: var(--c-anna); }
+    .resid.ben-tone { stroke: var(--c-ben); }
+
+    .katex { font-size: 1em; }
+  </style>
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="index.html">← back to the playground</a>
+  </nav>
+
+  <!-- persistent top bar -->
+  <div class="topbar" id="topbar">
+    <div class="u-widget" id="uWidget" aria-label="Hidden variable U">
+      <svg viewBox="0 0 200 60" preserveAspectRatio="none" style="width:100%;height:100%;">
+        <line x1="100" y1="6" x2="100" y2="54" stroke="#bfbdb3" stroke-width="1" />
+        <text x="6" y="14" font-size="9" fill="#5a5a5a">high U</text>
+        <text x="6" y="56" font-size="9" fill="#5a5a5a">low U</text>
+        <g id="uWidgetDots"></g>
+        <circle id="uAnna" cx="100" cy="16" r="4" fill="var(--c-anna)"/>
+        <circle id="uBen" cx="100" cy="44" r="4" fill="var(--c-ben)"/>
+      </svg>
+      <div class="veil" id="uVeil"></div>
+      <div class="label">U — self-discipline</div>
+    </div>
+
+    <div class="formula-tracker" id="formulaTracker" aria-live="polite">
+      <div class="f-line" data-line="U">\( U \sim \mathcal{N}(0,1) \)</div>
+      <div class="f-line" data-line="X1">\( X_1 = 2 + \gamma_1\,U + \eta_1 \)</div>
+      <div class="f-line" data-line="X2">\( X_2 = 10 + \gamma_2\,U + \eta_2 \)</div>
+      <div class="f-line" data-line="Y">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</div>
+      <div class="f-line" data-line="X3">\( X_3 = 0.9\,Y + \eta_3 \)</div>
+    </div>
+
+    <div class="stage-indicator">
+      Stage <span class="num" id="stageNum">1</span> / 8
+      <div style="margin-top:4px;font-size:10px;color:var(--c-ink-muted);" id="stageTitle">Meet U</div>
+    </div>
+  </div>
+
+  <main class="scrolly">
+    <div class="narrative" id="narrative">
+
+      <section class="stage" data-stage="1">
+        <div class="kicker">Stage 1</div>
+        <h2>Meet Anna and Ben</h2>
+        <blockquote>
+          Meet Anna. Meet Ben. They sit in the same lecture hall. They take the same notes. This semester, both tell you — honestly — that they studied <strong>2 hours a day</strong> and attended <strong>10 out of 12 lectures</strong>. Then the exam happens. Anna scores <strong>72</strong>. Ben scores <strong>58</strong>.
+        </blockquote>
+        <p><em>Same hours. Same attendance. Fourteen-point gap.</em></p>
+        <p>You're going to spend the next ten minutes figuring out why — by building, piece by piece, the hidden machine that produces exam scores in this world.</p>
+        <p>First, something you won't see in any spreadsheet. Call it <strong>U</strong> — self-discipline, grit, focus, whatever you like. Anna has a lot of it. Ben has less. It's real, and it's about to start pulling strings.</p>
+        <p><em>U is who they really are — and we will never see it directly.</em></p>
+        <div class="controls">
+          <button id="btnDrawPeople">Draw new people</button>
+          <label>
+            Anna & Ben positions on U
+            <input type="range" id="sldU" min="0" max="1" step="0.01" value="0.5" />
+            <span class="val" id="valU">0.50</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="2">
+        <div class="kicker">Stage 2</div>
+        <h2>What U does to study hours</h2>
+        <p>Every real measurement is the signal plus something else. A sneeze. A typo. A question that happened to favour one student's intuition.</p>
+        <p>But before the noise arrives, notice something else: <strong>U has already moved them.</strong> Anna's discipline didn't just sit in her head — it pushed her to study more hours. Ben's lower U pushed him to study fewer. The <em>same</em> hidden trait leaked into what we thought was an independent input.</p>
+        <p>That violet arrow is the cause. The grey shimmer is the chance. Both land in the same number — hours studied — and from the outside, we can't tell them apart.</p>
+        <div class="controls">
+          <label>
+            \( \gamma_1 \) — U's pull on X₁
+            <input type="range" id="sldGamma1" min="0" max="1.5" step="0.01" value="0.5" />
+            <span class="val" id="valGamma1">0.50</span>
+          </label>
+          <button id="btnResampleEta1">Resample η₁</button>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="3">
+        <div class="kicker">Stage 3</div>
+        <h2>Two windows onto U</h2>
+        <p>A detective never trusts a single witness. Neither should a model.</p>
+        <p>We're going to add a second variable — <strong>X₂</strong>, lectures attended. Same story: U pushes it, noise jitters it. But watch what happens when we put both axes in the same picture.</p>
+        <p>A hundred anonymous students rain in. The cloud tilts. Why? Because U is still pulling the strings — on both axes at once. Students with high U study more <em>and</em> attend more. Students with low U do neither. The tilt you see is U's fingerprint on the data.</p>
+        <div class="controls">
+          <label>
+            \( \gamma_2 \) — U's pull on X₂
+            <input type="range" id="sldGamma2" min="0" max="1.5" step="0.01" value="0.3" />
+            <span class="val" id="valGamma2">0.30</span>
+          </label>
+          <button id="btnReplayFountain">Replay the fountain</button>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="4">
+        <div class="kicker">Stage 4</div>
+        <h2>The outcome (the full DGP arrives)</h2>
+        <p>Now the exam happens. And the machine that produces scores looks like this:</p>
+        <p style="text-align:center;" class="katex-big">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</p>
+        <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth — diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>2·U</code> is the direct fingerprint of discipline on the exam itself. And <code>ε</code> is what's left — the sneezes, the lucky guesses, the pen that ran out.</p>
+        <p>Look closely at that noise. The cloud doesn't have uniform width. Students who studied little scatter tightly. Students who studied a lot scatter wildly. This is called <strong>heteroscedasticity</strong> — different scatter in different regions — and it will matter when we start trusting our predictions.</p>
+        <div class="controls">
+          <label class="toggle-row">
+            <input type="checkbox" id="tglLinearY" />
+            Fit with a straight line (no log)
+          </label>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="5">
+        <div class="kicker">Stage 5</div>
+        <h2>The estimator arrives</h2>
+        <p>Here is the magic trick at the heart of regression. We can't see U. We can't see ε. All we get is the cloud.</p>
+        <p>Our job is to draw the line that sits as close as possible to every dot at once — the line that minimises the total squared distance from the dots to itself. <strong>Ordinary Least Squares.</strong> OLS. The workhorse of every statistics course ever taught.</p>
+        <p>Watch it find its equilibrium. The little grey sticks are like springs pulling on the line; it settles where the total tension is smallest.</p>
+        <p>But our line is straight, and the truth isn't. Look at the gap at the extremes. Going from 1 hour to 2 is life-changing. Going from 9 to 10 is just an extra hour of panic. Can we fix this?</p>
+        <div class="controls">
+          <label class="toggle-row">
+            <input type="checkbox" id="tglUseLog" />
+            Use log(X₁) as the feature
+          </label>
+          <button id="btnResampleAll">Resample the data</button>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="6">
+        <div class="kicker">Stage 6 — the climax</div>
+        <h2>The ghost in the residuals</h2>
+        <p>Here's something strange. Every semester we run, Anna sits above the line. Every semester, Ben sits below. If the residuals were really just noise, they'd flip sign half the time.</p>
+        <p>They don't. Something is <strong>systematically</strong> lifting Anna and sinking Ben — and it's the thing we named at the very start. U.</p>
+        <p>Flip the switch. Watch what colour the residuals actually are.</p>
+        <blockquote><em>The noise wasn't noise. It was someone we weren't looking at.</em></blockquote>
+        <p>This is what a <strong>confounder</strong> does. It shapes the inputs. It shapes the outputs. And when we leave it out of our model, our model happily blames the inputs for what the confounder did. Anna's "extra" points don't belong to her hours — they belong to U, which also made her hours higher. OLS cannot tell the two apart.</p>
+        <div class="controls">
+          <button id="btnReveal" class="climax">Reveal the ghost</button>
+          <div id="ghostLabel" style="display:none;font-family:var(--serif);font-style:italic;color:var(--c-truth);font-size:15px;margin-top:4px;">
+            The ghost has a name. It's self-discipline.
+          </div>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="7">
+        <div class="kicker">Stage 7</div>
+        <h2>The seductive shortcut</h2>
+        <p>Imagine a magic new feature. After each exam, you ask every student: <em>"How do you think you did?"</em> Call their answer <strong>X₃</strong>. It correlates beautifully with the actual score. Should you put it in your model?</p>
+        <p>Your instincts are about to betray you.</p>
+        <p>Look at that R². Near-perfect. You could publish this. You could sell this. You would be lying.</p>
+        <p>X₃ isn't a <em>cause</em> of the exam score. X₃ is a <strong>consequence</strong> of it. Students who did well feel like they did well. You're not predicting the score — you're predicting the score using a slightly noisier copy of the score itself.</p>
+        <p>When you include X₃, it steals the credit from every honest predictor. Hours studied? "No longer matters." <strong>You don't score well because you feel confident. You feel confident because you scored well.</strong></p>
+        <div class="controls">
+          <label class="toggle-row">
+            <input type="checkbox" id="tglIncludeX3" />
+            Include X₃ in the model
+          </label>
+          <div class="warning" id="x3Warning">
+            <strong>Post-treatment trap:</strong> X₃ is caused by Y. Including it lets X₃ absorb the variance that rightfully belongs to X₁ and X₂. Your coefficients lie.
+          </div>
+          <div id="coefReadout" style="font-family:'SF Mono',monospace;font-size:12px;color:var(--c-ink-muted);white-space:pre;margin-top:6px;"></div>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="8">
+        <div class="kicker">Stage 8</div>
+        <h2>Anna and Ben, revisited</h2>
+        <p>Let's return to where we started. Anna: 2 hours, 10 lectures, score 72. Ben: 2 hours, 10 lectures, score 58. You now know why.</p>
+        <p>Anna's U was high. That same discipline made her 2 hours denser than Ben's 2 hours, made her lectures more attentive, and gave her a direct boost on exam day beyond anything we could measure. The 14-point gap wasn't mysterious. It was U, doing what U always does — shaping inputs, shaping outputs, staying invisible.</p>
+        <p>A regression on (X₁, X₂) alone would call this gap noise. A regression including X₃ would "explain" it by cheating. Neither tells you the truth: <strong>the most important variable in this story was the one we never got to measure.</strong></p>
+        <p>That's the job, from here on out. Not just to fit lines. To know which lines are honest.</p>
+        <p><em>Welcome to the rest of the course. Play.</em></p>
+        <div class="controls">
+          <button id="btnScenarioIdeal">Ideal researcher (U observed, log feature)</button>
+          <button id="btnScenarioNaive">Naive analyst (linear + X₃)</button>
+          <button id="btnScenarioHonest">Honest minimum (X₁ + X₂, log)</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="viz-pane" id="vizPane">
+      <svg id="mainSvg" viewBox="0 0 600 500" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </main>
+
+  <section class="coda">
+    <p style="font-family:var(--serif);font-style:italic;color:var(--c-ink-muted);font-size:15px;">
+      Next up: a focused lab on omitted-variable bias — see what happens when U is there, but left out of the regression.
+    </p>
+    <a href="topics/ovb.html" class="nav-next">Continue to OVB →</a>
+  </section>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { seededRandom, randn, generateData, TRUE_BETAS, mean } from './shared/dgp.js';
+    import { ols } from './shared/regression.js';
+
+    // ----- KaTeX auto-render for inline formulas -----
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: '\\(', right: '\\)', display: false },
+        { left: '$$', right: '$$', display: true }
+      ],
+      throwOnError: false
+    });
+
+    // ---------- global state ----------
+    const state = {
+      activeStage: 1,
+      seed: 7,
+      n: 200,
+      gamma1: 0.5,
+      gamma2: 0.3,
+      useLog: false,
+      linearY: false,   // stage 4 toggle
+      includeX3: false,
+      revealed: false,
+      annaU: 0.85,
+      benU: -0.85,
+      sample: null
+    };
+
+    function draw() {
+      // generate sample with current gamma1/gamma2 overrides. We use a custom
+      // generator so slider changes reshape the cloud live.
+      const rng = seededRandom(state.seed);
+      const n = state.n;
+      const U = new Float64Array(n), X1 = new Float64Array(n),
+            X2 = new Float64Array(n), X3 = new Float64Array(n),
+            Y  = new Float64Array(n);
+      const sdEta1 = Math.sqrt(0.3), sdEta2 = 1.0, sdEta3 = 2.0;
+      for (let i = 0; i < n; i++) {
+        const u = randn(rng);
+        const eta1 = randn(rng) * sdEta1;
+        const eta2 = randn(rng) * sdEta2;
+        const eta3 = randn(rng) * sdEta3;
+        let x1 = 2 + state.gamma1 * u + eta1;
+        if (x1 <= 0.05) x1 = 0.05;
+        const x2 = 10 + state.gamma2 * u + eta2;
+        const epsSd = Math.sqrt(0.5 * Math.abs(x1));
+        const eps = randn(rng) * epsSd;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const x3 = 0.9 * y + eta3;
+        U[i]=u; X1[i]=x1; X2[i]=x2; X3[i]=x3; Y[i]=y;
+      }
+      state.sample = { U, X1, X2, X3, Y };
+    }
+    draw();
+
+    // Anna & Ben fixed values (narrator's canonical coords)
+    const anna = { U: 0.85, X1: 2.43, X2: 10.25, Y: 72 };
+    const ben  = { U: -0.85, X1: 1.57, X2: 9.75, Y: 58 };
+
+    // ---------- svg setup ----------
+    const svg = d3.select('#mainSvg');
+    const W = 600, H = 500;
+    const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+    const iw = W - margin.left - margin.right;
+    const ih = H - margin.top - margin.bottom;
+    const root = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // layers (z-order matters)
+    const gRidge = root.append('g').attr('class', 'g-ridge');
+    const gAxes = root.append('g').attr('class', 'g-axes');
+    const gCloud = root.append('g').attr('class', 'g-cloud');
+    const gTrueCurve = root.append('g').attr('class', 'g-true');
+    const gFit = root.append('g').attr('class', 'g-fit');
+    const gResid = root.append('g').attr('class', 'g-resid');
+    const gAnnaBen = root.append('g').attr('class', 'g-ab');
+    const gOverlay = root.append('g').attr('class', 'g-overlay');
+
+    // defs for halo glows
+    const defs = svg.append('defs');
+    function makeGlow(id, color, spread) {
+      const f = defs.append('filter').attr('id', id).attr('x','-50%').attr('y','-50%').attr('width','200%').attr('height','200%');
+      f.append('feGaussianBlur').attr('stdDeviation', spread).attr('result','blur');
+      const merge = f.append('feMerge');
+      merge.append('feMergeNode').attr('in','blur');
+      merge.append('feMergeNode').attr('in','SourceGraphic');
+    }
+    makeGlow('glow-anna', 'var(--c-anna)', 4);
+    makeGlow('glow-ben', 'var(--c-ben)', 2);
+
+    // Avatar renderer: returns a <g> you can transform
+    function renderAvatar(sel, who, size=24) {
+      const color = who === 'anna' ? 'var(--c-anna)' : 'var(--c-ben)';
+      const g = sel.append('g').attr('class', `avatar ${who}`);
+      // halo
+      g.append('circle').attr('class','halo').attr('r', size*0.9).attr('fill', color).attr('opacity', 0.18);
+      // face
+      g.append('circle').attr('r', size/2).attr('fill', '#fff').attr('stroke', color).attr('stroke-width', 2);
+      // eyes
+      g.append('circle').attr('cx', -size*0.18).attr('cy', -size*0.08).attr('r', size*0.055).attr('fill', '#2a2a2a');
+      g.append('circle').attr('cx', size*0.18).attr('cy', -size*0.08).attr('r', size*0.055).attr('fill', '#2a2a2a');
+      // mouth (Anna smiles, Ben neutral)
+      if (who === 'anna') {
+        g.append('path').attr('d', `M${-size*0.2},${size*0.1} Q0,${size*0.28} ${size*0.2},${size*0.1}`)
+          .attr('fill','none').attr('stroke','#2a2a2a').attr('stroke-width', 1.5).attr('stroke-linecap','round');
+      } else {
+        g.append('line').attr('x1', -size*0.18).attr('y1', size*0.16).attr('x2', size*0.18).attr('y2', size*0.16)
+          .attr('stroke','#2a2a2a').attr('stroke-width', 1.5).attr('stroke-linecap','round');
+      }
+      // name
+      g.append('text').attr('class','name').attr('y', size*0.9 + 12).attr('text-anchor','middle')
+        .text(who === 'anna' ? 'Anna' : 'Ben');
+      return g;
+    }
+
+    // ---------- scales (default — (X1, Y) scatter) ----------
+    let xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+    let yScale = d3.scaleLinear().domain([40, 90]).range([ih, 0]);
+
+    function axes(xLabel, yLabel) {
+      gAxes.selectAll('*').remove();
+      const xAxis = d3.axisBottom(xScale).ticks(5);
+      const yAxis = d3.axisLeft(yScale).ticks(5);
+      gAxes.append('g').attr('transform', `translate(0,${ih})`).call(xAxis)
+        .selectAll('text').style('font-size','11px').style('fill','#666');
+      gAxes.append('g').call(yAxis)
+        .selectAll('text').style('font-size','11px').style('fill','#666');
+      gAxes.selectAll('path.domain, line').style('stroke','#bfbdb3');
+      gAxes.append('text').attr('x', iw/2).attr('y', ih+38).attr('text-anchor','middle')
+        .style('font-size','12px').style('fill','#444').text(xLabel);
+      gAxes.append('text').attr('transform', `translate(-44,${ih/2})rotate(-90)`)
+        .attr('text-anchor','middle').style('font-size','12px').style('fill','#444').text(yLabel);
+    }
+
+    // ---------- stage renderers ----------
+
+    function clearAll() {
+      gRidge.selectAll('*').remove();
+      gCloud.selectAll('*').remove();
+      gTrueCurve.selectAll('*').remove();
+      gFit.selectAll('*').remove();
+      gResid.selectAll('*').remove();
+      gAnnaBen.selectAll('*').remove();
+      gOverlay.selectAll('*').remove();
+    }
+
+    // stage 1: U axis vertical, Anna/Ben as large avatars along U
+    function renderStage1() {
+      clearAll();
+      xScale = d3.scaleLinear().domain([-3, 3]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([-3, 3]).range([ih, 0]);
+      gAxes.selectAll('*').remove();
+
+      // vertical U axis in the middle
+      const cx = iw / 2;
+      gAxes.append('line').attr('x1', cx).attr('y1', 10).attr('x2', cx).attr('y2', ih-10)
+        .attr('stroke', '#bfbdb3').attr('stroke-width', 1).attr('opacity', 0.4);
+      gAxes.append('text').attr('x', cx+8).attr('y', 20).style('font-size','12px').style('fill','#666').text('U — self-discipline');
+      gAxes.append('text').attr('x', cx+8).attr('y', 36).style('font-size','10px').style('fill','#999').text('(higher = more)');
+
+      // normal ridge
+      const ridgePath = [];
+      for (let u=-3; u<=3; u+=0.05) {
+        const p = Math.exp(-0.5*u*u)/Math.sqrt(2*Math.PI);
+        ridgePath.push([cx + p*300, yScale(u)]);
+      }
+      const line = d3.line();
+      gRidge.append('path').attr('d', line(ridgePath))
+        .attr('fill', 'rgba(123,44,191,0.08)').attr('stroke','rgba(123,44,191,0.3)').attr('stroke-width',1);
+      // mirrored
+      const mirror = ridgePath.map(([x,y])=>[2*cx-x,y]);
+      gRidge.append('path').attr('d', line(mirror))
+        .attr('fill', 'rgba(123,44,191,0.08)').attr('stroke','rgba(123,44,191,0.3)').attr('stroke-width',1);
+
+      // 8 anonymous draws
+      const rng = seededRandom(state.seed + 100);
+      for (let i=0;i<8;i++) {
+        const u = randn(rng);
+        gCloud.append('circle')
+          .attr('cx', cx + (Math.random()-0.5)*24)
+          .attr('cy', yScale(u))
+          .attr('r', 4)
+          .attr('fill','#9aa0a6').attr('opacity',0)
+          .transition().delay(i*80).duration(400).attr('opacity',0.6);
+      }
+
+      // anna and ben avatars
+      const annaG = renderAvatar(gAnnaBen, 'anna', 28).attr('transform', `translate(${cx-40},${yScale(state.annaU)})`);
+      const benG  = renderAvatar(gAnnaBen, 'ben', 28).attr('transform', `translate(${cx+40},${yScale(state.benU)})`);
+      annaG.select('.halo').attr('filter', 'url(#glow-anna)');
+    }
+
+    // stage 2: horizontal X1 axis, Anna/Ben at their X1
+    function renderStage2() {
+      clearAll();
+      xScale = d3.scaleLinear().domain([0, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([-1, 1]).range([ih, 0]);
+      axes('X₁ — hours studied', '');
+
+      // jitter cloud (noise showing)
+      const rng = seededRandom(state.seed + 200);
+      for (let i=0;i<50;i++) {
+        const u = randn(rng);
+        const x1 = 2 + state.gamma1*u + randn(rng)*Math.sqrt(0.3);
+        gCloud.append('circle')
+          .attr('cx', xScale(Math.max(0.05,x1)))
+          .attr('cy', yScale(0) + (Math.random()-0.5)*40)
+          .attr('r', 3).attr('fill','#9aa0a6').attr('opacity',0.4);
+      }
+
+      // Anna and Ben at their effective X1 given gamma1
+      const annaX1 = 2 + state.gamma1 * state.annaU;
+      const benX1  = 2 + state.gamma1 * state.benU;
+      renderAvatar(gAnnaBen, 'anna', 24).attr('transform', `translate(${xScale(annaX1)},${yScale(0.3)})`);
+      renderAvatar(gAnnaBen, 'ben', 24).attr('transform', `translate(${xScale(benX1)},${yScale(-0.3)})`);
+
+      // violet arrows showing U push
+      gOverlay.append('line')
+        .attr('x1', xScale(2)).attr('y1', yScale(0.3))
+        .attr('x2', xScale(annaX1)).attr('y2', yScale(0.3))
+        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.5)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.7);
+      gOverlay.append('line')
+        .attr('x1', xScale(2)).attr('y1', yScale(-0.3))
+        .attr('x2', xScale(benX1)).attr('y2', yScale(-0.3))
+        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.5)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.7);
+      ensureArrowMarker();
+    }
+
+    function ensureArrowMarker() {
+      if (defs.select('#arrowV').empty()) {
+        defs.append('marker').attr('id','arrowV').attr('viewBox','0 -5 10 10').attr('refX',8)
+          .attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+          .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','var(--c-truth)');
+      }
+    }
+
+    // stage 3: (X1, X2) scatter — show U's fingerprint
+    function renderStage3() {
+      clearAll();
+      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([6, 14]).range([ih, 0]);
+      axes('X₁ — hours studied', 'X₂ — lectures attended');
+
+      const d = state.sample;
+      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
+        .attr('cx', i => xScale(d.X1[i]))
+        .attr('cy', i => yScale(d.X2[i]))
+        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0)
+        .transition().delay((_,i)=>i*5).duration(400).attr('opacity', 0.55);
+
+      // population regression line of X2 on X1 (rough slope from data)
+      const xBar = mean(d.X1), yBar = mean(d.X2);
+      let num=0, den=0;
+      for (let i=0;i<d.X1.length;i++) { num += (d.X1[i]-xBar)*(d.X2[i]-yBar); den += (d.X1[i]-xBar)**2; }
+      const slope = den>0 ? num/den : 0;
+      const intercept = yBar - slope*xBar;
+      const xs = [0.2, 4];
+      gTrueCurve.append('line')
+        .attr('x1', xScale(xs[0])).attr('y1', yScale(intercept+slope*xs[0]))
+        .attr('x2', xScale(xs[1])).attr('y2', yScale(intercept+slope*xs[1]))
+        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.4).attr('opacity', 0.35);
+
+      const annaX1 = 2 + state.gamma1*state.annaU;
+      const annaX2 = 10 + state.gamma2*state.annaU;
+      const benX1  = 2 + state.gamma1*state.benU;
+      const benX2  = 10 + state.gamma2*state.benU;
+      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(annaX1)},${yScale(annaX2)})`);
+      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(benX1)},${yScale(benX2)})`);
+    }
+
+    // stage 4: (X1, Y) scatter with true log curve + ribbon
+    function renderStage4() {
+      clearAll();
+      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
+      axes('X₁ — hours studied', 'Y — exam score');
+
+      const d = state.sample;
+      const mX2 = mean(d.X2), mU = mean(d.U);
+      // heteroscedastic ribbon
+      const bandPts = [];
+      const bandPtsBot = [];
+      const curvePts = [];
+      for (let x=0.2; x<=4; x+=0.05) {
+        const y = 50 + 8*Math.log(x) + 3*mX2 + 2*mU;
+        const sd = Math.sqrt(0.5*Math.abs(x));
+        curvePts.push([xScale(x), yScale(y)]);
+        bandPts.push([xScale(x), yScale(y+2*sd)]);
+        bandPtsBot.push([xScale(x), yScale(y-2*sd)]);
+      }
+      const area = d3.area().x(d=>d[0]).y0((_,i)=>bandPtsBot[i][1]).y1((_,i)=>bandPts[i][1]);
+      gTrueCurve.append('path').datum(bandPts).attr('d', area)
+        .attr('fill','rgba(123,44,191,0.12)');
+
+      // scatter
+      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
+        .attr('cx', i => xScale(d.X1[i]))
+        .attr('cy', i => yScale(d.Y[i]))
+        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0.5);
+
+      // true curve
+      const line = d3.line();
+      gTrueCurve.append('path').attr('d', line(curvePts))
+        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 2).attr('opacity', 0.85);
+
+      // optional linear fit to illustrate misspec
+      if (state.linearY) {
+        const fit = fitOLS(['X1'], false);
+        const b0 = fit.coefs[0], b1 = fit.coefs[1];
+        const adj = 3*mX2; // not included → absorbed into intercept, but show slope on X1
+        gFit.append('line')
+          .attr('x1', xScale(0.2)).attr('y1', yScale(b0 + b1*0.2))
+          .attr('x2', xScale(4)).attr('y2', yScale(b0 + b1*4))
+          .attr('stroke','var(--c-est)').attr('stroke-width', 2).attr('opacity', 0.85);
+      }
+
+      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
+      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
+    }
+
+    // helper: fit OLS with chosen features
+    function fitOLS(features, useLog) {
+      const d = state.sample;
+      const rows = [];
+      for (let i=0;i<d.Y.length;i++) {
+        const r = [];
+        for (const f of features) {
+          if (f === 'X1') r.push(useLog ? Math.log(d.X1[i]) : d.X1[i]);
+          else r.push(d[f][i]);
+        }
+        rows.push(r);
+      }
+      const res = ols(Array.from(d.Y), rows);
+      return { coefs: res.coefficients, residuals: res.residuals, r2: res.r2, features };
+    }
+
+    // stage 5: fit OLS on X1 (optionally log) + show residuals
+    function renderStage5(showResidColoredByU=false) {
+      clearAll();
+      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
+      axes('X₁ — hours studied', 'Y — exam score');
+
+      const d = state.sample;
+      const mX2 = mean(d.X2), mU = mean(d.U);
+      // true curve
+      const line = d3.line();
+      const curvePts = [];
+      for (let x=0.2; x<=4; x+=0.05) {
+        curvePts.push([xScale(x), yScale(50 + 8*Math.log(x) + 3*mX2 + 2*mU)]);
+      }
+      gTrueCurve.append('path').attr('d', line(curvePts))
+        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 1.8).attr('opacity', 0.7);
+
+      // scatter
+      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
+        .attr('cx', i => xScale(d.X1[i]))
+        .attr('cy', i => yScale(d.Y[i]))
+        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0.5);
+
+      // fit
+      const fit = fitOLS(['X1'], state.useLog);
+      const b0 = fit.coefs[0], b1 = fit.coefs[1];
+      // draw fit curve (log or line)
+      const fitPts = [];
+      for (let x=0.2; x<=4; x+=0.05) {
+        const y = state.useLog ? b0 + b1*Math.log(x) : b0 + b1*x;
+        fitPts.push([xScale(x), yScale(y)]);
+      }
+      gFit.append('path').attr('d', line(fitPts))
+        .attr('fill','none').attr('stroke','var(--c-est)').attr('stroke-width', 2.4);
+
+      // residual sticks
+      for (let i=0;i<d.Y.length;i++) {
+        const yhat = state.useLog ? b0 + b1*Math.log(d.X1[i]) : b0 + b1*d.X1[i];
+        const u = d.U[i];
+        let colorClass = '';
+        if (showResidColoredByU) {
+          colorClass = u > 0 ? 'anna-tone' : 'ben-tone';
+        }
+        gResid.append('line')
+          .attr('class', 'resid ' + colorClass)
+          .attr('x1', xScale(d.X1[i])).attr('y1', yScale(d.Y[i]))
+          .attr('x2', xScale(d.X1[i])).attr('y2', yScale(yhat))
+          .attr('opacity', showResidColoredByU ? 0.75 : 0.35)
+          .attr('stroke-width', Math.min(2, 0.5 + Math.abs(u)));
+      }
+
+      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
+      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
+    }
+
+    // stage 6: same as 5, but residuals bloom by U (wave animation if revealed)
+    function renderStage6() {
+      renderStage5(false); // start grey
+      if (state.revealed) {
+        bloomResiduals();
+        unveilUWidget();
+      }
+    }
+
+    function bloomResiduals() {
+      const d = state.sample;
+      const sticks = gResid.selectAll('line.resid').nodes();
+      // sort by x for left-to-right wave
+      const order = d3.range(d.X1.length).sort((a,b)=> d.X1[a] - d.X1[b]);
+      order.forEach((i, k) => {
+        const stick = d3.select(sticks[i]);
+        const u = d.U[i];
+        stick.transition()
+          .delay(k * (1200 / order.length))
+          .duration(350)
+          .attr('stroke', u > 0 ? 'var(--c-anna)' : 'var(--c-ben)')
+          .attr('opacity', 0.85)
+          .attr('stroke-width', Math.min(2.5, 0.7 + Math.abs(u)));
+      });
+    }
+
+    function unveilUWidget() {
+      document.getElementById('uVeil').classList.add('lifted');
+      // populate widget with U draws colored by sign
+      const dots = document.getElementById('uWidgetDots');
+      dots.innerHTML = '';
+      const d = state.sample;
+      const ns = 'http://www.w3.org/2000/svg';
+      for (let i=0;i<Math.min(60, d.U.length); i++) {
+        const u = d.U[i];
+        const cy = 30 - u*8;
+        const c = document.createElementNS(ns, 'circle');
+        c.setAttribute('cx', 100 + (Math.random()-0.5)*30);
+        c.setAttribute('cy', Math.max(6, Math.min(54, cy)));
+        c.setAttribute('r', 2);
+        c.setAttribute('fill', u > 0 ? '#d4722c' : '#3c8dbc');
+        c.setAttribute('opacity', 0);
+        dots.appendChild(c);
+        setTimeout(() => c.setAttribute('opacity', 0.7), i * 15);
+      }
+    }
+    function reveilUWidget() {
+      document.getElementById('uVeil').classList.remove('lifted');
+    }
+
+    // stage 7: 2-panel visualisation — left (X1,Y) dimmed, right (X3,Y)
+    function renderStage7() {
+      clearAll();
+      const leftW = iw * 0.42;
+      const rightX = iw * 0.52;
+      const rightW = iw - rightX;
+
+      // left panel axes
+      const xL = d3.scaleLinear().domain([0.2, 4]).range([0, leftW]);
+      const yL = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
+      // right panel axes
+      const d = state.sample;
+      const x3Ext = d3.extent(d.X3);
+      const xR = d3.scaleLinear().domain([x3Ext[0]-5, x3Ext[1]+5]).range([0, rightW]);
+      const yR = yL;
+
+      const gL = gAxes.append('g');
+      const gR = gAxes.append('g').attr('transform', `translate(${rightX},0)`);
+      gL.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xL).ticks(4));
+      gL.append('g').call(d3.axisLeft(yL).ticks(5));
+      gR.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xR).ticks(4));
+      gR.append('g').call(d3.axisLeft(yR).ticks(5));
+      gL.append('text').attr('x', leftW/2).attr('y', ih+38).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('X₁ — hours');
+      gR.append('text').attr('x', rightW/2).attr('y', ih+38).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('X₃ — self-assessment');
+      gL.append('text').attr('transform', `translate(-44,${ih/2})rotate(-90)`).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('Y');
+
+      // left scatter dimmed when X3 is included
+      const dimFactor = state.includeX3 ? 0.15 : 0.5;
+      for (let i=0;i<d.Y.length;i++) {
+        gCloud.append('circle')
+          .attr('cx', xL(d.X1[i])).attr('cy', yL(d.Y[i]))
+          .attr('r', 2).attr('fill', '#9aa0a6').attr('opacity', dimFactor);
+      }
+      // right scatter
+      for (let i=0;i<d.Y.length;i++) {
+        gCloud.append('circle')
+          .attr('cx', rightX + xR(d.X3[i])).attr('cy', yR(d.Y[i]))
+          .attr('r', 2).attr('fill', '#9aa0a6').attr('opacity', 0.55);
+      }
+
+      // fit
+      let features = ['X1','X2'];
+      if (state.includeX3) features.push('X3');
+      const fit = fitOLS(features, state.useLog);
+
+      // show coefs
+      const readout = document.getElementById('coefReadout');
+      let txt = '';
+      const names = ['(Intercept)', ...features.map(f => f==='X1' && state.useLog ? 'log(X1)' : f)];
+      for (let i=0;i<fit.coefs.length;i++) {
+        txt += `${names[i].padEnd(12)} ${fit.coefs[i].toFixed(3)}\n`;
+      }
+      txt += `R² = ${fit.r2.toFixed(3)}`;
+      readout.textContent = txt;
+
+      // warning
+      const warn = document.getElementById('x3Warning');
+      warn.classList.toggle('on', state.includeX3);
+
+      // right-panel fit line for X3
+      if (state.includeX3) {
+        const b0 = fit.coefs[0];
+        const bX3 = fit.coefs[fit.coefs.length-1];
+        const b1raw = fit.coefs[1];
+        const bX2 = fit.coefs[2];
+        const mX1 = mean(d.X1), mX2 = mean(d.X2);
+        const xs = [x3Ext[0]-2, x3Ext[1]+2];
+        const yOfX3 = x3 => b0 + (state.useLog ? b1raw*Math.log(mX1) : b1raw*mX1) + bX2*mX2 + bX3*x3;
+        gFit.append('line')
+          .attr('x1', rightX+xR(xs[0])).attr('y1', yR(yOfX3(xs[0])))
+          .attr('x2', rightX+xR(xs[1])).attr('y2', yR(yOfX3(xs[1])))
+          .attr('stroke','var(--c-est)').attr('stroke-width', 2.2);
+      }
+
+      // Anna/Ben pinned in both panels
+      renderAvatar(gAnnaBen, 'anna', 20).attr('transform', `translate(${xL(anna.X1)},${yL(anna.Y)})`).attr('opacity', state.includeX3?0.35:1);
+      renderAvatar(gAnnaBen, 'ben', 20).attr('transform', `translate(${xL(ben.X1)},${yL(ben.Y)})`).attr('opacity', state.includeX3?0.35:1);
+      const annaX3 = 0.9*anna.Y, benX3 = 0.9*ben.Y;
+      renderAvatar(gAnnaBen, 'anna', 20).attr('transform', `translate(${rightX+xR(annaX3)},${yR(anna.Y)})`);
+      renderAvatar(gAnnaBen, 'ben', 20).attr('transform', `translate(${rightX+xR(benX3)},${yR(ben.Y)})`);
+    }
+
+    // stage 8: the revisit — show Anna and Ben's causal trace
+    function renderStage8() {
+      clearAll();
+      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
+      axes('X₁ — hours studied', 'Y — exam score');
+
+      // same main scatter + true curve + fit (with whatever toggles)
+      const d = state.sample;
+      for (let i=0;i<d.Y.length;i++) {
+        gCloud.append('circle')
+          .attr('cx', xScale(d.X1[i])).attr('cy', yScale(d.Y[i]))
+          .attr('r', 2).attr('fill', d.U[i]>0?'rgba(212,114,44,0.45)':'rgba(60,141,188,0.45)');
+      }
+      const line = d3.line();
+      const mX2 = mean(d.X2), mU = mean(d.U);
+      const curvePts = [];
+      for (let x=0.2; x<=4; x+=0.05) {
+        curvePts.push([xScale(x), yScale(50 + 8*Math.log(x) + 3*mX2 + 2*mU)]);
+      }
+      gTrueCurve.append('path').attr('d', line(curvePts))
+        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 2);
+
+      // green fit
+      const feats = state.includeX3 ? ['X1','X2','X3'] : ['X1','X2'];
+      const fit = fitOLS(feats, state.useLog);
+      const b0 = fit.coefs[0], b1 = fit.coefs[1], b2 = fit.coefs[2];
+      const fitPts = [];
+      for (let x=0.2; x<=4; x+=0.05) {
+        const y = b0 + (state.useLog?b1*Math.log(x):b1*x) + b2*mX2 + (state.includeX3?fit.coefs[3]*0.9*(50+8*Math.log(x)+3*mX2):0);
+        fitPts.push([xScale(x), yScale(y)]);
+      }
+      gFit.append('path').attr('d', line(fitPts))
+        .attr('fill','none').attr('stroke','var(--c-est)').attr('stroke-width', 2.2);
+
+      // Anna and Ben with causal trace annotations
+      const annaG = renderAvatar(gAnnaBen, 'anna', 26).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
+      annaG.select('.halo').attr('filter','url(#glow-anna)');
+      renderAvatar(gAnnaBen, 'ben', 26).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
+
+      // annotation
+      gOverlay.append('text').attr('x', xScale(anna.X1)+20).attr('y', yScale(anna.Y)-10)
+        .style('font-size','12px').style('fill','var(--c-anna)').style('font-style','italic')
+        .text('72 — high U lifted her');
+      gOverlay.append('text').attr('x', xScale(ben.X1)+20).attr('y', yScale(ben.Y)+20)
+        .style('font-size','12px').style('fill','var(--c-ben)').style('font-style','italic')
+        .text('58 — low U pulled him');
+    }
+
+    // ---------- dispatcher ----------
+    const stageTitles = {
+      1: 'Meet U', 2: 'U → X₁', 3: 'U → X₂', 4: 'Full DGP',
+      5: 'OLS arrives', 6: 'Ghost in residuals', 7: 'Post-treatment trap', 8: 'Revisit'
+    };
+
+    function renderStage(n) {
+      state.activeStage = n;
+      document.getElementById('stageNum').textContent = n;
+      document.getElementById('stageTitle').textContent = stageTitles[n] || '';
+      updateFormulaTracker(n);
+      // veil logic
+      if (n >= 6 && state.revealed) {
+        unveilUWidget();
+      } else if (n < 6) {
+        reveilUWidget();
+      }
+      if (n === 1) renderStage1();
+      else if (n === 2) renderStage2();
+      else if (n === 3) renderStage3();
+      else if (n === 4) renderStage4();
+      else if (n === 5) renderStage5();
+      else if (n === 6) renderStage6();
+      else if (n === 7) renderStage7();
+      else if (n === 8) renderStage8();
+    }
+
+    function updateFormulaTracker(n) {
+      const lines = {
+        1: ['U'],
+        2: ['U','X1'],
+        3: ['U','X1','X2'],
+        4: ['U','X1','X2','Y'],
+        5: ['U','X1','X2','Y'],
+        6: ['U','X1','X2','Y'],
+        7: ['U','X1','X2','Y','X3'],
+        8: ['U','X1','X2','Y','X3']
+      };
+      const active = new Set(lines[n] || []);
+      document.querySelectorAll('#formulaTracker .f-line').forEach(el => {
+        el.classList.toggle('visible', active.has(el.dataset.line));
+      });
+    }
+
+    // ---------- intersection observer ----------
+    const sections = document.querySelectorAll('.stage');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.35) {
+          const n = +entry.target.dataset.stage;
+          if (n !== state.activeStage) renderStage(n);
+        }
+      });
+    }, { threshold: [0, 0.35, 0.6] });
+    sections.forEach(s => io.observe(s));
+
+    // ---------- control wiring ----------
+    document.getElementById('sldU').addEventListener('input', e => {
+      const t = +e.target.value;
+      state.annaU = 0.3 + t*1.7;
+      state.benU = -(0.3 + t*1.7);
+      document.getElementById('valU').textContent = t.toFixed(2);
+      if (state.activeStage === 1) renderStage1();
+    });
+
+    document.getElementById('btnDrawPeople').addEventListener('click', () => {
+      state.seed = (state.seed + 1) | 0;
+      draw();
+      if (state.activeStage === 1) renderStage1();
+    });
+
+    document.getElementById('sldGamma1').addEventListener('input', e => {
+      state.gamma1 = +e.target.value;
+      document.getElementById('valGamma1').textContent = state.gamma1.toFixed(2);
+      draw();
+      renderStage(state.activeStage);
+    });
+    document.getElementById('btnResampleEta1').addEventListener('click', () => {
+      state.seed = (state.seed + 1) | 0;
+      draw();
+      renderStage(state.activeStage);
+    });
+
+    document.getElementById('sldGamma2').addEventListener('input', e => {
+      state.gamma2 = +e.target.value;
+      document.getElementById('valGamma2').textContent = state.gamma2.toFixed(2);
+      draw();
+      renderStage(state.activeStage);
+    });
+    document.getElementById('btnReplayFountain').addEventListener('click', () => {
+      state.seed = (state.seed + 1) | 0;
+      draw();
+      renderStage(state.activeStage);
+    });
+
+    document.getElementById('tglLinearY').addEventListener('change', e => {
+      state.linearY = e.target.checked;
+      state.useLog = !e.target.checked;
+      renderStage(state.activeStage);
+    });
+
+    document.getElementById('tglUseLog').addEventListener('change', e => {
+      state.useLog = e.target.checked;
+      renderStage(state.activeStage);
+    });
+    document.getElementById('btnResampleAll').addEventListener('click', () => {
+      state.seed = (state.seed + 1) | 0;
+      draw();
+      renderStage(state.activeStage);
+    });
+
+    document.getElementById('btnReveal').addEventListener('click', () => {
+      state.revealed = true;
+      document.getElementById('ghostLabel').style.display = 'block';
+      // we need residuals in grey first; then bloom.
+      renderStage5(false);
+      setTimeout(() => { bloomResiduals(); unveilUWidget(); }, 80);
+    });
+
+    document.getElementById('tglIncludeX3').addEventListener('change', e => {
+      state.includeX3 = e.target.checked;
+      renderStage(state.activeStage);
+    });
+
+    // stage 8 presets
+    document.getElementById('btnScenarioIdeal').addEventListener('click', () => {
+      state.useLog = true; state.includeX3 = false;
+      document.getElementById('tglUseLog').checked = true;
+      document.getElementById('tglIncludeX3').checked = false;
+      renderStage(state.activeStage);
+    });
+    document.getElementById('btnScenarioNaive').addEventListener('click', () => {
+      state.useLog = false; state.includeX3 = true;
+      document.getElementById('tglUseLog').checked = false;
+      document.getElementById('tglIncludeX3').checked = true;
+      renderStage(state.activeStage);
+    });
+    document.getElementById('btnScenarioHonest').addEventListener('click', () => {
+      state.useLog = true; state.includeX3 = false;
+      document.getElementById('tglUseLog').checked = true;
+      document.getElementById('tglIncludeX3').checked = false;
+      renderStage(state.activeStage);
+    });
+
+    // keyboard nav
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        const next = Math.min(8, state.activeStage + 1);
+        const target = document.querySelector(`[data-stage="${next}"]`);
+        target && target.scrollIntoView({ behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        const prev = Math.max(1, state.activeStage - 1);
+        const target = document.querySelector(`[data-stage="${prev}"]`);
+        target && target.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    // initial render
+    renderStage(1);
+  </script>
+</body>
+</html>
