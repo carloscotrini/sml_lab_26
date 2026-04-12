@@ -663,6 +663,10 @@ If the classical standard errors are used under heteroscedasticity:
         OLS still estimates the right number on average; it just gives you a dangerously wrong answer to ``how sure are you?''
 \end{itemize}
 
+\begin{remark}[Why is OLS still unbiased under heteroscedasticity?]
+Because unbiasedness depends only on $\E[\varepsilon \mid X] = 0$, not on the variance structure. The OLS formula $\bols = \beta + (X^\top X)^{-1} X^\top \varepsilon$ has $\E[\bols \mid X] = \beta + (X^\top X)^{-1} X^\top \E[\varepsilon \mid X] = \beta$, regardless of whether $\Var(\varepsilon \mid X)$ is $\sigma^2 I$ or some other matrix $\Omega$. Heteroscedasticity corrupts the \emph{standard errors} (which depend on $\Var(\varepsilon)$), not the \emph{point estimates} (which depend only on $\E[\varepsilon]$). Your coefficient is right; your uncertainty about it is wrong.
+\end{remark}
+
 \subsection{The Breusch--Pagan Test}\label{subsec:bp}
 
 \begin{remark}[The chi-squared distribution]
@@ -1084,6 +1088,8 @@ Model A always predicts 7 regardless of the training data---zero variance, but i
 
 \textbf{The aha moment:} At degree 1, twenty nearly identical lines all miss the true curve (stable but wrong). At degree 15, twenty polynomials pass through their training points perfectly but look completely different from each other---wild oscillations everywhere (unstable and absurd). Press ``Animate'' and watch the sweet spot at degree 3--4.
 \end{vizspec}
+
+In the exam score dataset, the bias-variance tradeoff plays out as follows. A degree-1 polynomial (straight line through study hours) has high bias---it systematically misses the logarithmic curvature---but low variance: twenty different samples produce nearly identical lines. A degree-15 polynomial has zero bias on training data but enormous variance: twenty samples produce twenty wildly different wiggly curves, each fitting its own noise. The sweet spot (degree 3--4, or better yet the correctly specified log model) balances these forces: enough flexibility to capture the curvature, not so much that it memorises the noise.
 
 % ============================================================
 % 8. BAD CONTROLS AND CAUSATION (NB 6)
