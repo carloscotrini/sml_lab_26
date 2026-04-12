@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Regression playground — SML</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="shared/style.css" />
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../index.html">← back to lecture notes</a>
+  </nav>
+
+  <main class="pg-container">
+    <header class="pg-header">
+      <h1>The regression playground</h1>
+      <p class="subtitle">Pick which variables the analyst observes. Watch what the fit says — and what the truth is doing behind the scenes.</p>
+    </header>
+
+    <div class="pg-grid">
+      <!-- Panel A: DGP formula + variable inclusion -->
+      <section class="pg-panel pg-panel-formula" id="panel-formula">
+        <h2>Data-generating process</h2>
+        <div class="formula-block" id="dgp-formula"></div>
+        <p class="pg-hint">Choose which variables the analyst observes and includes in the regression.</p>
+        <div class="pg-checkbox-row" id="var-checkboxes">
+          <label><input type="checkbox" value="X1" checked /> Include X₁</label>
+          <label><input type="checkbox" value="X2" /> Include X₂</label>
+          <label><input type="checkbox" value="X3" /> Include X₃</label>
+          <label><input type="checkbox" value="U"  /> Include U</label>
+        </div>
+      </section>
+
+      <!-- Panel C: scatter (top-right) -->
+      <section class="pg-panel" id="panel-scatter">
+        <h2>Y vs X₁</h2>
+        <div id="scatter-host"></div>
+        <p class="pg-hint">Points coloured by U (blue → gold). Black: OLS fit. Gold dashed: true DGP curve, holding X₂ and U at their means.</p>
+      </section>
+
+      <!-- Panel B: controls (bottom-left) -->
+      <section class="pg-panel pg-controls" id="panel-controls">
+        <h2>Controls</h2>
+        <div class="control-row">
+          <label for="n-slider">Sample size n</label>
+          <input type="range" id="n-slider" min="20" max="2000" step="10" value="200" />
+          <span class="value-tag" id="n-value">200</span>
+        </div>
+        <div class="control-row">
+          <label for="seed-input">Random seed</label>
+          <input type="number" id="seed-input" value="42" />
+        </div>
+        <div class="pg-button-row">
+          <button class="pg-btn" id="regen-btn">Regenerate data</button>
+          <button class="pg-btn secondary" id="what-if-btn" title="Coming soon">What would X do?</button>
+        </div>
+        <p class="pg-hint">The seed fixes one random draw. Slide n to see how estimates tighten as samples grow.</p>
+      </section>
+
+      <!-- Panel D: regression output (bottom-right) -->
+      <section class="pg-panel" id="panel-regression">
+        <h2>OLS fit</h2>
+        <div id="regtable-host"></div>
+      </section>
+    </div>
+
+    <!-- Topic button row -->
+    <section class="pg-topic-row">
+      <h3>Explore a pathology</h3>
+      <div class="pg-topic-buttons">
+        <a href="topics/ovb.html">OVB<span class="topic-sub">omitted variables</span></a>
+        <a href="topics/heteroscedasticity.html">Heteroscedasticity<span class="topic-sub">non-constant variance</span></a>
+        <a href="topics/significance.html">Significance<span class="topic-sub">p-values &amp; power</span></a>
+        <a href="topics/specification.html">Specification<span class="topic-sub">functional form</span></a>
+        <a href="topics/overfitting.html">Overfitting<span class="topic-sub">too many features</span></a>
+        <a href="topics/causation.html">Causation / IV<span class="topic-sub">endogeneity</span></a>
+        <a href="topics/collider.html">Collider<span class="topic-sub">bad controls</span></a>
+        <a href="topics/rdd.html">RDD<span class="topic-sub">discontinuity</span></a>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { generateData, TRUE_BETAS, mean } from './shared/dgp.js';
+    import { ols } from './shared/regression.js';
+    import { createScatterPlot, drawFittedLine, drawTrueCurve } from './shared/plot.js';
+    import { createRegressionTable } from './shared/table.js';
+
+    // ---------- render DGP formula with KaTeX ----------
+    const formulaEl = document.getElementById('dgp-formula');
+    formulaEl.innerHTML = `
+      <div>\\( U \\sim \\mathcal{N}(0,1) \\)</div>
+      <div>\\( X_1 = 2 + 0.5\\,U + \\eta_1,\\ \\eta_1 \\sim \\mathcal{N}(0, 0.3) \\)</div>
+      <div>\\( X_2 = 10 + 0.3\\,U + \\eta_2,\\ \\eta_2 \\sim \\mathcal{N}(0, 1) \\)</div>
+      <div>\\( \\varepsilon \\sim \\mathcal{N}(0,\\ 0.5\\,|X_1|) \\)</div>
+      <div>\\( Y = 50 + 8\\log(X_1) + 3X_2 + 2U + \\varepsilon \\)</div>
+      <div>\\( X_3 = 0.9\\,Y + \\eta_3,\\ \\eta_3 \\sim \\mathcal{N}(0, 2) \\)</div>
+    `;
+    renderMathInElement(formulaEl, {
+      delimiters: [{ left: '\\(', right: '\\)', display: false }],
+      throwOnError: false
+    });
+
+    // ---------- state ----------
+    const state = {
+      n: 200,
+      seed: 42,
+      included: { X1: true, X2: false, X3: false, U: false },
+      data: null
+    };
+
+    // ---------- wire up controls ----------
+    const nSlider = document.getElementById('n-slider');
+    const nValue = document.getElementById('n-value');
+    const seedInput = document.getElementById('seed-input');
+    const regenBtn = document.getElementById('regen-btn');
+    const whatIfBtn = document.getElementById('what-if-btn');
+    const checkboxes = document.querySelectorAll('#var-checkboxes input[type="checkbox"]');
+
+    nSlider.addEventListener('input', () => {
+      state.n = +nSlider.value;
+      nValue.textContent = state.n;
+      refreshData();
+    });
+    seedInput.addEventListener('change', () => {
+      state.seed = +seedInput.value | 0;
+      refreshData();
+    });
+    regenBtn.addEventListener('click', () => {
+      state.seed = (state.seed + 1) | 0;
+      seedInput.value = state.seed;
+      refreshData();
+    });
+    whatIfBtn.addEventListener('click', () => {
+      alert('Conditional-visualization sandbox coming soon.');
+    });
+    checkboxes.forEach(cb => cb.addEventListener('change', () => {
+      state.included[cb.value] = cb.checked;
+      refreshFit();
+    }));
+
+    // ---------- scatter + table hosts ----------
+    const scatter = createScatterPlot(
+      document.getElementById('scatter-host'),
+      { X1: [1], Y: [1], U: [0] }, // placeholder until first draw
+      { xVar: 'X1', yVar: 'Y', colorVar: 'U', width: 440, height: 320,
+        xLabel: 'X₁ (hours studied)', yLabel: 'Y (exam score)' }
+    );
+    const regTable = createRegressionTable(document.getElementById('regtable-host'));
+
+    // ---------- main update cycle ----------
+    function refreshData() {
+      state.data = generateData(state.n, state.seed);
+      scatter.update({ X1: state.data.X1, Y: state.data.Y, U: state.data.U },
+                     { xVar: 'X1', yVar: 'Y', colorVar: 'U' });
+      refreshFit();
+    }
+
+    function refreshFit() {
+      if (!state.data) return;
+      const d = state.data;
+      const incOrder = ['X1', 'X2', 'X3', 'U'].filter(k => state.included[k]);
+      const varNames = ['Intercept', ...incOrder];
+
+      // Build X matrix from included variables (as-is; X1 is kept raw, not logged,
+      // so students can SEE misspecification when they use X1 alone).
+      let result = null;
+      if (incOrder.length > 0) {
+        const rows = [];
+        for (let i = 0; i < d.Y.length; i++) {
+          rows.push(incOrder.map(k => d[k][i]));
+        }
+        try {
+          result = ols(Array.from(d.Y), rows);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      regTable.update(result, { varNames });
+
+      // redraw scatter overlays
+      redrawOverlays(result, incOrder);
+    }
+
+    function redrawOverlays(result, incOrder) {
+      scatter.update({ X1: state.data.X1, Y: state.data.Y, U: state.data.U },
+                     { xVar: 'X1', yVar: 'Y', colorVar: 'U' });
+
+      const xs = state.data.X1;
+      const xMin = Math.max(0.05, d3.min(xs));
+      const xMax = d3.max(xs);
+
+      // true curve: Y = 50 + 8 log(X1) + 3*mean(X2) + 2*mean(U)
+      const mX2 = mean(state.data.X2);
+      const mU = mean(state.data.U);
+      const trueFn = x => TRUE_BETAS.intercept + TRUE_BETAS.beta1 * Math.log(x)
+        + TRUE_BETAS.beta2 * mX2 + TRUE_BETAS.betaU * mU;
+      drawTrueCurve(scatter, trueFn, [xMin, xMax]);
+
+      // fitted line drawn in X1-space, holding other included regressors at mean.
+      if (result && incOrder.length > 0) {
+        const coefs = result.coefficients; // [intercept, ...in incOrder order]
+        const b0Base = coefs[0];
+        let offset = 0;
+        let slopeX1 = 0;
+        incOrder.forEach((k, i) => {
+          const c = coefs[i + 1];
+          if (k === 'X1') { slopeX1 = c; }
+          else { offset += c * mean(state.data[k]); }
+        });
+        const b0 = b0Base + offset;
+        const b1 = slopeX1;
+        drawFittedLine(scatter, b0, b1, [xMin, xMax]);
+      }
+    }
+
+    // kick off
+    refreshData();
+  </script>
+</body>
+</html>

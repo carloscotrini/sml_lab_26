@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<!--
+  Topic page template. Copy this file to topics/<topic>.html and:
+    1. Replace TITLE_PLACEHOLDER and the <h1> heading.
+    2. Fill in #topic-content with narrative HTML for the pathology.
+    3. Reuse shared modules (dgp.js, regression.js, plot.js, table.js) for any
+       embedded interactive figures. The standard playground scaffold is
+       already wired below — leave it in place if the topic reuses it, or
+       delete the .pg-grid block if the topic needs a custom layout.
+    4. Add a specialized visualization in #topic-viz.
+-->
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TITLE_PLACEHOLDER — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../index.html">← back to playground</a>
+  </nav>
+
+  <main class="pg-container">
+    <header class="pg-header">
+      <h1>TITLE_PLACEHOLDER</h1>
+      <p class="subtitle">One-line framing of the pathology.</p>
+    </header>
+
+    <!-- Narrative + inline math goes here. -->
+    <section id="topic-content">
+      <p>Write the topic narrative. Use KaTeX inline with \\( ... \\) and
+      display math with \\[ ... \\]. Auto-render runs on page load.</p>
+    </section>
+
+    <!-- Standard playground scaffold — safe to delete if this topic needs
+         a custom interactive layout. Otherwise the shared JS snippet below
+         populates it exactly like the main index.html does. -->
+    <div class="pg-grid" id="topic-playground">
+      <section class="pg-panel" id="panel-scatter">
+        <h2>Scatter</h2>
+        <div id="scatter-host"></div>
+      </section>
+      <section class="pg-panel" id="panel-regression">
+        <h2>OLS fit</h2>
+        <div id="regtable-host"></div>
+      </section>
+    </div>
+
+    <!-- Specialized visualization slot for the topic. -->
+    <section id="topic-viz" style="margin-top: 32px;">
+      <!-- e.g. a bias-plot, a residual plot, a power curve, a DAG. -->
+    </section>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { generateData, TRUE_BETAS, mean } from '../shared/dgp.js';
+    import { ols, robustSE, olsWithCI } from '../shared/regression.js';
+    import { createScatterPlot, drawFittedLine, drawTrueCurve, PALETTE }
+      from '../shared/plot.js';
+    import { createRegressionTable } from '../shared/table.js';
+
+    // Auto-render any KaTeX in the narrative section.
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+
+    // Example: generate one dataset, fit OLS on X1, draw scatter + table.
+    // Topic agents: customize this block with your pathology-specific logic.
+    const data = generateData(200, 42);
+    const rows = Array.from(data.X1, x => [x]);
+    const fit = ols(Array.from(data.Y), rows);
+
+    const scatter = createScatterPlot(
+      document.getElementById('scatter-host'),
+      { X1: data.X1, Y: data.Y, U: data.U },
+      { xVar: 'X1', yVar: 'Y', colorVar: 'U', width: 440, height: 320,
+        xLabel: 'X₁', yLabel: 'Y' }
+    );
+    const xMin = Math.max(0.05, d3.min(data.X1));
+    const xMax = d3.max(data.X1);
+    drawFittedLine(scatter, fit.coefficients[0], fit.coefficients[1], [xMin, xMax]);
+    drawTrueCurve(scatter, x =>
+      TRUE_BETAS.intercept + TRUE_BETAS.beta1 * Math.log(x)
+      + TRUE_BETAS.beta2 * mean(data.X2) + TRUE_BETAS.betaU * mean(data.U),
+      [xMin, xMax]);
+
+    const regTable = createRegressionTable(document.getElementById('regtable-host'));
+    regTable.update(fit, { varNames: ['Intercept', 'X1'] });
+  </script>
+</body>
+</html>
