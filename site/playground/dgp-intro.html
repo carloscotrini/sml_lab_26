@@ -85,18 +85,22 @@
     }
 
     .formula-tracker {
-      font-size: 14px;
-      line-height: 1.5;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      max-height: 70px;
-      overflow: hidden;
+      font-size: 13px;
+      line-height: 1.4;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 18px;
+      max-height: none;
+      align-items: center;
     }
     .formula-tracker .f-line {
       opacity: 0;
       transform: translateY(4px);
       transition: opacity .4s ease, transform .4s ease;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .formula-tracker .f-line.visible { opacity: 1; transform: translateY(0); }
 
@@ -196,6 +200,19 @@
       font-size: 14px;
     }
     .stage .controls button.climax:hover { filter: brightness(1.08); }
+    .stage .controls button.pulsing {
+      animation: climaxPulse 2.2s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(212, 114, 44, 0.55);
+    }
+    .stage .controls button.pulsing.done {
+      animation: none;
+      box-shadow: none;
+    }
+    @keyframes climaxPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(212, 114, 44, 0.55); transform: scale(1); }
+      50%  { box-shadow: 0 0 0 10px rgba(212, 114, 44, 0); transform: scale(1.035); }
+      100% { box-shadow: 0 0 0 0 rgba(212, 114, 44, 0); transform: scale(1); }
+    }
     .stage .controls .toggle-row {
       display: flex; align-items: center; gap: 10px; font-size: 14px;
     }
@@ -257,7 +274,7 @@
       .narrative { padding: 20px 0; }
       .topbar { grid-template-columns: 1fr; gap: 8px; min-height: 0; padding: 8px 12px; }
       .u-widget { width: 100%; height: 50px; }
-      .formula-tracker { max-height: 80px; font-size: 12px; }
+      .formula-tracker { grid-template-columns: 1fr; font-size: 12px; }
       .stage-indicator { text-align: left; }
     }
 
@@ -333,7 +350,7 @@
     </div>
 
     <div class="stage-indicator">
-      Stage <span class="num" id="stageNum">1</span> / 8
+      Stage <span class="num" id="stageNum">1</span> / 9
       <div style="margin-top:4px;font-size:10px;color:var(--c-ink-muted);" id="stageTitle">Meet U</div>
     </div>
   </div>
@@ -404,12 +421,6 @@
         <p style="text-align:center;" class="katex-big">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</p>
         <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth: diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>2·U</code> is the direct fingerprint of discipline on the exam itself. And <code>ε</code> is what's left: the sneezes, the lucky guesses, the pen that ran out.</p>
         <p>Look closely at that noise. The cloud doesn't have uniform width. Students who studied little scatter tightly. Students who studied a lot scatter wildly. This is called <strong>heteroscedasticity</strong> (different scatter in different regions) and it will matter when we start trusting our predictions.</p>
-        <div class="controls">
-          <label class="toggle-row">
-            <input type="checkbox" id="tglLinearY" />
-            Fit with a straight line (no log)
-          </label>
-        </div>
         <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + \beta_1 X_1 + 3\,X_2 + 2\,U + \varepsilon \)</span></div>
       </section>
 
@@ -435,15 +446,22 @@
         <h2>The ghost in the residuals</h2>
         <p>Here's something strange. Every semester we run, Alice sits above the line. Every semester, Bob sits below. If the residuals were really just noise, they'd flip sign half the time.</p>
         <p>They don't. Something is <strong>systematically</strong> lifting Alice and sinking Bob, and it's the thing we named at the very start. U.</p>
-        <p>Flip the switch. Watch what colour the residuals actually are.</p>
-        <blockquote><em>The noise wasn't noise. It was someone we weren't looking at.</em></blockquote>
-        <p>This is what a <strong>confounder</strong> does. It shapes the inputs. It shapes the outputs. And when we leave it out of our model, our model happily blames the inputs for what the confounder did. Alice's "extra" points don't belong to her hours. They belong to U, which also made her hours higher. OLS cannot tell the two apart.</p>
+        <p><strong>Before you click</strong>, look at the residual sticks in the 3D scene. They look grey, random, like noise. Now click <em>Reveal</em> — we'll recolour each stick by the U value of the student it belongs to. If the residuals were really noise, you'd see random colours. Instead…</p>
         <div class="controls">
-          <button id="btnReveal" class="climax">Reveal the ghost</button>
+          <button id="btnReveal" class="climax pulsing">Reveal the ghost</button>
+          <div id="postRevealProse" style="display:none;margin-top:12px;font-family:var(--serif);font-size:15px;color:var(--c-ink);line-height:1.6;">
+            <p style="margin:0 0 10px;">Every positive residual is <span style="color:var(--c-alice);font-weight:600;">amber</span> (high U). Every negative residual is <span style="color:var(--c-bob);font-weight:600;">teal</span> (low U). The "noise" was never noise. It was self-discipline, invisibly lifting and lowering each point.</p>
+            <div style="display:flex;gap:14px;font-size:12px;color:var(--c-ink-muted);align-items:center;margin-top:8px;">
+              <span><span style="display:inline-block;width:14px;height:3px;background:var(--c-alice);vertical-align:middle;margin-right:4px;"></span>Amber = high U, above the line</span>
+              <span><span style="display:inline-block;width:14px;height:3px;background:var(--c-bob);vertical-align:middle;margin-right:4px;"></span>Teal = low U, below the line</span>
+            </div>
+          </div>
           <div id="ghostLabel" style="display:none;font-family:var(--serif);font-style:italic;color:var(--c-truth);font-size:15px;margin-top:4px;">
             The ghost has a name. It's self-discipline.
           </div>
         </div>
+        <blockquote><em>The noise wasn't noise. It was someone we weren't looking at.</em></blockquote>
+        <p>This is what a <strong>confounder</strong> does. It shapes the inputs. It shapes the outputs. And when we leave it out of our model, our model happily blames the inputs for what the confounder did. Alice's "extra" points don't belong to her hours. They belong to U, which also made her hours higher. OLS cannot tell the two apart.</p>
         <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon \)<br/><small style="color:#888;">(same equation; this stage revealed U's role)</small></span></div>
       </section>
 
@@ -460,12 +478,19 @@
 
       <section class="stage" data-stage="8">
         <div class="kicker">Stage 8</div>
-        <h2>One last variable, and three ways to use it all</h2>
+        <h2>One last variable: self-assessment</h2>
         <p>After the exam, imagine we ask every student: <em>"How do you think you did?"</em> Call their answer <strong>X₃</strong>: self-assessed performance. It tracks the score closely, because students who did well feel like they did well.</p>
         <p>Formally, X₃ is a noisy copy of Y:</p>
         <p style="text-align:center;" class="katex-big">\( X_3 = 0.9\,Y + \eta_3 \)</p>
         <p>Notice the direction of the arrow. Y causes X₃. X₃ does not cause Y. That makes X₃ a <strong>post-treatment</strong> variable: measured after the outcome, shaped by it.</p>
-        <p>Now back to Alice and Bob. Alice: 2 hours, 10 lectures, score 72. Bob: 2 hours, 10 lectures, score 58. You now know why. Alice's U was high. That same discipline made her 2 hours denser than Bob's 2 hours, made her lectures more attentive, and gave her a direct boost on exam day beyond anything we could measure. The 14-point gap wasn't mysterious. It was U, doing what U always does: shaping inputs, shaping outputs, staying invisible.</p>
+        <p>The scatter on the right plots X₃ against Y. The slope is roughly 0.9, and the points hug that line tightly. This is exactly what a noisy copy of Y looks like, and that tightness is what will tempt a naive analyst into disaster in the next stage.</p>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_3 = 0.9\,Y + \eta_3 \)</span></div>
+      </section>
+
+      <section class="stage" data-stage="9">
+        <div class="kicker">Stage 9</div>
+        <h2>Three analysts walk into this dataset</h2>
+        <p>Back to Alice and Bob. Alice: 2 hours, 10 lectures, score 72. Bob: 2 hours, 10 lectures, score 58. You now know why. Alice's U was high. That same discipline made her 2 hours denser than Bob's 2 hours, made her lectures more attentive, and gave her a direct boost on exam day beyond anything we could measure. The 14-point gap wasn't mysterious. It was U, doing what U always does: shaping inputs, shaping outputs, staying invisible.</p>
         <p>Three analysts walk into this dataset. Click their strategies and read what each one actually fits.</p>
         <div class="controls">
           <button id="btnScenarioIdeal">Ideal researcher</button>
@@ -483,7 +508,6 @@
           </div>
           <div id="coefReadout" style="font-family:'SF Mono',monospace;font-size:12px;color:var(--c-ink-muted);white-space:pre;margin-top:6px;"></div>
         </div>
-        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_3 = 0.9\,Y + \eta_3 \)</span></div>
       </section>
     </div>
 
@@ -524,7 +548,6 @@
       gamma1: 0.5,
       gamma2: 0.3,
       useLog: false,
-      linearY: false,   // stage 4 toggle
       includeX3: false,
       revealed: false,
       aliceU: 0.85,
@@ -1033,9 +1056,9 @@
     function renderStage4() {
       clearAll();
       const viewW = iw, viewH = ih;
-      const x1Domain = [0.2, 4.5];
-      const x2Domain = [6, 14];
-      const yDomain  = [45, 95];
+      const x1Domain = STAGE3D_DOMAIN.x1;
+      const x2Domain = STAGE3D_DOMAIN.x2;
+      const yDomain  = STAGE3D_DOMAIN.y;
       const project = makeRotatable3D(x1Domain, x2Domain, yDomain, viewW, viewH);
 
       drawIsoAxes(project, x1Domain, x2Domain, yDomain, {x1:'X₁: hours', x2:'X₂: lectures', y:'Y: exam score'});
@@ -1132,7 +1155,7 @@
     }
 
     // Shared 3D domain for stages 4/5/6/8
-    const STAGE3D_DOMAIN = { x1: [0.2, 4.5], x2: [6, 14], y: [45, 95] };
+    const STAGE3D_DOMAIN = { x1: [0.2, 4.5], x2: [6, 14], y: [40, 120] };
 
     // Shared 3D scene + OLS fit helpers. Returns { project, fit, residuals }.
     function renderStage3DScene(opts = {}) {
@@ -1167,17 +1190,22 @@
         }
       }
 
-      // Fitted plane from OLS of Y on X1, X2 (no U, no log)
+      // Fitted plane from OLS of Y on X1 (or log X1) and X2 (no U)
       let fit = null;
+      const useLogFit = !!opts.useLog;
       if (drawFittedPlane || drawResiduals) {
         const rows = [];
-        for (let i = 0; i < d.Y.length; i++) rows.push([d.X1[i], d.X2[i]]);
+        for (let i = 0; i < d.Y.length; i++) {
+          const x1feat = useLogFit ? Math.log(Math.max(0.05, d.X1[i])) : d.X1[i];
+          rows.push([x1feat, d.X2[i]]);
+        }
         fit = ols(Array.from(d.Y), rows);
+        if (typeof console !== 'undefined') console.log('fit coefs (useLog=' + useLogFit + '):', fit.coefficients);
         // fit.coefficients = [a, b1, b2]
         if (drawFittedPlane) {
           const a = fit.coefficients[0], b1 = fit.coefficients[1], b2 = fit.coefficients[2];
           const surfaceRes = 8;
-          const planeY = (x1, x2) => a + b1 * x1 + b2 * x2;
+          const planeY = (x1, x2) => a + b1 * (useLogFit ? Math.log(Math.max(0.05, x1)) : x1) + b2 * x2;
           for (let i = 0; i < surfaceRes; i++) {
             for (let j = 0; j < surfaceRes; j++) {
               const x1a = x1Domain[0] + (i / surfaceRes) * (x1Domain[1] - x1Domain[0]);
@@ -1209,7 +1237,8 @@
       if (drawResiduals && fit) {
         const a = fit.coefficients[0], b1 = fit.coefficients[1], b2 = fit.coefficients[2];
         for (const i of indices) {
-          const yhat = a + b1 * d.X1[i] + b2 * d.X2[i];
+          const x1feat = useLogFit ? Math.log(Math.max(0.05, d.X1[i])) : d.X1[i];
+          const yhat = a + b1 * x1feat + b2 * d.X2[i];
           const u = d.U[i];
           const [sx1, sy1] = project(d.X1[i], d.X2[i], clipY(d.Y[i]));
           const [sx2, sy2] = project(d.X1[i], d.X2[i], clipY(yhat));
@@ -1275,7 +1304,8 @@
         drawFittedPlane: true,
         drawTrueSurface: true,
         drawResiduals: true,
-        residColouredByU: showResidColoredByU
+        residColouredByU: showResidColoredByU,
+        useLog: state.useLog
       });
       draw3DAffordances();
     }
@@ -1288,7 +1318,8 @@
         drawFittedPlane: true,
         drawTrueSurface: true,
         drawResiduals: true,
-        residColouredByU: state.revealed
+        residColouredByU: state.revealed,
+        useLog: state.useLog
       });
       draw3DAffordances();
       if (state.revealed) {
@@ -1304,6 +1335,18 @@
             .attr('stroke-width', Math.min(2.5, 0.7 + Math.abs(u)));
         });
         unveilUWidget();
+        // Residual colour legend inside the SVG
+        const legend = gOverlay.append('g').attr('transform', `translate(10, ${ih - 70})`);
+        legend.append('rect').attr('x', -4).attr('y', -4).attr('width', 260).attr('height', 52)
+          .attr('fill', 'rgba(255,255,255,0.85)').attr('stroke', '#e4dfd5').attr('rx', 3);
+        legend.append('line').attr('x1', 4).attr('y1', 10).attr('x2', 24).attr('y2', 10)
+          .attr('stroke', 'var(--c-alice)').attr('stroke-width', 2.5);
+        legend.append('text').attr('x', 30).attr('y', 14).attr('font-size', 11).attr('fill', '#333')
+          .text('Amber = high U, above the line');
+        legend.append('line').attr('x1', 4).attr('y1', 30).attr('x2', 24).attr('y2', 30)
+          .attr('stroke', 'var(--c-bob)').attr('stroke-width', 2.5);
+        legend.append('text').attr('x', 30).attr('y', 34).attr('font-size', 11).attr('fill', '#333')
+          .text('Teal = low U, below the line');
       }
     }
 
@@ -1321,8 +1364,8 @@
         if (!node) return;
         const u = d.U[i];
         d3.select(node).transition()
-          .delay(k * (1200 / order.length))
-          .duration(350)
+          .delay(k * (2000 / order.length))
+          .duration(500)
           .attr('stroke', u > 0 ? 'var(--c-alice)' : 'var(--c-bob)')
           .attr('opacity', 0.85)
           .attr('stroke-width', Math.min(2.5, 0.7 + Math.abs(u)));
@@ -1391,8 +1434,66 @@
       }); } catch(e) {}
     }
 
-    // stage 8: 3D (X1, X2, Y) scatter coloured by U, with optional X3 ring overlay.
+    // stage 8: 2D scatter of X3 vs Y — show X3 is a noisy copy of Y (slope ~0.9).
     function renderStage8() {
+      clearAll();
+      const yDomain = STAGE3D_DOMAIN.y;
+      const d = state.sample;
+      // X3 = 0.9 Y + eta3 (sdEta3 = 2). Use Y-domain for x-axis, a slightly wider domain for X3.
+      const x3Min = 0.9 * yDomain[0] - 8;
+      const x3Max = 0.9 * yDomain[1] + 8;
+      xScale = d3.scaleLinear().domain([yDomain[0], yDomain[1]]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([x3Min, x3Max]).range([ih, 0]);
+      axes('Y: exam score', 'X₃: self-assessed performance');
+
+      // Reference line: X3 = 0.9 * Y
+      const lineGen = d3.line();
+      const refPts = [[xScale(yDomain[0]), yScale(0.9*yDomain[0])], [xScale(yDomain[1]), yScale(0.9*yDomain[1])]];
+      gTrueCurve.append('path').attr('d', lineGen(refPts))
+        .attr('stroke', 'var(--c-truth)').attr('stroke-width', 1.4).attr('opacity', 0.7)
+        .attr('fill', 'none').attr('stroke-dasharray', '4 3');
+      gOverlay.append('text').attr('x', xScale(yDomain[1]) - 6).attr('y', yScale(0.9*yDomain[1]) - 8)
+        .attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--c-truth)')
+        .attr('font-style', 'italic').text('X₃ = 0.9 · Y');
+
+      // Points coloured by U
+      const uScale = d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]).clamp(true);
+      const colourForU_local = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(uScale(u));
+      for (let i = 0; i < d.Y.length; i++) {
+        gCloud.append('circle')
+          .attr('cx', xScale(d.Y[i])).attr('cy', yScale(d.X3[i]))
+          .attr('r', 3.0).attr('fill', colourForU_local(d.U[i]))
+          .attr('opacity', 0.75).attr('stroke', '#fff').attr('stroke-width', 0.4);
+      }
+
+      // Alice & Bob
+      const aliceY = 50 + 8 * Math.log(alice.X1) + 3 * alice.X2 + 2 * alice.U;
+      const bobY   = 50 + 8 * Math.log(bob.X1) + 3 * bob.X2 + 2 * bob.U;
+      const aliceX3 = 0.9 * aliceY;
+      const bobX3   = 0.9 * bobY;
+      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceY)},${yScale(aliceX3)})`);
+      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobY)},${yScale(bobX3)})`);
+
+      // Caption box
+      gOverlay.append('text').attr('x', 12).attr('y', 20)
+        .attr('font-size', 12).attr('fill', 'var(--c-ink)').attr('font-style', 'italic')
+        .text('X₃ is a noisy copy of Y — it rides just below the 0.9·Y line.');
+
+      // U legend
+      const legend = gOverlay.append('g').attr('transform', `translate(${iw - 130}, 16)`);
+      if (defs.select('#uGrad3D').empty()) {
+        const grad = defs.append('linearGradient').attr('id','uGrad3D').attr('x1','0%').attr('x2','100%');
+        grad.append('stop').attr('offset','0%').attr('stop-color','#2E5EA8');
+        grad.append('stop').attr('offset','100%').attr('stop-color','#D4A017');
+      }
+      legend.append('rect').attr('width', 110).attr('height', 8).attr('fill', 'url(#uGrad3D)');
+      legend.append('text').attr('x',0).attr('y',-4).attr('font-size',10).attr('fill','#666').text('colour = U');
+      legend.append('text').attr('x',0).attr('y',22).attr('font-size',10).attr('fill','#666').text('low');
+      legend.append('text').attr('x',110).attr('y',22).attr('text-anchor','end').attr('font-size',10).attr('fill','#666').text('high');
+    }
+
+    // stage 9: 3D (X1, X2, Y) scatter coloured by U, with optional X3 ring overlay.
+    function renderStage9() {
       clearAll();
       const viewW = iw, viewH = ih;
       const x1Domain = STAGE3D_DOMAIN.x1, x2Domain = STAGE3D_DOMAIN.x2, yDomain = STAGE3D_DOMAIN.y;
@@ -1494,7 +1595,7 @@
     }
 
     // ---------- 3D affordances: hint + reset button ----------
-    function is3DStage(n) { return n === 4 || n === 5 || n === 6 || n === 8; }
+    function is3DStage(n) { return n === 4 || n === 5 || n === 6 || n === 9; }
 
     function draw3DAffordances() {
       // "Drag to rotate" hint bottom-left
@@ -1532,6 +1633,7 @@
       else if (s === 5) renderStage5();
       else if (s === 6) renderStage6();
       else if (s === 8) renderStage8();
+      else if (s === 9) renderStage9();
     }
 
     // ---------- rotation drag handlers ----------
@@ -1587,7 +1689,8 @@
     // ---------- dispatcher ----------
     const stageTitles = {
       1: 'Meet U', 2: 'U → X₁', 3: 'U → X₂', 4: 'Full DGP',
-      5: 'OLS arrives', 6: 'Ghost in residuals', 7: 'Noise shape', 8: 'X₃ and three analysts'
+      5: 'OLS arrives', 6: 'Ghost in residuals', 7: 'Noise shape',
+      8: 'X₃: noisy copy of Y', 9: 'Three analysts'
     };
 
     function renderStage(n) {
@@ -1609,6 +1712,7 @@
       else if (n === 6) renderStage6();
       else if (n === 7) renderStage7();
       else if (n === 8) renderStage8();
+      else if (n === 9) renderStage9();
     }
 
     function updateFormulaTracker(n) {
@@ -1620,7 +1724,8 @@
         5: ['U','X1','X2','Y'],
         6: ['U','X1','X2','Y'],
         7: ['U','X1','X2','Y'],
-        8: ['U','X1','X2','Y','X3']
+        8: ['U','X1','X2','Y','X3'],
+        9: ['U','X1','X2','Y','X3']
       };
       const active = new Set(lines[n] || []);
       document.querySelectorAll('#formulaTracker .f-line').forEach(el => {
@@ -1679,12 +1784,6 @@
       renderStage(state.activeStage);
     });
 
-    document.getElementById('tglLinearY').addEventListener('change', e => {
-      state.linearY = e.target.checked;
-      state.useLog = !e.target.checked;
-      renderStage(state.activeStage);
-    });
-
     document.getElementById('tglUseLog').addEventListener('change', e => {
       state.useLog = e.target.checked;
       renderStage(state.activeStage);
@@ -1697,6 +1796,16 @@
 
     document.getElementById('btnReveal').addEventListener('click', () => {
       document.getElementById('ghostLabel').style.display = 'block';
+      const postProse = document.getElementById('postRevealProse');
+      if (postProse) {
+        postProse.style.display = 'block';
+        postProse.style.opacity = 0;
+        postProse.style.transition = 'opacity 1.2s ease';
+        // Reveal the prose after the bloom is well under way so students see the sticks change first.
+        setTimeout(() => { postProse.style.opacity = 1; }, 1400);
+      }
+      const btn = document.getElementById('btnReveal');
+      if (btn) btn.classList.add('done');
       // Draw residuals in grey first, then animate bloom, then set revealed flag
       // so subsequent rotations keep them coloured.
       state.revealed = false;
@@ -1748,7 +1857,7 @@
     // keyboard nav
     document.addEventListener('keydown', e => {
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-        const next = Math.min(8, state.activeStage + 1);
+        const next = Math.min(9, state.activeStage + 1);
         const target = document.querySelector(`[data-stage="${next}"]`);
         target && target.scrollIntoView({ behavior: 'smooth' });
       } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
