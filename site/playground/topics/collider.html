@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Collider bias and bad controls — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    /* ----- shared structural bits ----- */
+    .col-section {
+      margin-top: 36px;
+      padding: 22px 24px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .col-section h2 {
+      font-family: var(--sans);
+      font-size: 15px;
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .col-section h2 .sectag {
+      display: inline-block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      background: #f2efe4;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      margin-right: 8px;
+      vertical-align: 2px;
+    }
+    .col-section p { margin: 6px 0 14px; font-size: 15.5px; }
+
+    .col-narr {
+      font-style: italic;
+      color: var(--ink-muted);
+      font-size: 14.5px;
+      font-family: var(--sans);
+      padding: 8px 12px;
+      background: #f5f4ef;
+      border-left: 3px solid var(--neutral);
+      border-radius: 2px;
+      margin-top: 12px;
+      transition: border-color .25s, color .25s;
+    }
+    .col-narr.good { border-left-color: var(--repairgreen); color: var(--ink); }
+    .col-narr.bad  { border-left-color: var(--biasred); color: var(--ink); }
+
+    /* ----- Fame filter demo ----- */
+    .fame-layout {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .fame-plot { width: 100%; }
+    .fame-side {
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .fame-side .fame-metric {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 14px;
+      margin: 8px 0 14px;
+    }
+    .fame-side .fame-metric .label { color: var(--ink-muted); }
+    .fame-side .fame-metric .value { font-family: var(--mono); color: var(--ink); }
+    .fame-side .fame-metric .value.bad  { color: var(--biasred); }
+    .fame-side .fame-metric .value.good { color: var(--repairgreen); }
+    .fame-btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+    .fame-plot svg { width: 100%; height: auto; font-family: var(--sans); }
+    .fame-plot .axis path, .fame-plot .axis line { stroke: #bfbdb3; }
+    .fame-plot .axis text { fill: var(--ink-muted); font-size: 11px; }
+    .fame-plot .axis-label { fill: var(--ink); font-size: 12px; font-family: var(--sans); }
+
+    /* ----- X3 toggle experiment + DAG ----- */
+    .x3-layout {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 22px;
+      align-items: start;
+      margin-top: 10px;
+    }
+    .x3-controls {
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .x3-controls label.checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: #fff;
+      margin-right: 8px;
+    }
+    .x3-controls label.checkbox-label.on {
+      border-color: var(--biasred);
+      background: #fdf1ef;
+    }
+    .x3-metrics {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: auto 1fr auto 1fr;
+      gap: 6px 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .x3-metrics .label { color: var(--ink-muted); }
+    .x3-metrics .value { font-family: var(--mono); color: var(--ink); }
+    .x3-metrics .value.bad  { color: var(--biasred); }
+    .x3-metrics .value.good { color: var(--repairgreen); }
+
+    /* DAG */
+    .dag-wrap { font-family: var(--sans); }
+    .dag-wrap svg { width: 100%; height: auto; }
+    .dag-node circle { fill: #fff; stroke: var(--ink); stroke-width: 1.5; }
+    .dag-node text   { fill: var(--ink); font-size: 14px; text-anchor: middle; dominant-baseline: central; }
+    .dag-node.collider circle { stroke: var(--biasred); stroke-width: 2.5; fill: #fdf1ef; }
+    .dag-node.outcome  circle { stroke: var(--olsblue); stroke-width: 2; }
+    .dag-edge { stroke: var(--ink); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .dag-edge.spurious {
+      stroke: var(--biasred);
+      stroke-width: 2;
+      stroke-dasharray: 5 4;
+      marker-end: url(#arrow-red);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .dag-edge.spurious.on { opacity: 1; }
+    .dag-box {
+      fill: none;
+      stroke: var(--biasred);
+      stroke-width: 2;
+      stroke-dasharray: 3 3;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .dag-box.on { opacity: 1; }
+    .dag-caption {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-muted);
+      margin-top: 6px;
+      min-height: 34px;
+    }
+
+    /* ----- articles ----- */
+    .articles-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .article-card {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fff;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color .15s;
+    }
+    .article-card:hover { border-color: var(--olsblue); }
+    .article-card .src {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--neutral);
+    }
+    .article-card .headline {
+      font-family: var(--serif);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+    .article-card .desc {
+      font-family: var(--sans);
+      font-size: 13.5px;
+      color: var(--ink-muted);
+      line-height: 1.45;
+    }
+    .article-card a.read {
+      font-family: var(--sans);
+      font-size: 13px;
+      margin-top: 4px;
+      color: var(--olsblue);
+    }
+
+    /* ----- quiz ----- */
+    .quiz-list { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+    .quiz-card {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      background: #fff;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .quiz-card h4 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .quiz-card .quiz-desc { color: var(--ink-muted); margin-bottom: 10px; }
+    .quiz-card .quiz-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px 14px;
+      align-items: center;
+    }
+    .quiz-card .coefs {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+    }
+    .quiz-card .coefs .lbl { color: var(--ink-muted); margin-right: 4px; }
+    .badge {
+      font-family: var(--sans);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+    }
+    .badge.bad-ctrl { background: #fdf1ef; color: var(--biasred); border-color: #f0c7c0; }
+    .badge.ok-ctrl  { background: #eaf7ef; color: var(--repairgreen); border-color: #c2e4cd; }
+    .quiz-explain {
+      margin-top: 10px;
+      font-size: 13.5px;
+      color: var(--ink-muted);
+      font-style: italic;
+      display: none;
+    }
+    .quiz-card.revealed .quiz-explain { display: block; }
+
+    /* ----- nav ----- */
+    .col-navlinks {
+      margin-top: 36px;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .col-navlinks a.next::after { content: ' →'; }
+    .col-navlinks a.prev::before { content: '← '; }
+
+    .kbd {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: #f2efe4;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    @media (max-width: 820px) {
+      .fame-layout, .x3-layout { grid-template-columns: 1fr; }
+      .articles-grid { grid-template-columns: 1fr; }
+      .x3-metrics { grid-template-columns: auto 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../index.html">← back to playground</a>
+  </nav>
+
+  <main class="pg-container">
+    <header class="pg-header">
+      <h1>Collider bias &amp; bad controls</h1>
+      <p class="subtitle">More controls are <em>not</em> always better. Sometimes adding one ruins the estimate.</p>
+    </header>
+
+    <section id="topic-content">
+      <p>
+        An analyst's instinct — <q>the more variables I control for, the cleaner the estimate</q> —
+        is wrong. A control that is itself caused by the outcome (or by the treatment) is a
+        <strong>collider</strong>. Conditioning on it opens a spurious path between the other variables
+        and distorts everything downstream.
+      </p>
+      <p>
+        The canonical picture in graph form:
+        \[ A \longrightarrow C \longleftarrow B \]
+        \(A\) and \(B\) are unrelated. But condition on \(C\) (slice the data by it, or include it as
+        a regressor) and an association between \(A\) and \(B\) appears out of thin air.
+      </p>
+    </section>
+
+    <!-- =======================================================
+         1. FAME FILTER DEMO
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Demo 1</span>The fame filter — Ellenberg's Great Square of Men</h2>
+      <p>
+        Here are 1000 synthetic people. Their attractiveness and niceness are drawn
+        <em>independently</em>: in the general population, correlation \(\rho \approx 0\). Now hit
+        <em>Filter to famous people</em>. Fame rewards being either very attractive or very nice
+        (or both) — it is a common effect, a collider. Watch what happens to the correlation inside
+        the famous subset.
+      </p>
+      <div class="fame-layout">
+        <div class="fame-plot" id="fame-plot"></div>
+        <div class="fame-side">
+          <div class="fame-metric">
+            <span class="label">Correlation (full population)</span>
+            <span class="value" id="fame-rho-full">—</span>
+            <span class="label">Correlation (famous subset)</span>
+            <span class="value bad" id="fame-rho-sub">—</span>
+            <span class="label">Famous n / Total n</span>
+            <span class="value" id="fame-counts">—</span>
+          </div>
+          <div class="fame-btnrow">
+            <button class="pg-btn" id="fame-toggle">Filter to famous people</button>
+            <button class="pg-btn secondary" id="fame-resample">Resample</button>
+          </div>
+          <div class="col-narr" id="fame-narr">
+            No filter yet. In the general population, attractiveness and niceness vary independently.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         2. X3 TOGGLE EXPERIMENT + DAG
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Demo 2</span>The exam DGP: what happens if you control for \(X_3\)?</h2>
+      <p>
+        Back to our running exam scenario. The true model is
+        \(Y = 50 + 8\log X_1 + 3X_2 + 2U + \varepsilon\), and the analyst wants the causal effect
+        of hours studied (\(X_1\)) on the exam score. There is a fourth, tempting variable:
+        \(X_3\), the student's <em>self-assessed performance</em>, measured after the exam.
+        Because \(X_3 = 0.9\,Y + \eta_3\), it is a downstream consequence of \(Y\) — a collider
+        on the back-door path from \(X_1\) through \(U\). Toggle it on and off.
+      </p>
+
+      <div class="x3-layout">
+        <div class="x3-controls">
+          <label class="checkbox-label" id="x3-label">
+            <input type="checkbox" id="x3-toggle" />
+            Include \(X_3\) as a control
+          </label>
+          <div class="x3-metrics">
+            <span class="label">Fit:</span><span class="value" id="x3-formula" style="grid-column: span 3;">\(Y \sim \log X_1 + X_2\)</span>
+            <span class="label">\(\hat\beta_1\) on \(\log X_1\)</span><span class="value" id="x3-beta">—</span>
+            <span class="label">SE</span><span class="value" id="x3-se">—</span>
+            <span class="label">Distance from truth (β₁ = 8)</span><span class="value" id="x3-gap" style="grid-column: span 3;">—</span>
+          </div>
+          <div class="col-narr" id="x3-narr">
+            Without \(X_3\), the coefficient sits near the truth of 8. Hours studied push scores up.
+          </div>
+        </div>
+
+        <div class="dag-wrap">
+          <svg id="dag-svg" viewBox="0 0 420 260"></svg>
+          <div class="dag-caption" id="dag-caption">
+            Hover or check the box above — when \(X_3\) is conditioned on, a spurious path between \(X_1\) and \(U\) opens.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         3. REAL WORLD ARTICLES
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">In the wild</span>Colliders in real journalism and real science</h2>
+      <p>
+        Every one of these headlines is a collider in disguise. The mechanism is the same each time:
+        the writer (or the scientist) has unknowingly conditioned on a common effect.
+      </p>
+      <div class="articles-grid">
+        <div class="article-card">
+          <span class="src">SheKnows</span>
+          <span class="headline">Really hot guys are also really not nice, says science</span>
+          <span class="desc">
+            The data: dating-app users. But the app pre-filters on being noticed at all —
+            attractiveness and personality are both inputs to that filter, so a negative
+            correlation appears in the filtered sample even when none exists in the population.
+          </span>
+          <a class="read" href="https://www.sheknows.com/health-and-wellness/articles/1028613/why-attractive-men-are-jerks/" target="_blank" rel="noopener">Read original →</a>
+        </div>
+
+        <div class="article-card">
+          <span class="src">YourTango</span>
+          <span class="headline">25 smokin' hot celebrities with average-looking spouses</span>
+          <span class="desc">
+            Celebrity-status is a common effect of talent, luck, looks, and charisma. Conditioning on
+            <q>married to a celebrity</q> induces a negative correlation between looks and those other
+            traits — exactly the pattern the article mistakes for a natural law.
+          </span>
+          <a class="read" href="https://www.yourtango.com/entertainment/hot-celebrities-ugly-spouses" target="_blank" rel="noopener">Read original →</a>
+        </div>
+
+        <div class="article-card">
+          <span class="src">Slate · Jordan Ellenberg</span>
+          <span class="headline">The summer's most unread book is…</span>
+          <span class="desc">
+            Ellenberg's essay that popularised the <em>Great Square of Men</em>: why the nice-and-hot
+            subset of famous people looks like a tradeoff even when, in the full population, niceness
+            and hotness are statistically independent.
+          </span>
+          <a class="read" href="https://slate.com/culture/2014/07/the-summers-most-unread-book-is.html" target="_blank" rel="noopener">Read essay →</a>
+        </div>
+
+        <div class="article-card">
+          <span class="src">Nature Communications · Griffith et al. 2020</span>
+          <span class="headline">Collider bias undermines our understanding of COVID-19 disease risk and severity</span>
+          <span class="desc">
+            Early pandemic hospital data seemed to show smoking was <em>protective</em> against severe
+            COVID. But being in the hospital sample is itself a collider: smoking and COVID both
+            affect hospitalisation, so conditioning on it manufactured the paradox.
+          </span>
+          <a class="read" href="https://www.nature.com/articles/s41467-020-19478-2" target="_blank" rel="noopener">Read paper →</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         4. QUIZ
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Your turn</span>Which candidate control is a collider?</h2>
+      <p>
+        Our outcome is an exam score. Three covariates are on the table. For each one, predict
+        first: <em>will controlling for this help or hurt the estimate of \(\hat\beta_1\)?</em>
+        Then click the button to see the actual fit before and after.
+      </p>
+
+      <div class="quiz-list" id="quiz-list">
+        <!-- Populated by JS so coefficients are live -->
+      </div>
+    </section>
+
+    <div class="col-navlinks">
+      <a class="prev" href="causation.html">Prev: causation / IV</a>
+      <a class="next" href="rdd.html">Next: regression discontinuity</a>
+    </div>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { generateData, TRUE_BETAS, seededRandom, randn, mean } from '../shared/dgp.js';
+    import { ols } from '../shared/regression.js';
+    import { PALETTE } from '../shared/plot.js';
+
+    // ---- KaTeX auto-render ----
+    function renderMath(root = document.body) {
+      renderMathInElement(root, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => renderMath());
+
+    // ====================================================================
+    // Utility: Pearson correlation
+    // ====================================================================
+    function pearson(xs, ys) {
+      const n = xs.length;
+      if (n < 2) return NaN;
+      let mx = 0, my = 0;
+      for (let i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; }
+      mx /= n; my /= n;
+      let sxy = 0, sxx = 0, syy = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = xs[i] - mx, dy = ys[i] - my;
+        sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
+      }
+      const denom = Math.sqrt(sxx * syy);
+      return denom > 0 ? sxy / denom : NaN;
+    }
+    function fmt(x, d = 3) { return isFinite(x) ? x.toFixed(d) : '—'; }
+
+    // ====================================================================
+    // 1. Fame filter demo
+    // ====================================================================
+    const FAME_N = 1000;
+    const FAME_FRAC = 0.20;                // top 20% by (attr+nice)
+
+    let fameState = { seed: 3, filtered: false };
+
+    function generateFameData(seed) {
+      const rng = seededRandom(seed);
+      const attr = new Float64Array(FAME_N);
+      const nice = new Float64Array(FAME_N);
+      for (let i = 0; i < FAME_N; i++) {
+        attr[i] = randn(rng);   // uncorrelated in the population
+        nice[i] = randn(rng);
+      }
+      // Fame = attr + nice; top 20% are "famous"
+      const fame = new Float64Array(FAME_N);
+      for (let i = 0; i < FAME_N; i++) fame[i] = attr[i] + nice[i];
+      const sorted = Array.from(fame).slice().sort((a, b) => a - b);
+      const cutoff = sorted[Math.floor((1 - FAME_FRAC) * FAME_N)];
+      const famous = new Uint8Array(FAME_N);
+      for (let i = 0; i < FAME_N; i++) famous[i] = fame[i] >= cutoff ? 1 : 0;
+      return { attr, nice, famous };
+    }
+
+    // Build fame scatter
+    const fameSvgHost = document.getElementById('fame-plot');
+    const fameW = 520, fameH = 380;
+    const fameMargin = { top: 16, right: 18, bottom: 46, left: 54 };
+    const fameInnerW = fameW - fameMargin.left - fameMargin.right;
+    const fameInnerH = fameH - fameMargin.top - fameMargin.bottom;
+
+    const fameSvg = d3.select(fameSvgHost).html('')
+      .append('svg')
+      .attr('viewBox', `0 0 ${fameW} ${fameH}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
+    const fameG = fameSvg.append('g')
+      .attr('transform', `translate(${fameMargin.left},${fameMargin.top})`);
+
+    const fameXS = d3.scaleLinear().domain([-3.5, 3.5]).range([0, fameInnerW]);
+    const fameYS = d3.scaleLinear().domain([-3.5, 3.5]).range([fameInnerH, 0]);
+
+    fameG.append('g')
+      .attr('transform', `translate(0,${fameInnerH})`)
+      .attr('class', 'axis')
+      .call(d3.axisBottom(fameXS).ticks(6));
+    fameG.append('g').attr('class', 'axis').call(d3.axisLeft(fameYS).ticks(6));
+
+    fameG.append('text').attr('class', 'axis-label')
+      .attr('x', fameInnerW / 2).attr('y', fameInnerH + 34)
+      .attr('text-anchor', 'middle').text('Attractiveness (z-score)');
+    fameG.append('text').attr('class', 'axis-label')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -fameInnerH / 2).attr('y', -40)
+      .attr('text-anchor', 'middle').text('Niceness (z-score)');
+
+    // Decision boundary: attr + nice = cutoff (drawn once resample happens)
+    const fameBoundary = fameG.append('line')
+      .attr('stroke', PALETTE.biasred)
+      .attr('stroke-width', 1.2)
+      .attr('stroke-dasharray', '4 3')
+      .attr('opacity', 0);
+
+    const famePoints = fameG.append('g');
+    const fameFitG = fameG.append('g');
+
+    let fameData = null;
+
+    function refreshFameView() {
+      const { attr, nice, famous } = fameData;
+      const pts = famePoints.selectAll('circle').data(d3.range(FAME_N));
+      pts.enter().append('circle')
+          .attr('r', 2.5)
+        .merge(pts)
+          .attr('cx', i => fameXS(attr[i]))
+          .attr('cy', i => fameYS(nice[i]))
+          .attr('fill', i => famous[i] ? PALETTE.biasred : '#b7b4a8')
+          .attr('opacity', i => {
+            if (!fameState.filtered) return 0.55;
+            return famous[i] ? 0.9 : 0.12;
+          })
+          .attr('r', i => {
+            if (!fameState.filtered) return 2.5;
+            return famous[i] ? 3.2 : 2;
+          });
+      pts.exit().remove();
+
+      // Draw boundary line when filtered
+      if (fameState.filtered) {
+        // attr + nice = c  =>  nice = c - attr
+        // compute c from current data
+        const fame = Array.from(attr, (a, i) => a + nice[i]);
+        const sorted = fame.slice().sort((a, b) => a - b);
+        const c = sorted[Math.floor((1 - FAME_FRAC) * FAME_N)];
+        const xs = [-3.5, 3.5];
+        const ys = xs.map(x => c - x);
+        fameBoundary
+          .attr('x1', fameXS(xs[0])).attr('y1', fameYS(ys[0]))
+          .attr('x2', fameXS(xs[1])).attr('y2', fameYS(ys[1]))
+          .attr('opacity', 1);
+      } else {
+        fameBoundary.attr('opacity', 0);
+      }
+
+      // Correlations
+      const rhoFull = pearson(Array.from(attr), Array.from(nice));
+      const subAttr = [], subNice = [];
+      for (let i = 0; i < FAME_N; i++) {
+        if (famous[i]) { subAttr.push(attr[i]); subNice.push(nice[i]); }
+      }
+      const rhoSub = pearson(subAttr, subNice);
+
+      document.getElementById('fame-rho-full').textContent = fmt(rhoFull);
+      document.getElementById('fame-rho-sub').textContent = fmt(rhoSub);
+      document.getElementById('fame-counts').textContent = `${subAttr.length} / ${FAME_N}`;
+
+      const narr = document.getElementById('fame-narr');
+      if (!fameState.filtered) {
+        narr.className = 'col-narr';
+        narr.textContent = `In the general population, \u03c1 \u2248 ${fmt(rhoFull, 2)}. No visible tradeoff between the two traits.`;
+      } else {
+        narr.className = 'col-narr bad';
+        narr.innerHTML =
+          `Inside the famous subset, \u03c1 \u2248 <strong>${fmt(rhoSub, 2)}</strong> — a ` +
+          `negative correlation manufactured out of nothing. Fame is a collider: conditioning on ` +
+          `<em>top 20% by (attractiveness + niceness)</em> cuts away the top-right corner and the ` +
+          `bottom-left corner, leaving the anti-diagonal ridge.`;
+      }
+
+      // Fit line inside subset
+      fameFitG.selectAll('*').remove();
+      if (fameState.filtered && subAttr.length > 3) {
+        // simple OLS of nice on attr in subset
+        let mx = 0, my = 0;
+        for (let i = 0; i < subAttr.length; i++) { mx += subAttr[i]; my += subNice[i]; }
+        mx /= subAttr.length; my /= subNice.length;
+        let sxy = 0, sxx = 0;
+        for (let i = 0; i < subAttr.length; i++) {
+          const dx = subAttr[i] - mx, dy = subNice[i] - my;
+          sxy += dx * dy; sxx += dx * dx;
+        }
+        const slope = sxx > 0 ? sxy / sxx : 0;
+        const intercept = my - slope * mx;
+        const x0 = -3.5, x1 = 3.5;
+        fameFitG.append('line')
+          .attr('x1', fameXS(x0)).attr('y1', fameYS(intercept + slope * x0))
+          .attr('x2', fameXS(x1)).attr('y2', fameYS(intercept + slope * x1))
+          .attr('stroke', '#111').attr('stroke-width', 1.8);
+      }
+    }
+
+    function resampleFame() {
+      fameData = generateFameData(fameState.seed);
+      refreshFameView();
+    }
+
+    document.getElementById('fame-toggle').addEventListener('click', () => {
+      fameState.filtered = !fameState.filtered;
+      document.getElementById('fame-toggle').textContent =
+        fameState.filtered ? 'Show everyone again' : 'Filter to famous people';
+      refreshFameView();
+    });
+    document.getElementById('fame-resample').addEventListener('click', () => {
+      fameState.seed = (fameState.seed + 7) | 0;
+      resampleFame();
+    });
+
+    resampleFame();
+
+    // ====================================================================
+    // 2. X3 toggle experiment + DAG
+    // ====================================================================
+    const examData = generateData(600, 42);
+
+    function fitExam(includeX3) {
+      const logX1 = Array.from(examData.X1, x => Math.log(x));
+      const rows = [];
+      for (let i = 0; i < examData.Y.length; i++) {
+        const row = [logX1[i], examData.X2[i]];
+        if (includeX3) row.push(examData.X3[i]);
+        rows.push(row);
+      }
+      const fit = ols(Array.from(examData.Y), rows);
+      return { b1: fit.coefficients[1], se1: fit.se[1] };
+    }
+
+    const x3Toggle = document.getElementById('x3-toggle');
+    const x3Label  = document.getElementById('x3-label');
+    const x3Formula = document.getElementById('x3-formula');
+    const x3Beta    = document.getElementById('x3-beta');
+    const x3SE      = document.getElementById('x3-se');
+    const x3Gap     = document.getElementById('x3-gap');
+    const x3Narr    = document.getElementById('x3-narr');
+
+    function updateX3View() {
+      const on = x3Toggle.checked;
+      x3Label.classList.toggle('on', on);
+
+      const { b1, se1 } = fitExam(on);
+      const gap = b1 - TRUE_BETAS.beta1;
+
+      if (on) {
+        x3Formula.innerHTML = '\\(Y \\sim \\log X_1 + X_2 + X_3\\)';
+      } else {
+        x3Formula.innerHTML = '\\(Y \\sim \\log X_1 + X_2\\)';
+      }
+      renderMath(x3Formula);
+
+      x3Beta.textContent = fmt(b1);
+      x3Beta.classList.toggle('bad', on);
+      x3Beta.classList.toggle('good', !on);
+      x3SE.textContent   = fmt(se1, 4);
+      x3Gap.textContent  = (gap >= 0 ? '+' : '') + fmt(gap);
+      x3Gap.classList.toggle('bad', Math.abs(gap) > 1.0);
+      x3Gap.classList.toggle('good', Math.abs(gap) <= 1.0);
+
+      if (on) {
+        x3Narr.className = 'col-narr bad';
+        x3Narr.innerHTML =
+          `With \\(X_3\\) (a child of \\(Y\\)) included, \\(\\hat\\beta_1 \\approx ${fmt(b1, 2)}\\) — ` +
+          `collapsed toward zero. The regression now absorbs most of the <em>log X₁ → Y</em> path ` +
+          `into \\(X_3\\) itself, because \\(X_3\\) is a near-copy of \\(Y\\).`;
+      } else {
+        x3Narr.className = 'col-narr good';
+        x3Narr.innerHTML =
+          `Without \\(X_3\\), \\(\\hat\\beta_1 \\approx ${fmt(b1, 2)}\\) — close to the truth of ` +
+          `8. \\(X_2\\) is a legitimate control, not a collider.`;
+      }
+      renderMath(x3Narr);
+
+      // DAG highlight
+      const dagSpurious = document.getElementById('dag-spurious');
+      const dagBox      = document.getElementById('dag-box');
+      const dagNodeX3   = document.getElementById('dag-node-x3');
+      const dagCaption  = document.getElementById('dag-caption');
+      if (on) {
+        dagSpurious.classList.add('on');
+        dagBox.classList.add('on');
+        dagNodeX3.classList.add('collider');
+        dagCaption.textContent = 'Conditioning on X₃ (a descendant of Y) opens the spurious X₁ – U path.';
+      } else {
+        dagSpurious.classList.remove('on');
+        dagBox.classList.remove('on');
+        dagNodeX3.classList.remove('collider');
+        dagCaption.textContent = 'X₃ is not conditioned on. All back-door paths through U are closed by X₂ and the DGP itself.';
+      }
+    }
+
+    // Hover preview (does not actually toggle the checkbox)
+    x3Label.addEventListener('mouseenter', () => {
+      document.getElementById('dag-spurious').classList.add('on');
+      document.getElementById('dag-box').classList.add('on');
+      document.getElementById('dag-node-x3').classList.add('collider');
+    });
+    x3Label.addEventListener('mouseleave', () => {
+      if (!x3Toggle.checked) {
+        document.getElementById('dag-spurious').classList.remove('on');
+        document.getElementById('dag-box').classList.remove('on');
+        document.getElementById('dag-node-x3').classList.remove('collider');
+      }
+    });
+    x3Toggle.addEventListener('change', updateX3View);
+
+    // ---- Build DAG SVG ----
+    (function buildDAG() {
+      const svg = d3.select('#dag-svg');
+      // Arrow markers
+      const defs = svg.append('defs');
+      defs.append('marker')
+        .attr('id', 'arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 8).attr('refY', 0)
+        .attr('markerWidth', 7).attr('markerHeight', 7)
+        .attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#1f2430');
+      defs.append('marker')
+        .attr('id', 'arrow-red')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 8).attr('refY', 0)
+        .attr('markerWidth', 7).attr('markerHeight', 7)
+        .attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', PALETTE.biasred);
+
+      // Node layout (x, y)
+      const N = {
+        U:  { x:  80, y:  50, r: 20, label: 'U',  cls: '' },
+        X1: { x:  80, y: 170, r: 20, label: 'X₁', cls: '' },
+        X2: { x: 220, y:  50, r: 20, label: 'X₂', cls: '' },
+        Y:  { x: 260, y: 170, r: 22, label: 'Y',  cls: 'outcome' },
+        X3: { x: 370, y: 170, r: 22, label: 'X₃', cls: '', id: 'dag-node-x3' }
+      };
+
+      // Edges
+      const edges = [
+        ['U', 'X1'],
+        ['U', 'Y'],
+        ['X1', 'Y'],
+        ['X2', 'Y'],
+        ['Y', 'X3']
+      ];
+
+      // Draw edges first (under nodes)
+      const edgeG = svg.append('g').attr('class', 'edges');
+      edges.forEach(([a, b]) => {
+        const A = N[a], B = N[b];
+        const [x1, y1, x2, y2] = trimLine(A, B);
+        edgeG.append('line')
+          .attr('class', 'dag-edge')
+          .attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2);
+      });
+
+      // Spurious arc (X1 <-> U), curved dashed red
+      // Draw from X1 up to U on the left (both share x=80 — use a curved path offset)
+      const arcPath = svg.append('path')
+        .attr('id', 'dag-spurious')
+        .attr('class', 'dag-edge spurious')
+        .attr('d', `M ${N.X1.x - 18} ${N.X1.y - N.X1.r + 4}
+                    C  ${N.X1.x - 70} ${(N.X1.y + N.U.y) / 2},
+                       ${N.U.x - 70}  ${(N.X1.y + N.U.y) / 2},
+                       ${N.U.x  - 18} ${N.U.y  + N.U.r  - 4}`)
+        .attr('stroke-linecap', 'round');
+
+      // Box around X3 (collider indicator)
+      svg.append('rect')
+        .attr('id', 'dag-box')
+        .attr('class', 'dag-box')
+        .attr('x', N.X3.x - 32).attr('y', N.X3.y - 32)
+        .attr('width', 64).attr('height', 64)
+        .attr('rx', 4);
+
+      // Nodes
+      const nodeG = svg.append('g').attr('class', 'nodes');
+      Object.entries(N).forEach(([k, v]) => {
+        const g = nodeG.append('g')
+          .attr('class', `dag-node ${v.cls}`)
+          .attr('transform', `translate(${v.x},${v.y})`);
+        if (v.id) g.attr('id', v.id);
+        g.append('circle').attr('r', v.r);
+        g.append('text').text(v.label);
+      });
+
+      // Caption for the "+U→X1" indirect info
+      svg.append('text')
+        .attr('x', 10).attr('y', 248)
+        .attr('font-size', 11).attr('fill', '#7F8C8D')
+        .attr('font-family', 'var(--sans)')
+        .text('Nodes: U (unobserved), X₁, X₂, Y, X₃. Red = collider when conditioned.');
+
+      // Helper: trim a line so it ends at the circle boundary.
+      function trimLine(A, B) {
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const ux = dx / d, uy = dy / d;
+        return [
+          A.x + ux * A.r, A.y + uy * A.r,
+          B.x - ux * B.r, B.y - uy * B.r
+        ];
+      }
+    })();
+
+    updateX3View();
+
+    // ====================================================================
+    // 4. Quiz: which variable is a collider?
+    // ====================================================================
+    // Candidates:
+    //   (a) Prior GPA: prior trait, correlated with U (self-discipline), not caused by Y.
+    //       Including it should leave β₁ ~ near truth (valid control).
+    //   (b) Confidence (X3): the collider. Including it collapses β₁ toward zero.
+    //   (c) Parent's education: unrelated to Y mechanism in our DGP (weak nuisance),
+    //       valid control — β₁ stays near truth.
+    //
+    // We synthesise prior GPA and parent ed from the exam data + fresh noise so coefs
+    // are live but deterministic across reloads.
+
+    function simulateQuizCovariates(seed = 101) {
+      const rng = seededRandom(seed);
+      const n = examData.Y.length;
+      const priorGPA = new Float64Array(n);
+      const parentEd = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        // Prior GPA tracks U (self-discipline) but does not cause Y in the DGP
+        priorGPA[i] = 0.6 * examData.U[i] + randn(rng) * 0.8 + 3.0;
+        // Parent ed — uncorrelated nuisance
+        parentEd[i] = 12 + randn(rng) * 2;
+      }
+      return { priorGPA, parentEd };
+    }
+    const quizCov = simulateQuizCovariates();
+
+    function fitQuiz(extraArr /* Float64Array|null */) {
+      const logX1 = Array.from(examData.X1, x => Math.log(x));
+      const rows = [];
+      for (let i = 0; i < examData.Y.length; i++) {
+        const row = [logX1[i], examData.X2[i]];
+        if (extraArr) row.push(extraArr[i]);
+        rows.push(row);
+      }
+      const fit = ols(Array.from(examData.Y), rows);
+      return fit.coefficients[1];
+    }
+
+    const baselineB1 = fitQuiz(null);
+
+    const quizSpec = [
+      {
+        key: 'gpa',
+        label: 'Prior GPA',
+        desc: 'A student\'s grade-point average from the previous semester, measured before this exam.',
+        extra: quizCov.priorGPA,
+        verdict: 'ok'
+      },
+      {
+        key: 'conf',
+        label: 'Self-assessed confidence (X₃)',
+        desc: 'How confident the student felt about their exam answers — collected after the exam, from the exam itself.',
+        extra: examData.X3,
+        verdict: 'bad'
+      },
+      {
+        key: 'par',
+        label: "Parent's education (years)",
+        desc: 'Number of years of formal education completed by a parent. Pre-dates this exam.',
+        extra: quizCov.parentEd,
+        verdict: 'ok'
+      }
+    ];
+
+    const quizList = document.getElementById('quiz-list');
+    quizSpec.forEach(q => {
+      const b1After = fitQuiz(q.extra);
+      const badge = q.verdict === 'bad'
+        ? '<span class="badge bad-ctrl">Collider — bad control</span>'
+        : '<span class="badge ok-ctrl">Valid control</span>';
+      const explain = q.verdict === 'bad'
+        ? `\\(X_3\\) is measured <em>after</em> the exam and is driven by \\(Y\\). Conditioning on ` +
+          `it opens a back-door path between \\(X_1\\) and \\(U\\), collapsing \\(\\hat\\beta_1\\) ` +
+          `toward zero.`
+        : `This variable is measured <em>before</em> the exam (or unrelated to \\(Y\\)'s mechanism). ` +
+          `Including it does not open any new path — \\(\\hat\\beta_1\\) stays near the truth.`;
+      const card = document.createElement('div');
+      card.className = 'quiz-card';
+      card.innerHTML = `
+        <h4>${q.label}</h4>
+        <div class="quiz-desc">${q.desc}</div>
+        <div class="quiz-row">
+          <div class="coefs">
+            <span class="lbl">β̂₁ before:</span> ${fmt(baselineB1, 3)}
+            &nbsp;·&nbsp;
+            <span class="lbl">β̂₁ after:</span> ${fmt(b1After, 3)}
+          </div>
+          <div></div>
+          <button class="pg-btn ${q.verdict === 'bad' ? '' : 'secondary'}" data-key="${q.key}">
+            Control for this
+          </button>
+        </div>
+        <div class="quiz-explain">${badge}<div style="margin-top:8px">${explain}</div></div>
+      `;
+      card.querySelector('button').addEventListener('click', () => {
+        card.classList.add('revealed');
+        renderMath(card);
+      });
+      quizList.appendChild(card);
+    });
+
+    renderMath();
+  </script>
+</body>
+</html>
