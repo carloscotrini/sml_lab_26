@@ -529,8 +529,13 @@
       revealed: false,
       aliceU: 0.85,
       bobU: -0.85,
-      sample: null
+      sample: null,
+      view: {
+        azimuth: Math.PI / 6,
+        elevation: Math.PI / 6
+      }
     };
+    const DEFAULT_VIEW = { azimuth: Math.PI / 6, elevation: Math.PI / 6 };
 
     function draw() {
       // generate sample with current gamma1/gamma2 overrides. We use a custom
@@ -881,34 +886,28 @@
     // stage 4: (X1, X2) scatter coloured by U. Alice/Bob plotted; reveal Y via a tooltip-style annotation.
     // Isometric 3D projection: map (X1, X2, Y) to (sx, sy) in SVG space.
     // Shared across stages 4, 5, 6, 8 where Y is a real axis.
-    function makeIso3D(x1Domain, x2Domain, yDomain, viewW, viewH) {
-      const c30 = Math.cos(Math.PI / 6);
-      const s30 = Math.sin(Math.PI / 6);
-      // Normalise each dimension to [0,1]
+    function makeRotatable3D(x1Domain, x2Domain, yDomain, viewW, viewH) {
       const nX1 = d => (d - x1Domain[0]) / (x1Domain[1] - x1Domain[0]);
       const nX2 = d => (d - x2Domain[0]) / (x2Domain[1] - x2Domain[0]);
       const nY  = d => (d - yDomain[0])  / (yDomain[1]  - yDomain[0]);
-      // Iso projection in unit cube space: sx = (X1 - X2)*c30, sy = Y_up - (X1 + X2)*s30
-      // Find the projected bounding box (sx, sy) over the unit cube corners
-      const corners = [
-        [0,0,0],[1,0,0],[0,1,0],[1,1,0],
-        [0,0,1],[1,0,1],[0,1,1],[1,1,1]
-      ].map(([a,b,c]) => [(a-b)*c30, c - (a+b)*s30]);
-      const sxMin = Math.min(...corners.map(p=>p[0]));
-      const sxMax = Math.max(...corners.map(p=>p[0]));
-      const syMin = Math.min(...corners.map(p=>p[1]));
-      const syMax = Math.max(...corners.map(p=>p[1]));
-      const pad = 30;
-      const scale = Math.min((viewW - 2*pad)/(sxMax-sxMin), (viewH - 2*pad)/(syMax-syMin));
-      // Project a 3D point to screen coords
+      const pad = 40;
+      // Return a projector that ALWAYS reads current state.view so rotations
+      // take effect without rebuilding the projector.
       return function project(x1, x2, y) {
-        const u1 = nX1(x1), u2 = nX2(x2), uy = nY(y);
-        const sx = (u1 - u2) * c30;
-        const syUp = uy - (u1 + u2) * s30;
-        // Convert to SVG coords (y axis points down)
-        const screenX = pad + (sx - sxMin) * scale;
-        const screenY = viewH - pad - (syUp - syMin) * scale;
-        return [screenX, screenY];
+        // Centre the unit cube at the origin: map to [-0.5, 0.5]
+        const u1 = nX1(x1) - 0.5;
+        const u2 = nX2(x2) - 0.5;
+        const uy = nY(y)  - 0.5;
+        // Rotate around vertical (Y) axis by azimuth
+        const ca = Math.cos(state.view.azimuth), sa = Math.sin(state.view.azimuth);
+        const x1r = u1 * ca - u2 * sa;
+        const zr  = u1 * sa + u2 * ca;
+        // Rotate around horizontal (screen-X) axis by elevation
+        const ce = Math.cos(state.view.elevation), se = Math.sin(state.view.elevation);
+        const yr = uy * ce - zr * se;
+        // Orthographic: drop final z. Screen Y points down, so subtract yr.
+        const scale = Math.min(viewW - 2 * pad, viewH - 2 * pad);
+        return [viewW / 2 + x1r * scale, viewH / 2 - yr * scale];
       };
     }
 
@@ -972,9 +971,10 @@
       const x1Domain = [0.2, 4.5];
       const x2Domain = [6, 14];
       const yDomain  = [45, 95];
-      const project = makeIso3D(x1Domain, x2Domain, yDomain, viewW, viewH);
+      const project = makeRotatable3D(x1Domain, x2Domain, yDomain, viewW, viewH);
 
       drawIsoAxes(project, x1Domain, x2Domain, yDomain, {x1:'X₁: hours', x2:'X₂: lectures', y:'Y: exam score'});
+      draw3DAffordances();
 
       // True surface Y = 50 + 8·log(X1) + 3·X2 (sample U=0, ε=0) as a light gold mesh
       const surfaceRes = 10;
@@ -1066,69 +1066,196 @@
       return { coefs: res.coefficients, residuals: res.residuals, r2: res.r2, features };
     }
 
-    // stage 5: (X1, X2) scatter coloured by U. Overlay a contour of the fitted plane
-    // via colour-coded prediction bands. For visual simplicity we show the population
-    // regression line of X2 on X1 as the "tilt" illustration — the key story of stage 5
-    // is that OLS exists; the actual coefficients come later.
-    function renderStage5(showResidColoredByU=false) {
-      clearAll();
-      setupX1X2Scales();
-      drawX1X2ScatterColoured({ opacity: 0.55 });
+    // Shared 3D domain for stages 4/5/6/8
+    const STAGE3D_DOMAIN = { x1: [0.2, 4.5], x2: [6, 14], y: [45, 95] };
+
+    // Shared 3D scene + OLS fit helpers. Returns { project, fit, residuals }.
+    function renderStage3DScene(opts = {}) {
+      const { drawFittedPlane = false, drawTrueSurface = false, drawResiduals = false,
+              residColouredByU = false, labelAliceBob = true } = opts;
+      const viewW = iw, viewH = ih;
+      const x1Domain = STAGE3D_DOMAIN.x1, x2Domain = STAGE3D_DOMAIN.x2, yDomain = STAGE3D_DOMAIN.y;
+      const project = makeRotatable3D(x1Domain, x2Domain, yDomain, viewW, viewH);
+      drawIsoAxes(project, x1Domain, x2Domain, yDomain, {x1:'X₁: hours', x2:'X₂: lectures', y:'Y: exam score'});
 
       const d = state.sample;
-      // OLS of X2 on X1 (the tilt) — just for visual intuition on the 2D canvas
-      const xBar = mean(d.X1), yBar = mean(d.X2);
-      let num=0, den=0;
-      for (let i=0;i<d.X1.length;i++) { num += (d.X1[i]-xBar)*(d.X2[i]-yBar); den += (d.X1[i]-xBar)**2; }
-      const slope = den>0 ? num/den : 0;
-      const intercept = yBar - slope*xBar;
-      const xs = [0.2, 4];
-      gFit.append('line')
-        .attr('x1', xScale(xs[0])).attr('y1', yScale(intercept+slope*xs[0]))
-        .attr('x2', xScale(xs[1])).attr('y2', yScale(intercept+slope*xs[1]))
-        .attr('stroke','var(--c-est)').attr('stroke-width', 2.2).attr('opacity', 0.85);
+      const clipY = v => Math.max(yDomain[0], Math.min(yDomain[1], v));
 
-      // residual sticks: vertical distance from each point to the fitted line (in X2 direction)
-      for (let i=0;i<d.X1.length;i++) {
-        const yhat = intercept + slope*d.X1[i];
-        const u = d.U[i];
-        let colorClass = '';
-        if (showResidColoredByU) {
-          colorClass = u > 0 ? 'alice-tone' : 'bob-tone';
+      // True surface (violet/gold for reference)
+      if (drawTrueSurface) {
+        const surfaceRes = 10;
+        const trueY = (x1, x2) => 50 + 8 * Math.log(Math.max(0.1, x1)) + 3 * x2;
+        for (let i = 0; i < surfaceRes; i++) {
+          for (let j = 0; j < surfaceRes; j++) {
+            const x1a = x1Domain[0] + (i / surfaceRes) * (x1Domain[1] - x1Domain[0]);
+            const x1b = x1Domain[0] + ((i + 1) / surfaceRes) * (x1Domain[1] - x1Domain[0]);
+            const x2a = x2Domain[0] + (j / surfaceRes) * (x2Domain[1] - x2Domain[0]);
+            const x2b = x2Domain[0] + ((j + 1) / surfaceRes) * (x2Domain[1] - x2Domain[0]);
+            const p1 = project(x1a, x2a, clipY(trueY(x1a, x2a)));
+            const p2 = project(x1b, x2a, clipY(trueY(x1b, x2a)));
+            const p3 = project(x1a, x2b, clipY(trueY(x1a, x2b)));
+            gTrueCurve.append('line').attr('x1',p1[0]).attr('y1',p1[1]).attr('x2',p2[0]).attr('y2',p2[1])
+              .attr('stroke','var(--c-truth)').attr('stroke-width', 0.8).attr('opacity', 0.35);
+            gTrueCurve.append('line').attr('x1',p1[0]).attr('y1',p1[1]).attr('x2',p3[0]).attr('y2',p3[1])
+              .attr('stroke','var(--c-truth)').attr('stroke-width', 0.8).attr('opacity', 0.35);
+          }
         }
-        gResid.append('line')
-          .attr('class', 'resid ' + colorClass)
-          .attr('x1', xScale(d.X1[i])).attr('y1', yScale(d.X2[i]))
-          .attr('x2', xScale(d.X1[i])).attr('y2', yScale(yhat))
-          .attr('opacity', showResidColoredByU ? 0.6 : 0.25)
-          .attr('stroke-width', Math.min(1.6, 0.5 + Math.abs(u)*0.4));
       }
 
-      const aliceX1 = 2 + state.gamma1*state.aliceU;
-      const aliceX2 = 10 + state.gamma2*state.aliceU;
-      const bobX1  = 2 + state.gamma1*state.bobU;
-      const bobX2  = 10 + state.gamma2*state.bobU;
-      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceX1)},${yScale(aliceX2)})`);
-      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobX1)},${yScale(bobX2)})`);
+      // Fitted plane from OLS of Y on X1, X2 (no U, no log)
+      let fit = null;
+      if (drawFittedPlane || drawResiduals) {
+        const rows = [];
+        for (let i = 0; i < d.Y.length; i++) rows.push([d.X1[i], d.X2[i]]);
+        fit = ols(Array.from(d.Y), rows);
+        // fit.coefficients = [a, b1, b2]
+        if (drawFittedPlane) {
+          const a = fit.coefficients[0], b1 = fit.coefficients[1], b2 = fit.coefficients[2];
+          const surfaceRes = 8;
+          const planeY = (x1, x2) => a + b1 * x1 + b2 * x2;
+          for (let i = 0; i < surfaceRes; i++) {
+            for (let j = 0; j < surfaceRes; j++) {
+              const x1a = x1Domain[0] + (i / surfaceRes) * (x1Domain[1] - x1Domain[0]);
+              const x1b = x1Domain[0] + ((i + 1) / surfaceRes) * (x1Domain[1] - x1Domain[0]);
+              const x2a = x2Domain[0] + (j / surfaceRes) * (x2Domain[1] - x2Domain[0]);
+              const x2b = x2Domain[0] + ((j + 1) / surfaceRes) * (x2Domain[1] - x2Domain[0]);
+              const p1 = project(x1a, x2a, clipY(planeY(x1a, x2a)));
+              const p2 = project(x1b, x2a, clipY(planeY(x1b, x2a)));
+              const p3 = project(x1a, x2b, clipY(planeY(x1a, x2b)));
+              gFit.append('line').attr('x1',p1[0]).attr('y1',p1[1]).attr('x2',p2[0]).attr('y2',p2[1])
+                .attr('stroke','var(--c-est)').attr('stroke-width', 1.0).attr('opacity', 0.55);
+              gFit.append('line').attr('x1',p1[0]).attr('y1',p1[1]).attr('x2',p3[0]).attr('y2',p3[1])
+                .attr('stroke','var(--c-est)').attr('stroke-width', 1.0).attr('opacity', 0.55);
+            }
+          }
+        }
+      }
+
+      // Sample points coloured by U, sorted by projected depth (back -> front)
+      const uScale = d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]).clamp(true);
+      const colourForU_local = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(uScale(u));
+      const indices = d3.range(d.Y.length).sort((a, b) => {
+        const pa = project(d.X1[a], d.X2[a], d.Y[a]);
+        const pb = project(d.X1[b], d.X2[b], d.Y[b]);
+        return pa[1] - pb[1];
+      });
+
+      // Residual sticks: vertical Y-direction, from fitted plane to actual Y
+      if (drawResiduals && fit) {
+        const a = fit.coefficients[0], b1 = fit.coefficients[1], b2 = fit.coefficients[2];
+        for (const i of indices) {
+          const yhat = a + b1 * d.X1[i] + b2 * d.X2[i];
+          const u = d.U[i];
+          const [sx1, sy1] = project(d.X1[i], d.X2[i], clipY(d.Y[i]));
+          const [sx2, sy2] = project(d.X1[i], d.X2[i], clipY(yhat));
+          let colorClass = '';
+          if (residColouredByU) colorClass = u > 0 ? 'alice-tone' : 'bob-tone';
+          gResid.append('line')
+            .attr('class', 'resid ' + colorClass)
+            .attr('data-idx', i)
+            .attr('x1', sx1).attr('y1', sy1).attr('x2', sx2).attr('y2', sy2)
+            .attr('opacity', residColouredByU ? 0.7 : 0.35)
+            .attr('stroke-width', Math.min(1.6, 0.5 + Math.abs(u) * 0.4));
+        }
+      }
+
+      // Data points
+      for (const i of indices) {
+        const [sx, sy] = project(d.X1[i], d.X2[i], clipY(d.Y[i]));
+        gCloud.append('circle')
+          .attr('cx', sx).attr('cy', sy)
+          .attr('r', 3.0).attr('fill', colourForU_local(d.U[i])).attr('opacity', 0.8)
+          .attr('stroke', '#fff').attr('stroke-width', 0.4);
+      }
+
+      // Alice and Bob
+      if (labelAliceBob) {
+        const aliceX1 = 2 + state.gamma1 * state.aliceU;
+        const aliceX2 = 10 + state.gamma2 * state.aliceU;
+        const aliceY  = 50 + 8 * Math.log(aliceX1) + 3 * aliceX2 + 2 * state.aliceU;
+        const bobX1   = 2 + state.gamma1 * state.bobU;
+        const bobX2   = 10 + state.gamma2 * state.bobU;
+        const bobY    = 50 + 8 * Math.log(bobX1) + 3 * bobX2 + 2 * state.bobU;
+        const [aSx, aSy] = project(aliceX1, aliceX2, clipY(aliceY));
+        const [bSx, bSy] = project(bobX1, bobX2, clipY(bobY));
+        const [aFx, aFy] = project(aliceX1, aliceX2, yDomain[0]);
+        const [bFx, bFy] = project(bobX1, bobX2, yDomain[0]);
+        gOverlay.append('line').attr('x1',aFx).attr('y1',aFy).attr('x2',aSx).attr('y2',aSy)
+          .attr('stroke','var(--c-alice)').attr('stroke-dasharray','2 3').attr('stroke-width',1).attr('opacity',0.7);
+        gOverlay.append('line').attr('x1',bFx).attr('y1',bFy).attr('x2',bSx).attr('y2',bSy)
+          .attr('stroke','var(--c-bob)').attr('stroke-dasharray','2 3').attr('stroke-width',1).attr('opacity',0.7);
+        renderAvatar(gAliceBob, 'alice', 20).attr('transform', `translate(${aSx},${aSy})`);
+        renderAvatar(gAliceBob, 'bob', 20).attr('transform', `translate(${bSx},${bSy})`);
+      }
+
+      // U-colour legend
+      const legend = gOverlay.append('g').attr('transform', `translate(${viewW - 130}, 16)`);
+      if (defs.select('#uGrad3D').empty()) {
+        const grad = defs.append('linearGradient').attr('id','uGrad3D').attr('x1','0%').attr('x2','100%');
+        grad.append('stop').attr('offset','0%').attr('stop-color','#2E5EA8');
+        grad.append('stop').attr('offset','100%').attr('stop-color','#D4A017');
+      }
+      legend.append('rect').attr('width', 110).attr('height', 8).attr('fill', 'url(#uGrad3D)');
+      legend.append('text').attr('x',0).attr('y',-4).attr('font-size',10).attr('fill','#666').text('colour = U');
+      legend.append('text').attr('x',0).attr('y',22).attr('font-size',10).attr('fill','#666').text('low');
+      legend.append('text').attr('x',110).attr('y',22).attr('text-anchor','end').attr('font-size',10).attr('fill','#666').text('high');
+
+      return { project, fit, indices };
     }
 
-    // stage 6: same 2D scatter, residual sticks bloom to U-colour on reveal
+    // stage 5: OLS plane + true surface in 3D, residual sticks
+    function renderStage5(showResidColoredByU=false) {
+      clearAll();
+      renderStage3DScene({
+        drawFittedPlane: true,
+        drawTrueSurface: true,
+        drawResiduals: true,
+        residColouredByU: showResidColoredByU
+      });
+      draw3DAffordances();
+    }
+
+    // stage 6: same 3D scene, residual sticks bloom to U-colour on reveal.
+    // When already revealed, draw them pre-coloured so rotation stays snappy.
     function renderStage6() {
-      renderStage5(false);
+      clearAll();
+      renderStage3DScene({
+        drawFittedPlane: true,
+        drawTrueSurface: true,
+        drawResiduals: true,
+        residColouredByU: state.revealed
+      });
+      draw3DAffordances();
       if (state.revealed) {
-        bloomResiduals();
+        // recolour sticks with U-specific stroke/width (scene already coloured them by sign)
+        const d = state.sample;
+        gResid.selectAll('line.resid').each(function() {
+          const i = +this.getAttribute('data-idx');
+          if (Number.isNaN(i)) return;
+          const u = d.U[i];
+          d3.select(this)
+            .attr('stroke', u > 0 ? 'var(--c-alice)' : 'var(--c-bob)')
+            .attr('opacity', 0.85)
+            .attr('stroke-width', Math.min(2.5, 0.7 + Math.abs(u)));
+        });
         unveilUWidget();
       }
     }
 
     function bloomResiduals() {
       const d = state.sample;
-      const sticks = gResid.selectAll('line.resid').nodes();
+      // Look up sticks by data-idx so we don't depend on DOM order.
+      const byIdx = {};
+      gResid.selectAll('line.resid').nodes().forEach(node => {
+        const k = +node.getAttribute('data-idx');
+        if (!Number.isNaN(k)) byIdx[k] = node;
+      });
       const order = d3.range(d.X1.length).sort((a,b)=> d.X1[a] - d.X1[b]);
       order.forEach((i, k) => {
-        const stick = d3.select(sticks[i]);
+        const node = byIdx[i];
+        if (!node) return;
         const u = d.U[i];
-        stick.transition()
+        d3.select(node).transition()
           .delay(k * (1200 / order.length))
           .duration(350)
           .attr('stroke', u > 0 ? 'var(--c-alice)' : 'var(--c-bob)')
@@ -1199,40 +1326,89 @@
       }); } catch(e) {}
     }
 
-    // stage 8: (X1, X2) scatter with U colour + X3 highlighted via larger marker / ring.
+    // stage 8: 3D (X1, X2, Y) scatter coloured by U, with optional X3 ring overlay.
     function renderStage8() {
       clearAll();
-      setupX1X2Scales();
-      drawX1X2ScatterColoured({ opacity: 0.55 });
+      const viewW = iw, viewH = ih;
+      const x1Domain = STAGE3D_DOMAIN.x1, x2Domain = STAGE3D_DOMAIN.x2, yDomain = STAGE3D_DOMAIN.y;
+      const project = makeRotatable3D(x1Domain, x2Domain, yDomain, viewW, viewH);
+      drawIsoAxes(project, x1Domain, x2Domain, yDomain, {x1:'X₁: hours', x2:'X₂: lectures', y:'Y: exam score'});
 
       const d = state.sample;
+      const clipY = v => Math.max(yDomain[0], Math.min(yDomain[1], v));
+      const uScale = d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]).clamp(true);
+      const colourForU_local = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(uScale(u));
 
-      // Optional overlay: ring points by X3 rank (deciles) to visualise X3 hugging Y.
+      // Depth sort
+      const indices = d3.range(d.Y.length).sort((a, b) => {
+        const pa = project(d.X1[a], d.X2[a], d.Y[a]);
+        const pb = project(d.X1[b], d.X2[b], d.Y[b]);
+        return pa[1] - pb[1];
+      });
+
+      // X3 overlay: larger dots / amber ring for top-15% X3
+      let topQ = null;
       if (state.includeX3) {
         const sorted = d3.range(d.X3.length).sort((a,b) => d.X3[a] - d.X3[b]);
-        const topQ = new Set(sorted.slice(-Math.floor(sorted.length*0.15)));
-        topQ.forEach(i => {
+        topQ = new Set(sorted.slice(-Math.floor(sorted.length * 0.15)));
+      }
+
+      for (const i of indices) {
+        const [sx, sy] = project(d.X1[i], d.X2[i], clipY(d.Y[i]));
+        const big = topQ && topQ.has(i);
+        gCloud.append('circle')
+          .attr('cx', sx).attr('cy', sy)
+          .attr('r', big ? 5 : 3.0)
+          .attr('fill', colourForU_local(d.U[i])).attr('opacity', 0.8)
+          .attr('stroke', '#fff').attr('stroke-width', 0.4);
+        if (big) {
           gOverlay.append('circle')
-            .attr('cx', xScale(d.X1[i])).attr('cy', yScale(d.X2[i]))
-            .attr('r', 6).attr('fill', 'none')
-            .attr('stroke', 'var(--c-warn)').attr('stroke-width', 1.2).attr('opacity', 0.7);
-        });
-        gOverlay.append('text').attr('x', 10).attr('y', 20)
+            .attr('cx', sx).attr('cy', sy)
+            .attr('r', 8).attr('fill', 'none')
+            .attr('stroke', 'var(--c-warn)').attr('stroke-width', 1.2).attr('opacity', 0.75);
+        }
+      }
+      if (state.includeX3) {
+        gOverlay.append('text').attr('x', 10).attr('y', 40)
           .attr('font-size', 11).attr('fill', 'var(--c-warn)')
           .text('ringed = top 15% of X₃ (self-assessment)');
       }
 
-      // Alice & Bob on the (X1, X2) plane
-      const aliceG = renderAvatar(gAliceBob, 'alice', 26).attr('transform', `translate(${xScale(alice.X1)},${yScale(alice.X2)})`);
+      // Alice & Bob in 3D
+      const aliceY  = 50 + 8 * Math.log(alice.X1) + 3 * alice.X2 + 2 * alice.U;
+      const bobY    = 50 + 8 * Math.log(bob.X1) + 3 * bob.X2 + 2 * bob.U;
+      const [aSx, aSy] = project(alice.X1, alice.X2, clipY(aliceY));
+      const [bSx, bSy] = project(bob.X1, bob.X2, clipY(bobY));
+      const [aFx, aFy] = project(alice.X1, alice.X2, yDomain[0]);
+      const [bFx, bFy] = project(bob.X1, bob.X2, yDomain[0]);
+      gOverlay.append('line').attr('x1',aFx).attr('y1',aFy).attr('x2',aSx).attr('y2',aSy)
+        .attr('stroke','var(--c-alice)').attr('stroke-dasharray','2 3').attr('stroke-width',1).attr('opacity',0.7);
+      gOverlay.append('line').attr('x1',bFx).attr('y1',bFy).attr('x2',bSx).attr('y2',bSy)
+        .attr('stroke','var(--c-bob)').attr('stroke-dasharray','2 3').attr('stroke-width',1).attr('opacity',0.7);
+      const aliceG = renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${aSx},${aSy})`);
       aliceG.select('.halo').attr('filter','url(#glow-alice)');
-      renderAvatar(gAliceBob, 'bob', 26).attr('transform', `translate(${xScale(bob.X1)},${yScale(bob.X2)})`);
+      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${bSx},${bSy})`);
 
-      gOverlay.append('text').attr('x', xScale(alice.X1)+20).attr('y', yScale(alice.X2)-12)
-        .style('font-size','12px').style('fill','var(--c-alice)').style('font-style','italic')
+      gOverlay.append('text').attr('x', aSx + 18).attr('y', aSy - 6)
+        .style('font-size','11px').style('fill','var(--c-alice)').style('font-style','italic')
         .text('Y = 72: high U lifted her');
-      gOverlay.append('text').attr('x', xScale(bob.X1)+20).attr('y', yScale(bob.X2)+22)
-        .style('font-size','12px').style('fill','var(--c-bob)').style('font-style','italic')
+      gOverlay.append('text').attr('x', bSx + 18).attr('y', bSy + 18)
+        .style('font-size','11px').style('fill','var(--c-bob)').style('font-style','italic')
         .text('Y = 58: low U pulled him');
+
+      // U-colour legend
+      const legend = gOverlay.append('g').attr('transform', `translate(${viewW - 130}, 16)`);
+      if (defs.select('#uGrad3D').empty()) {
+        const grad = defs.append('linearGradient').attr('id','uGrad3D').attr('x1','0%').attr('x2','100%');
+        grad.append('stop').attr('offset','0%').attr('stop-color','#2E5EA8');
+        grad.append('stop').attr('offset','100%').attr('stop-color','#D4A017');
+      }
+      legend.append('rect').attr('width', 110).attr('height', 8).attr('fill', 'url(#uGrad3D)');
+      legend.append('text').attr('x',0).attr('y',-4).attr('font-size',10).attr('fill','#666').text('colour = U');
+      legend.append('text').attr('x',0).attr('y',22).attr('font-size',10).attr('fill','#666').text('low');
+      legend.append('text').attr('x',110).attr('y',22).attr('text-anchor','end').attr('font-size',10).attr('fill','#666').text('high');
+
+      draw3DAffordances();
 
       // fit readout (if any) — used by the scenario buttons
       let features = ['X1','X2'];
@@ -1251,6 +1427,97 @@
       const warn = document.getElementById('x3Warning');
       if (warn) warn.classList.toggle('on', state.includeX3);
     }
+
+    // ---------- 3D affordances: hint + reset button ----------
+    function is3DStage(n) { return n === 4 || n === 5 || n === 6 || n === 8; }
+
+    function draw3DAffordances() {
+      // "Drag to rotate" hint bottom-left
+      gOverlay.append('text')
+        .attr('x', 10).attr('y', ih - 8)
+        .attr('font-size', 11).attr('fill', '#888').attr('font-style', 'italic')
+        .attr('pointer-events', 'none')
+        .text('Drag to rotate');
+      // "Reset view" button top-right (above the legend)
+      const btn = gOverlay.append('g')
+        .attr('class', 'btn-reset-view')
+        .attr('transform', `translate(${iw - 90}, ${-16})`)
+        .style('cursor', 'pointer');
+      btn.append('rect')
+        .attr('width', 82).attr('height', 20)
+        .attr('rx', 4).attr('ry', 4)
+        .attr('fill', '#fff').attr('stroke', 'var(--c-truth)').attr('stroke-width', 1);
+      btn.append('text')
+        .attr('x', 41).attr('y', 14)
+        .attr('text-anchor', 'middle').attr('font-size', 11)
+        .attr('fill', 'var(--c-truth)')
+        .attr('pointer-events', 'none')
+        .text('Reset view');
+      btn.on('click', (ev) => {
+        ev.stopPropagation();
+        state.view.azimuth = DEFAULT_VIEW.azimuth;
+        state.view.elevation = DEFAULT_VIEW.elevation;
+        renderCurrentStage();
+      });
+    }
+
+    function renderCurrentStage() {
+      const s = state.activeStage;
+      if (s === 4) renderStage4();
+      else if (s === 5) renderStage5();
+      else if (s === 6) renderStage6();
+      else if (s === 8) renderStage8();
+    }
+
+    // ---------- rotation drag handlers ----------
+    let dragState = null;
+    svg.on('mousedown', function(ev) {
+      if (!is3DStage(state.activeStage)) return;
+      // Ignore drag if the target is the reset-view button
+      if (ev.target && ev.target.closest && ev.target.closest('.btn-reset-view')) return;
+      dragState = { x: ev.clientX, y: ev.clientY, az: state.view.azimuth, el: state.view.elevation };
+      svg.style('cursor', 'grabbing');
+      ev.preventDefault();
+    });
+    svg.on('mousemove', function() {
+      if (!is3DStage(state.activeStage)) return;
+      if (!dragState) svg.style('cursor', 'grab');
+    });
+    svg.on('mouseleave', function() {
+      if (!dragState) svg.style('cursor', null);
+    });
+    window.addEventListener('mousemove', ev => {
+      if (!dragState) return;
+      const dx = ev.clientX - dragState.x;
+      const dy = ev.clientY - dragState.y;
+      state.view.azimuth = dragState.az + dx * 0.008;
+      state.view.elevation = Math.max(-Math.PI / 2 + 0.05,
+        Math.min(Math.PI / 2 - 0.05, dragState.el + dy * 0.008));
+      renderCurrentStage();
+    });
+    window.addEventListener('mouseup', () => {
+      dragState = null;
+      svg.style('cursor', null);
+    });
+    // Touch equivalents
+    svg.on('touchstart', function(ev) {
+      if (!is3DStage(state.activeStage)) return;
+      const t = ev.touches[0];
+      dragState = { x: t.clientX, y: t.clientY, az: state.view.azimuth, el: state.view.elevation };
+      ev.preventDefault();
+    });
+    window.addEventListener('touchmove', ev => {
+      if (!dragState) return;
+      const t = ev.touches[0];
+      const dx = t.clientX - dragState.x;
+      const dy = t.clientY - dragState.y;
+      state.view.azimuth = dragState.az + dx * 0.008;
+      state.view.elevation = Math.max(-Math.PI / 2 + 0.05,
+        Math.min(Math.PI / 2 - 0.05, dragState.el + dy * 0.008));
+      renderCurrentStage();
+      ev.preventDefault();
+    }, { passive: false });
+    window.addEventListener('touchend', () => { dragState = null; });
 
     // ---------- dispatcher ----------
     const stageTitles = {
@@ -1364,11 +1631,16 @@
     });
 
     document.getElementById('btnReveal').addEventListener('click', () => {
-      state.revealed = true;
       document.getElementById('ghostLabel').style.display = 'block';
-      // we need residuals in grey first; then bloom.
+      // Draw residuals in grey first, then animate bloom, then set revealed flag
+      // so subsequent rotations keep them coloured.
+      state.revealed = false;
       renderStage5(false);
-      setTimeout(() => { bloomResiduals(); unveilUWidget(); }, 80);
+      setTimeout(() => {
+        state.revealed = true;
+        bloomResiduals();
+        unveilUWidget();
+      }, 80);
     });
 
     document.getElementById('tglIncludeX3').addEventListener('change', e => {
