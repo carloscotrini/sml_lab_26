@@ -55,6 +55,16 @@
 \newtcolorbox{vizspec}[1][]{colback=repairgreen!3, colframe=repairgreen!50!black,
   fonttitle=\bfseries, title={Visualization}, breakable, #1}
 
+% --- Named environments for recurring pedagogical patterns ---
+\newtcolorbox{coldopen}[1][]{colback=biasred!5, colframe=biasred!80!black,
+  fonttitle=\bfseries, title={Cold Open}, breakable, #1}
+\newtcolorbox{tryit}[1][]{colback=truthgold!5, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Try It Yourself}, breakable, #1}
+\newtcolorbox{predict}[1][]{colback=truthgold!5, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Predict Before You Peek}, breakable, #1}
+\newtcolorbox{participate}[1][]{colback=truthgold!10, colframe=truthgold!80!black,
+  fonttitle=\bfseries, title={Audience Participation}, breakable, #1}
+
 % --- Header / Footer ---
 \pagestyle{fancy}
 \fancyhf{}
@@ -172,17 +182,17 @@ $R^2$ & Coefficient of determination (fraction of variance explained) \\
 % ============================================================
 \section{Introduction}\label{sec:intro}
 
-\begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries, title={Cold Open}]
+\begin{coldopen}
 A study of 50{,}000 university students found that sitting in a higher-numbered seat in the exam hall is associated with higher exam scores ($p = 0.002$). Should the university assign seats by lottery? Before you answer---read on.
-\end{tcolorbox}
+\end{coldopen}
 
-\begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries, title={The Algorithm That Ruined 72 Hours}]
+\begin{coldopen}[title={The Algorithm That Ruined 72 Hours}]
 In August 2020, the UK exam regulator Ofqual deployed a regression model to assign A-level grades to half a million students whose exams had been cancelled due to COVID-19. The model included school-level variables, prior performance, and teacher predictions. Its $R^2$ was good. Its diagnostics passed. On Tuesday, students received their grades. By Thursday, the algorithm had been scrapped.
 
 The model systematically downgraded students from disadvantaged schools. A student with identical ability and identical teacher predictions received a lower grade if their school had historically underperformed---a textbook case of conditioning on a collider (school reputation is caused by both student quality \emph{and} institutional resources). The full causal structure is more complex than a single collider, but the core error is the same: the algorithm conditioned on school-level performance, which is influenced by both individual ability and socioeconomic factors, manufacturing a spurious penalty for high-ability students at historically low-performing schools. The algorithm did not measure student ability; it measured school postcode.
 
 This course is about why. Every failure mode we study---omitted variable bias, bad controls, specification error, fragile diagnostics---was present in the Ofqual model. We will return to this example in the conclusion, once you have the vocabulary to say exactly what went wrong.
-\end{tcolorbox}
+\end{coldopen}
 
 \bigskip
 
@@ -290,6 +300,8 @@ The data are generated according to the following structural equations:
   X_3 &= 0.9\,Y + \eta_3, \quad \eta_3 \sim \mathcal{N}(0,\,2). \label{eq:X3}
 \end{align}
 \end{definition}
+
+\emph{In words:} the DGP says that exam scores depend on the natural log of study hours (with diminishing returns), the number of lectures attended, and a hidden self-discipline factor --- plus random noise that grows with study hours.
 
 \begin{remark}[Logarithm convention]
 Throughout these notes, $\log$ denotes the natural logarithm (base $e$), also written $\ln$ in some textbooks.
@@ -455,6 +467,8 @@ Then
 \end{equation}
 The term $\beta_2 \delta_1$ is the \textbf{omitted variable bias}.
 \end{theorem}
+
+\emph{In words:} the biased coefficient equals the true coefficient plus a contamination term: how much the omitted variable matters times how strongly it correlates with the included one.
 
 Why is this true? Because when you regress $Y$ on $X_1$ alone, OLS gives $X_1$ credit for \emph{all} the variation in $Y$ that is correlated with $X_1$---including the part that actually belongs to $X_2$ but travels through the $X_1$--$X_2$ correlation. The bias term $\beta_2 \delta_1$ measures exactly how much of $X_2$'s effect gets falsely attributed to $X_1$. The formal derivation is in Appendix~\ref{app:proofs}.
 
@@ -634,7 +648,7 @@ There is a folk version of heteroscedasticity that everyone already knows:
 
 \emph{``If you don't put yourself out there, nothing bad happens---but nothing good happens either.''}
 
-The common thread: low exposure means low variance (predictable but boring). High exposure means high variance (exciting but risky). In regression terms: the predictor $X$ determines not just the expected outcome, but how \emph{spread out} the outcomes are. A student who studies 1 hour will reliably score around 55. A student who studies 10 hours might score 65 or 90---because at high effort, the quality of studying matters enormously, and that quality varies.
+The common thread: low exposure means low variance (predictable but boring). High exposure means high variance (exciting but risky). In regression terms: the predictor $X$ determines not just the expected outcome, but how \emph{spread out} the outcomes are. A student who studies 1 hour will reliably score around 55. A student who studies 10 hours might score 65 or 90---because at high effort, the quality of studying matters enormously, and that quality varies. Anna and Ben studied the same 4 hours, but the spread of possible scores around that 4-hour mark is already wide; push them both to 10 hours and the spread widens further---exactly the ``high exposure, high variance'' pattern.
 \end{keyinsight}
 
 \begin{theorem}[Variance Under Heteroscedasticity --- The Sandwich Formula]\label{thm:sandwich}
@@ -808,7 +822,7 @@ Look around. Almost everyone stood up for ``significant.'' Almost no one stayed 
 \end{tcolorbox}
 
 \begin{keyinsight}
-From now on, whenever you see a ``significant'' result, ask yourself: \emph{``Is this a seat number?''} That is: is the effect statistically distinguishable from zero only because the sample is enormous, while the actual magnitude is too small to matter? This question will serve you well for the rest of these notes---and for the rest of your career.
+From now on, whenever you see a ``significant'' result, ask yourself: \emph{``Is this a seat number?''} That is: is the effect statistically distinguishable from zero only because the sample is enormous, while the actual magnitude is too small to matter? With $n=2$ (just Anna and Ben), no effect is ever significant---the data is too thin. With $n = 50{,}000$, even the half-point gap between Anna's seat and Ben's seat clears the threshold for ``highly significant.'' This question will serve you well for the rest of these notes---and for the rest of your career.
 \end{keyinsight}
 
 The seat number example illustrates a general phenomenon. Let us see why it happens mathematically.
@@ -989,6 +1003,8 @@ The linear model predicts $\hat{Y} = 52.5 + 1.6 \times 30 = 100.5$, a score of o
 At 50 hours (a student who claims to have done nothing but study for an entire week), the linear model predicts $132.5$. The log model predicts $81.3$. One answer is absurd; the other is at least defensible.
 \end{keyinsight}
 
+Anna and Ben both studied 4 hours. The linear model says their scores should both be $52.5 + 1.6 \times 4 = 58.9$---identical, and wrong for both. The log model says $50 + 8\log(4) \approx 61.1$, which lands much closer to their actual 82 and 68 once self-discipline is layered in. Same hours, curved reality: the straight ruler misses both of them.
+
 The problem is not that the linear model is a bad model. Within the data range, it performs respectably. The problem is that the linear model makes an implicit promise about the future: it says that every additional hour of studying adds the same number of points, forever. The logarithmic model makes a different promise: each hour adds less than the last. The second promise is closer to reality, so the logarithmic model degrades gracefully outside the data range while the linear model degrades catastrophically.
 
 \begin{repairbox}
@@ -1061,7 +1077,7 @@ Adding polynomial terms to a regression always increases training $R^2$ (since $
 Quick poll: Which model would you deploy? If you picked degree~15, you just hired a model that memorises the exam answers but cannot think for itself. A training $R^2$ of $0.97$ is not a sign of understanding---it is a sign of memorisation. The degree-3 model ``knows less'' but \emph{generalises} better.
 \end{warningbox}
 
-A degree-15 polynomial achieves $R^2 = 0.97$ on training data but predicts \emph{worse than the sample mean} on held-out data. What happened? The polynomial has 16 free parameters. With enough flexibility, it can chase every bump and dip in the training data---including bumps that are pure noise. On new data, those noise-driven wiggles point in the wrong direction, and predictions become absurdly wrong.
+A degree-15 polynomial fit on a training set that includes Anna (82) and Ben (68) at 4 hours will bend itself into pretzels to hit both points exactly---then predict $-40$ or $+130$ for Clara, a third student who also studied 4 hours. The polynomial did not learn anything about studying; it memorised Anna and Ben and now hallucinates wildly for anyone else. A degree-15 polynomial achieves $R^2 = 0.97$ on training data but predicts \emph{worse than the sample mean} on held-out data. What happened? The polynomial has 16 free parameters. With enough flexibility, it can chase every bump and dip in the training data---including bumps that are pure noise. On new data, those noise-driven wiggles point in the wrong direction, and predictions become absurdly wrong.
 
 This is the core trap: a model that ``explains'' 97\% of the variation in your data might be explaining mostly noise. Training $R^2$ always goes up with complexity; test $R^2$ eventually crashes.
 
@@ -1423,7 +1439,7 @@ The university offers free tutoring sessions to any student who signs up. You co
 
 Should you shut down the tutoring programme? Of course not. The problem is self-selection: students who sign up for tutoring are predominantly those who are struggling---they have low self-discipline ($U$), missed lectures ($X_2$), and studied fewer hours ($X_1$). These are precisely the students who would have scored poorly anyway. The tutoring coefficient is negative not because tutoring hurts, but because weak students are the ones who seek it out.
 
-Now imagine an experiment: you randomly assign half the students to attend tutoring regardless of whether they would have chosen it. The experimental estimate shows tutoring \emph{raises} scores by 8 points. The observational estimate had the wrong sign because it confused ``who selects into tutoring'' with ``what tutoring does.''
+Anna (self-discipline 0.85) does not sign up---she already has a study plan and feels she does not need it. Ben (self-discipline 0.15) does sign up, because he knows he is falling behind. The tutoring group fills up with Bens; the control group fills up with Annas. When OLS compares the two groups, it is not measuring the effect of tutoring---it is measuring the gap between Annas and Bens. Now imagine an experiment: you randomly assign half the students to attend tutoring regardless of whether they would have chosen it. The experimental estimate shows tutoring \emph{raises} scores by 8 points. The observational estimate had the wrong sign because it confused ``who selects into tutoring'' with ``what tutoring does.''
 \end{toystory}
 
 This is the observational researcher's nightmare. You cannot diagnose the problem by staring at the regression output. The model looks fine. The standard errors are well-behaved. The $R^2$ is respectable. Yet the central conclusion is not just imprecise---it points in the wrong direction entirely.
@@ -1656,11 +1672,11 @@ We want the effect of exercise ($X_1$, hours) on mood ($Y$, score 1--20), contro
 \toprule
 Person & $X_1$ (exercise) & $X_2$ (sleep) & $Y$ (mood) \\
 \midrule
-A & 1 & 2 & 3 \\
-B & 2 & 4 & 7 \\
-C & 3 & 6 & 10 \\
-D & 5 & 8 & 18 \\
-E & 4 & 10 & 12 \\
+Anna & 1 & 2 & 3 \\
+Ben & 2 & 4 & 7 \\
+Clara & 3 & 6 & 10 \\
+Daniel & 5 & 8 & 18 \\
+Eva & 4 & 10 & 12 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1677,7 +1693,7 @@ Residuals: $\tilde{X}_1 = (-0.2,\; -0.1,\; 0.0,\; +1.1,\; -0.8)$.
 
 \textbf{Full multiple regression} ($Y$ on $X_1$ and $X_2$): coefficient on $X_1 = \mathbf{4.684}$.
 
-They match---not approximately, but to every decimal place. ``Controlling for sleep'' literally means: remove everything sleep can explain from \emph{both} mood and exercise, then see what is left.
+They match---not approximately, but to every decimal place. The coefficient that ``explains'' Anna's mood and Ben's mood together in the full regression is the \emph{same} number you recover by residualising sleep out of both sides. ``Controlling for sleep'' literally means: remove everything sleep can explain from \emph{both} mood and exercise, then see what is left.
 \end{numermark}
 
 \subsection{What Happens with Bad Controls}
