@@ -637,6 +637,38 @@ A study finds that dog owners live longer than non-owners. What is the likely om
 \emph{Hint:} Wealthy, active, healthy people are more likely to own dogs. Wealth and activity also improve longevity. So $\beta_{\text{health}} > 0$ (health helps longevity) and $\delta > 0$ (healthier people are more likely to own dogs). The OVB formula gives a \emph{positive} bias: dog ownership looks more life-extending than it really is, because it absorbs the effect of the healthy-and-wealthy lifestyle that correlates with pet ownership.
 \end{tcolorbox}
 
+\subsection{Simpson's Paradox: When the Sign Flips}
+
+OVB can do something more dramatic than shrink or inflate a coefficient: it can \emph{flip its sign}. A relationship that looks positive in the data can be strictly negative in the true DGP (or vice versa). This is \textbf{Simpson's paradox}, and it is the most disquieting manifestation of omitted variable bias.
+
+\begin{numermark}[title={The Nursing Paradox}]
+A hospital administrator notices that patients who receive more nursing hours per day take \emph{longer} to recover. The board considers cutting nursing staff to ``speed up recovery.'' Before they act, a statistician intervenes.
+
+\textbf{True DGP:}
+\begin{align*}
+  U &= \text{severity at admission (1 = mild, 10 = severe)}, \\
+  X &= 2 + 0.8\,U + \eta, \quad \eta \sim \mathcal{N}(0, 0.3^2) \quad \text{(nursing hours/day)}, \\
+  Y &= 5 - 0.5\,X + 2\,U + \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, 0.5^2) \quad \text{(recovery days)}.
+\end{align*}
+The true causal effect of nursing on recovery time is $\beta_X = -0.5$: each extra hour of nursing saves half a day. But sicker patients both get more nursing and take longer to recover---$U$ drives $X$ up and $Y$ up.
+
+\textbf{Short regression (Y on X alone):}
+\[
+  \delta_1 = \frac{\Cov(X, U)}{\Var(X)} \approx 0.97, \qquad \plim\,\bhat^{\text{short}} = \beta_X + \beta_U \cdot \delta_1 = -0.5 + 2(0.97) \approx +1.44.
+\]
+The naive estimate is $+1.44$: a hospital administrator reading this output would conclude that nursing \emph{harms} recovery. Firing nurses would be a catastrophe.
+
+\textbf{Long regression (Y on X and U):} recovers $\bhat_X \approx -0.5$. Nursing helps.
+
+\textbf{A ten-patient toy dataset makes this concrete.} Imagine five mild cases ($U = 2$) and five severe cases ($U = 8$). Within each severity group, more nursing is associated with \emph{faster} recovery. But pooled together, the overall slope is positive---because the severe patients cluster in the upper right (more nursing, longer recovery) and the mild patients cluster in the lower left. The aggregate slope hides the within-group truth. This within-vs.-between sign flip is Simpson's paradox in one picture.
+\end{numermark}
+
+The classic real-world case is the 1973 UC Berkeley graduate admissions data: overall, men were admitted at higher rates than women, suggesting sex discrimination. Within each department, however, women were admitted at equal or higher rates---women simply applied to more competitive departments. Like the nursing paradox, the sign flipped when the confounder (department) was included.
+
+\begin{keyinsight}
+Simpson's paradox is not a mathematical curiosity. Every time you read an observational study with a surprising sign---``exercise is bad for you,'' ``more inspections cause more defects,'' ``richer countries consume less energy''---ask yourself whether a confounder could be flipping the sign. The OVB formula tells you exactly when this happens: when $\beta_U \cdot \delta_1$ is both large in magnitude and opposite in sign to the true $\beta_1$.
+\end{keyinsight}
+
 \subsection{When OVB Cannot Be Signed}
 
 The formula~\eqref{eq:ovb} generalises to multiple omitted variables.
@@ -1276,6 +1308,20 @@ This is exactly what collider bias describes: when you control for a variable th
 \end{toystory}
 
 The comedian Pete Davidson---who has dated Ariana Grande, Kate Beckinsale, and Kim Kardashian---is a walking embodiment of this paradox. He once told Page Six that people were obsessed with his dating life ``because I'm ugly.'' But Davidson is famous for being extremely funny, not for his looks. The ``mismatch'' is manufactured by the fame filter: you only noticed Davidson because he cleared the talent threshold, so his looks seem below average \emph{relative to his famous partners}. Among non-famous comedians, nobody would bat an eye.
+
+\begin{keyinsight}[title={Real Articles Committing Collider Bias}]
+The headlines below are all real. Each one treats a filtered correlation as a causal fact, without recognising that the filter is doing the work. Read them like a statistical detective: what was the selection criterion, and could it explain the pattern?
+
+\begin{itemize}[nosep]
+  \item \textbf{``Really hot guys are also really not nice, says science''} --- SheKnows, reporting on Brunel University's attractiveness study. \href{https://www.sheknows.com/living/articles/1113263/hot-guys-are-jerks}{[sheknows.com]}
+  \item \textbf{``25 Smokin' HOT Celebrities With Just Average-Looking Spouses''} --- YourTango catalogues exactly what the collider bias predicts, without naming it. \href{https://www.yourtango.com/entertainment/hot-celebrities-average-looking-spouses}{[yourtango.com]}
+  \item \textbf{``The Summer's Most Unread Book Is\dots''} --- Jordan Ellenberg's 2014 Slate essay introducing the ``Great Square of Men'' dating metaphor. \href{https://slate.com/culture/2014/06/how-not-to-be-wrong-by-jordan-ellenberg-pi-day-book-contains-great-math-for-non-mathematicians.html}{[slate.com]}
+  \item \textbf{Griffith et al.\ (2020), \emph{Nature Communications}} --- formal collider-bias analysis of early COVID-19 hospitalisation data showing why smokers appeared protected. \href{https://www.nature.com/articles/s41467-020-19478-2}{[nature.com]}
+  \item \textbf{\emph{How Not to Be Wrong}} by Jordan Ellenberg (Penguin, 2014) --- the book-length treatment, including the Great Square and Abraham Wald's bullet-hole planes.
+\end{itemize}
+
+Train yourself to spot the filter. Once you see it, you cannot unsee it.
+\end{keyinsight}
 
 \begin{definition}[Endogeneity]
 A regressor $X_j$ is \emph{endogenous} if $\Cov(X_j, \varepsilon) \neq 0$.

@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Causation &amp; IV — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    /* Page-specific styling for the causation topic. */
+    .pg-lead {
+      font-size: 18px;
+      line-height: 1.6;
+      margin: 8px 0 18px;
+    }
+    .pg-lead em { color: var(--biasred); font-style: italic; }
+
+    .pg-section {
+      margin-top: 38px;
+    }
+    .pg-section h2 {
+      font-family: var(--sans);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      margin: 0 0 14px;
+      font-weight: 600;
+    }
+    .pg-section h3 {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 500;
+      margin: 0 0 10px;
+    }
+
+    /* DAG block */
+    .dag-wrap {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .dag-svg {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px;
+      flex: 0 0 auto;
+    }
+    .dag-legend {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink-muted);
+      flex: 1 1 260px;
+      min-width: 240px;
+    }
+    .dag-legend .req {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--repairgreen);
+      padding: 8px 12px;
+      border-radius: 3px;
+      margin-bottom: 8px;
+    }
+    .dag-legend .req.red {
+      border-left-color: var(--biasred);
+    }
+    .dag-legend .req strong { color: var(--ink); }
+
+    /* Big OLS-vs-IV plot row */
+    .cmp-row {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .cmp-plot {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px;
+    }
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-right: 14px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+    .legend-chip .swatch {
+      display: inline-block;
+      width: 22px; height: 3px;
+      background: var(--olsblue);
+    }
+    .legend-chip .swatch.iv  { background: var(--repairgreen); }
+    .legend-chip .swatch.tru { background: var(--truthgold); border-top: 2px dashed var(--truthgold); height: 0; }
+
+    .est-table {
+      font-family: var(--sans);
+      font-size: 14px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .est-table th, .est-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .est-table td.num { font-family: var(--mono); text-align: right; }
+    .est-table tr.ols td:first-child { color: var(--olsblue); font-weight: 600; }
+    .est-table tr.iv  td:first-child { color: var(--repairgreen); font-weight: 600; }
+    .est-table tr.tru td:first-child { color: var(--truthgold); font-weight: 600; }
+
+    /* Slider centrepiece */
+    .strength-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 24px;
+    }
+    .strength-card .control-row label {
+      min-width: 160px;
+    }
+    .fstat-line {
+      font-family: var(--sans);
+      font-size: 15px;
+      margin: 8px 0 6px;
+      color: var(--ink-muted);
+    }
+    .fstat-line .fnum {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 0 6px;
+    }
+    .warn-badge {
+      display: inline-block;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .warn-badge.weak   { background: #fae1de; color: var(--biasred); border: 1px solid var(--biasred); }
+    .warn-badge.strong { background: #dff2e6; color: var(--repairgreen); border: 1px solid var(--repairgreen); }
+
+    .bootstrap-host {
+      margin-top: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 12px;
+    }
+
+    /* Celebration box */
+    .celebrate {
+      margin-top: 22px;
+      background: #e6f5ec;
+      border: 2px solid var(--repairgreen);
+      border-radius: 6px;
+      padding: 18px 22px;
+      transition: opacity .3s;
+    }
+    .celebrate h3 {
+      color: var(--repairgreen);
+      margin: 0 0 6px;
+    }
+    .celebrate p { margin: 0; color: var(--ink); font-size: 16px; }
+    .celebrate.hidden { display: none; }
+
+    /* Weak caution */
+    .caution {
+      margin-top: 22px;
+      background: #fcefed;
+      border: 2px solid var(--biasred);
+      border-radius: 6px;
+      padding: 18px 22px;
+    }
+    .caution h3 {
+      color: var(--biasred);
+      margin: 0 0 6px;
+    }
+    .caution.hidden { display: none; }
+    .caution .covcalc {
+      font-family: var(--mono);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    /* "Name that instrument" */
+    .candidates {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .candidate {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      font-family: var(--sans);
+    }
+    .candidate:hover { border-color: var(--olsblue); }
+    .candidate.selected { border-color: var(--olsblue); background: #f4f7fc; }
+    .candidate h4 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      font-family: var(--serif);
+      font-weight: 500;
+    }
+    .candidate .badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge.ok   { background: #dff2e6; color: var(--repairgreen); }
+    .badge.fail { background: #fae1de; color: var(--biasred); }
+    .cand-explain {
+      margin-top: 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink-muted);
+      min-height: 44px;
+      padding: 10px 14px;
+      background: #fff;
+      border-left: 3px solid var(--neutral);
+      border-radius: 2px;
+    }
+
+    /* Nav footer */
+    .pg-prevnext {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .pg-prevnext a { color: var(--olsblue); }
+
+    @media (max-width: 820px) {
+      .cmp-row { grid-template-columns: 1fr; }
+      .candidates { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../index.html">← back to playground</a>
+  </nav>
+
+  <main class="pg-container">
+    <header class="pg-header">
+      <h1>Causation &amp; instrumental variables</h1>
+      <p class="subtitle">When X correlates with the error, OLS stays biased forever. IV finds a clean side-door.</p>
+    </header>
+
+    <!-- ============ 1. Narrative ============ -->
+    <section id="topic-content">
+      <p class="pg-lead">
+        Suppose we study the effect of weekly study hours \(X_1\) on exam score \(Y\).
+        Students who study more tend to be more self-disciplined — call this hidden trait \(U\) —
+        and self-discipline <em>also</em> raises exam scores directly (better sleep, more focus).
+        OLS can't tell these apart. Pouring in more data doesn't help: the bias is <em>baked into the estimator</em>.
+      </p>
+      <p class="pg-lead">
+        The way out: find a variable \(Z\) that wiggles \(X_1\) around but has <em>no other path</em> to \(Y\).
+        A roommate's study hours work, if roommates are assigned at random: a studious roommate nudges you
+        to study more (peer effect), but your roommate's habits don't directly change <em>your</em> exam score.
+        That's an <strong>instrument</strong>.
+      </p>
+      <p>The instrumental-variables estimator (simple one-regressor case):</p>
+      \[ \hat\beta_{\text{IV}} \;=\; (Z^{\top} X)^{-1} Z^{\top} Y
+         \;=\; \frac{\operatorname{Cov}(Z, Y)}{\operatorname{Cov}(Z, X)}. \]
+    </section>
+
+    <!-- ============ 2. The DAG ============ -->
+    <section class="pg-section">
+      <h2>The causal diagram</h2>
+      <div class="dag-wrap">
+        <svg class="dag-svg" width="420" height="260" viewBox="0 0 420 260" aria-label="DAG">
+          <!-- arrowhead defs -->
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#1f2430" />
+            </marker>
+            <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#C0392B" />
+            </marker>
+          </defs>
+          <!-- nodes -->
+          <g font-family="var(--sans)" font-size="14">
+            <!-- Z (left) -->
+            <circle cx="60" cy="140" r="26" fill="#fff" stroke="#27AE60" stroke-width="2"/>
+            <text x="60" y="145" text-anchor="middle" fill="#27AE60" font-weight="600">Z</text>
+            <text x="60" y="185" text-anchor="middle" fill="#7F8C8D" font-size="11">roommate</text>
+
+            <!-- X1 (middle) -->
+            <circle cx="210" cy="140" r="28" fill="#fff" stroke="#2E5EA8" stroke-width="2"/>
+            <text x="210" y="145" text-anchor="middle" fill="#2E5EA8" font-weight="600">X₁</text>
+            <text x="210" y="185" text-anchor="middle" fill="#7F8C8D" font-size="11">study hrs</text>
+
+            <!-- Y (right) -->
+            <circle cx="360" cy="140" r="26" fill="#fff" stroke="#1f2430" stroke-width="2"/>
+            <text x="360" y="145" text-anchor="middle" font-weight="600">Y</text>
+            <text x="360" y="185" text-anchor="middle" fill="#7F8C8D" font-size="11">exam</text>
+
+            <!-- U (top, hidden, red dashed) -->
+            <circle cx="285" cy="50" r="26" fill="#fff" stroke="#C0392B" stroke-width="2" stroke-dasharray="5 4"/>
+            <text x="285" y="55" text-anchor="middle" fill="#C0392B" font-weight="600" font-style="italic">U</text>
+            <text x="285" y="22" text-anchor="middle" fill="#C0392B" font-size="11">hidden (discipline)</text>
+          </g>
+
+          <!-- arrows -->
+          <!-- Z -> X1 -->
+          <line x1="86" y1="140" x2="180" y2="140"
+                stroke="#27AE60" stroke-width="2" marker-end="url(#arr)"/>
+          <!-- X1 -> Y -->
+          <line x1="238" y1="140" x2="334" y2="140"
+                stroke="#1f2430" stroke-width="2" marker-end="url(#arr)"/>
+          <!-- U -> X1 -->
+          <line x1="267" y1="74" x2="222" y2="116"
+                stroke="#C0392B" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arr-red)"/>
+          <!-- U -> Y -->
+          <line x1="303" y1="74" x2="350" y2="116"
+                stroke="#C0392B" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arr-red)"/>
+        </svg>
+        <div class="dag-legend">
+          <p style="margin-top:0;">A valid instrument \(Z\) must satisfy two conditions:</p>
+          <div class="req">
+            <strong>Relevance.</strong> \(Z\) moves \(X_1\). The green arrow \(Z \to X_1\)
+            must exist and be strong enough to test against.
+          </div>
+          <div class="req red">
+            <strong>Exclusion.</strong> No other path from \(Z\) to \(Y\).
+            \(Z\) must <em>not</em> arrow directly into \(Y\), and \(Z\) must not share a
+            confounder with \(Y\) (i.e.\ \(U \not\to Z\)).
+          </div>
+          <p style="font-size:13px; font-style:italic;">
+            Random roommate assignment buys exclusion: your roommate's discipline is uncorrelated with yours.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3. OLS vs IV comparison ============ -->
+    <section class="pg-section">
+      <h2>OLS vs IV — one dataset</h2>
+      <div class="cmp-row">
+        <div class="cmp-plot">
+          <div id="cmp-scatter-host"></div>
+          <div style="margin-top:8px;">
+            <span class="legend-chip"><span class="swatch"></span> OLS fit (biased)</span>
+            <span class="legend-chip"><span class="swatch iv"></span> IV fit (unbiased)</span>
+            <span class="legend-chip"><span class="swatch tru"></span> true slope</span>
+          </div>
+        </div>
+        <div>
+          <table class="est-table" id="est-table">
+            <thead>
+              <tr><th>Estimator</th><th class="num">β̂₁</th><th class="num">SE</th><th class="num">95% CI</th></tr>
+            </thead>
+            <tbody>
+              <tr class="ols"><td>OLS</td><td class="num" data-k="ols-b">—</td><td class="num" data-k="ols-se">—</td><td class="num" data-k="ols-ci">—</td></tr>
+              <tr class="iv"><td>IV</td><td class="num" data-k="iv-b">—</td><td class="num" data-k="iv-se">—</td><td class="num" data-k="iv-ci">—</td></tr>
+              <tr class="tru"><td>truth</td><td class="num">8.000</td><td class="num">—</td><td class="num">—</td></tr>
+            </tbody>
+          </table>
+          <p class="pg-hint">
+            Both estimators fit \(Y = \alpha + \beta_1 \log X_1 + \text{error}\). The truth is
+            \(\beta_1 = 8\). OLS drifts upward because discipline \(U\) pushes both \(X_1\) and \(Y\).
+            IV recovers a number near 8 — the bias is the gap between blue and green.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. Instrument strength slider ============ -->
+    <section class="pg-section">
+      <h2>The instrument-strength dial</h2>
+      <div class="strength-card pg-controls">
+        <p style="margin-top:0;">
+          Drag the slider to weaken or strengthen the peer effect (\(Z \to X_1\)).
+          Watch what happens to the IV estimate's precision.
+        </p>
+        <div class="control-row">
+          <label for="strength-slider">Instrument strength π</label>
+          <input type="range" id="strength-slider" min="0.01" max="1.0" step="0.01" value="0.4" />
+          <span class="value-tag" id="strength-value">0.40</span>
+        </div>
+        <div class="fstat-line">
+          First-stage F-statistic:
+          <span class="fnum" id="fstat-value">—</span>
+          <span class="warn-badge" id="fstat-badge">—</span>
+        </div>
+        <p class="pg-hint" style="margin-top:6px;">
+          Rule of thumb (Stock &amp; Yogo): \(F &gt; 10\) is the minimum for the IV asymptotics
+          to be trusted. Below that, the sampling distribution is so spread out that point
+          estimates become misleading.
+        </p>
+        <div class="bootstrap-host" id="bootstrap-host"></div>
+        <p class="pg-hint" style="margin-top:6px;">
+          Histogram: 500 bootstrap IV estimates. As \(\pi\) shrinks, the denominator \(\operatorname{Cov}(Z,X_1)\) nears zero
+          and a tiny noise in the numerator throws the ratio everywhere.
+        </p>
+      </div>
+
+      <!-- ============ 5. Celebration ============ -->
+      <div class="celebrate" id="celebrate-box">
+        <h3>The first correct coefficient</h3>
+        <p>
+          For the first time, we have a coefficient that equals the truth —
+          not because we observed the confounder, but because we found a clever way around it.
+          That's what instruments buy you: identification without omniscience.
+        </p>
+      </div>
+
+      <!-- ============ 6. Weak instrument caution ============ -->
+      <div class="caution hidden" id="caution-box">
+        <h3>A weak instrument is worse than no instrument</h3>
+        <p>
+          Your CI is wider than the (biased!) OLS CI — and the bias doesn't vanish in finite
+          samples either: weak IV estimates are <em>centred</em> on the OLS bias, not on the truth.
+          You've paid variance to buy an illusion.
+        </p>
+        <div class="covcalc" id="covcalc">β̂_IV = Cov(Z,Y) / Cov(Z,X₁) = — / — = —</div>
+      </div>
+    </section>
+
+    <!-- ============ 7. Name that instrument ============ -->
+    <section class="pg-section">
+      <h2>Name that instrument</h2>
+      <p>
+        We want to estimate the causal effect of weekly study hours on exam score.
+        Which of these candidate instruments would be <em>valid</em>?
+        Click each to reveal the verdict.
+      </p>
+      <div class="candidates" id="candidates">
+        <!-- populated by JS -->
+      </div>
+      <div class="cand-explain" id="cand-explain">
+        Select a candidate above.
+      </div>
+    </section>
+
+    <!-- ============ 8. Prev / Next ============ -->
+    <div class="pg-prevnext">
+      <a href="overfitting.html">← prev: overfitting</a>
+      <a href="collider.html">next: collider →</a>
+    </div>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { seededRandom, randn, mean } from '../shared/dgp.js';
+    import { ols } from '../shared/regression.js';
+    import { createScatterPlot, PALETTE } from '../shared/plot.js';
+
+    // ============ katex ============
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+
+    // ============ Causation-specific DGP ============
+    //
+    //  U   ~ N(0, 1)              self-discipline (hidden)
+    //  Z   ~ N(3, 1)              roommate's study hours (randomly assigned)
+    //  X1  = 2 + 0.5 U + pi Z + eta1,  eta1 ~ N(0, sd=sqrt(0.3))
+    //  X2  = 10 + 0.3 U + eta2,   eta2 ~ N(0, sd=1)
+    //  eps ~ N(0, sd = sqrt(0.5 |X1|))   heteroscedastic
+    //  Y   = 50 + 8 log(X1) + 3 X2 + 2 U + eps
+    //
+    //  pi = instrument strength (slider). Note Z enters X1 but NOT Y.
+    //
+    // We report the slope of Y on X1 near its mean, i.e. d/dX1 of
+    //   50 + 8 log(X1) + 3 X2 + 2 U  =  8 / X1.
+    // At X1 ≈ 4 (a typical value after Z lifts the mean), that's ≈ 2.
+    // But students expect a SLOPE on log-scale. To keep the narrative clean
+    // ("IV recovers ~8, OLS inflated by U's ghost to ~10"), we fit the model
+    // with log(X1) as the regressor on both OLS and IV sides. That way the
+    // true coefficient is literally 8.
+
+    const TRUE_BETA1 = 8;
+
+    function generateIVData(n, seed, pi) {
+      const rng = seededRandom(seed);
+      const U = new Float64Array(n);
+      const Z = new Float64Array(n);
+      const X1 = new Float64Array(n);
+      const X2 = new Float64Array(n);
+      const Y = new Float64Array(n);
+      const sdEta1 = Math.sqrt(0.3);
+      const sdEta2 = 1.0;
+
+      for (let i = 0; i < n; i++) {
+        const u = randn(rng);
+        const z = 3 + randn(rng);                      // Z ~ N(3, 1)
+        const eta1 = randn(rng) * sdEta1;
+        const eta2 = randn(rng) * sdEta2;
+        let x1 = 2 + 0.5 * u + pi * z + eta1;
+        if (x1 <= 0.05) x1 = 0.05;
+        const x2 = 10 + 0.3 * u + eta2;
+        const epsSd = Math.sqrt(0.5 * Math.abs(x1));
+        const eps = randn(rng) * epsSd;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        U[i] = u; Z[i] = z; X1[i] = x1; X2[i] = x2; Y[i] = y;
+      }
+      return { U, Z, X1, X2, Y };
+    }
+
+    // Simple 2SLS / IV for y on log(x1) with instrument Z.
+    //   beta_IV  = Cov(Z, y) / Cov(Z, log x1)
+    // We also compute intercept so we can draw a line. SE via homoskedastic
+    // formula SE(beta) ≈ sigma / ( sqrt(n) * sd(Z) * corr(Z, logX1) * sd(logX1) ).
+    function ivFit(y, x1, z) {
+      const logX1 = Array.from(x1, v => Math.log(v));
+      const n = y.length;
+      const my = mean(y), mz = mean(z), mlx = mean(logX1);
+
+      let sZY = 0, sZX = 0, sZZ = 0, sXX = 0;
+      for (let i = 0; i < n; i++) {
+        const dz = z[i] - mz;
+        const dy = y[i] - my;
+        const dx = logX1[i] - mlx;
+        sZY += dz * dy;
+        sZX += dz * dx;
+        sZZ += dz * dz;
+        sXX += dx * dx;
+      }
+      const beta = sZY / sZX;                // slope on log(X1)
+      const alpha = my - beta * mlx;
+
+      // Residuals from the STRUCTURAL equation at IV beta
+      let rss = 0;
+      for (let i = 0; i < n; i++) {
+        const r = y[i] - alpha - beta * logX1[i];
+        rss += r * r;
+      }
+      const sigma2 = rss / Math.max(1, n - 2);
+      // Var(beta_IV) ≈ sigma^2 * (Z'Z) / (Z'X)^2   (simple IV)
+      const varBeta = sigma2 * sZZ / (sZX * sZX);
+      const se = Math.sqrt(Math.max(0, varBeta));
+
+      // First-stage F statistic: regress log(X1) on Z, test coef != 0.
+      // R^2_fs = (sZX)^2 / (sZZ * sXX); F = R^2/(1-R^2) * (n-2)
+      const r2fs = (sZX * sZX) / (sZZ * sXX);
+      const F = (r2fs / Math.max(1e-12, 1 - r2fs)) * (n - 2);
+
+      return { beta, alpha, se, sZY, sZX, F };
+    }
+
+    function olsSlopeLogX1(y, x1) {
+      const logX1 = Array.from(x1, v => Math.log(v));
+      const rows = logX1.map(v => [v]);
+      const fit = ols(Array.from(y), rows);
+      return {
+        alpha: fit.coefficients[0],
+        beta: fit.coefficients[1],
+        se: fit.se[1]
+      };
+    }
+
+    // ============ state ============
+    const state = {
+      n: 500,
+      seed: 2026,
+      pi: 0.4
+    };
+
+    // ============ 3. OLS vs IV scatter + table ============
+    const cmpScatter = createScatterPlot(
+      document.getElementById('cmp-scatter-host'),
+      { X1: [1], Y: [1], U: [0] },
+      { xVar: 'X1', yVar: 'Y', colorVar: 'U',
+        width: 520, height: 340,
+        xLabel: 'X₁ (weekly study hours)', yLabel: 'Y (exam score)' }
+    );
+
+    function drawCmp(data, olsFit, ivFit_) {
+      cmpScatter.update(
+        { X1: data.X1, Y: data.Y, U: data.U },
+        { xVar: 'X1', yVar: 'Y', colorVar: 'U' }
+      );
+      const xs = data.X1;
+      const xMin = Math.max(0.05, d3.min(xs));
+      const xMax = d3.max(xs);
+
+      // build curves y = alpha + beta * log(x)
+      const mkLine = (alpha, beta, color, dash) => {
+        const steps = 80;
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+          const x = xMin + (xMax - xMin) * (i / steps);
+          pts.push([x, alpha + beta * Math.log(x)]);
+        }
+        const line = d3.line().x(d => cmpScatter.xScale(d[0])).y(d => cmpScatter.yScale(d[1]));
+        const p = cmpScatter.overlayG.append('path')
+          .attr('d', line(pts))
+          .attr('fill', 'none')
+          .attr('stroke', color)
+          .attr('stroke-width', 2.2);
+        if (dash) p.attr('stroke-dasharray', dash);
+      };
+
+      // true curve: alpha_true + 8 log x, where alpha_true accounts for mean X2, mean U
+      const alphaTrue = 50 + 3 * mean(data.X2) + 2 * mean(data.U);
+      mkLine(alphaTrue, TRUE_BETA1, PALETTE.truthgold, '6 4');
+      mkLine(olsFit.alpha, olsFit.beta, PALETTE.olsblue, null);
+      mkLine(ivFit_.alpha, ivFit_.beta, PALETTE.repairgreen, null);
+    }
+
+    function fmt(x, d = 3) { return (isFinite(x) ? x.toFixed(d) : '—'); }
+
+    function updateEstTable(olsFit, ivFit_) {
+      const z975 = 1.96;
+      const ols_lo = olsFit.beta - z975 * olsFit.se;
+      const ols_hi = olsFit.beta + z975 * olsFit.se;
+      const iv_lo  = ivFit_.beta - z975 * ivFit_.se;
+      const iv_hi  = ivFit_.beta + z975 * ivFit_.se;
+      const t = document.getElementById('est-table');
+      t.querySelector('[data-k="ols-b"]').textContent  = fmt(olsFit.beta);
+      t.querySelector('[data-k="ols-se"]').textContent = fmt(olsFit.se);
+      t.querySelector('[data-k="ols-ci"]').textContent = `[${fmt(ols_lo)}, ${fmt(ols_hi)}]`;
+      t.querySelector('[data-k="iv-b"]').textContent   = fmt(ivFit_.beta);
+      t.querySelector('[data-k="iv-se"]').textContent  = fmt(ivFit_.se);
+      t.querySelector('[data-k="iv-ci"]').textContent  = `[${fmt(iv_lo)}, ${fmt(iv_hi)}]`;
+    }
+
+    // ============ 4. Strength slider, F-stat, bootstrap histogram ============
+
+    // Bootstrap histogram host
+    const histEl = document.getElementById('bootstrap-host');
+    const histW = 640, histH = 160;
+    const histSvg = d3.select(histEl).html('')
+      .append('svg')
+        .attr('viewBox', `0 0 ${histW} ${histH}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('width', '100%').style('height', 'auto')
+        .attr('class', 'pg-scatter');
+    const histMargin = { top: 10, right: 12, bottom: 28, left: 40 };
+    const histInnerW = histW - histMargin.left - histMargin.right;
+    const histInnerH = histH - histMargin.top - histMargin.bottom;
+    const histG = histSvg.append('g')
+      .attr('transform', `translate(${histMargin.left},${histMargin.top})`);
+    const histXAxisG = histG.append('g')
+      .attr('transform', `translate(0,${histInnerH})`).attr('class', 'axis');
+    histG.append('text').attr('class', 'axis-label')
+      .attr('x', histInnerW/2).attr('y', histInnerH + 24)
+      .attr('text-anchor', 'middle').text('IV estimate β̂₁ (500 bootstrap replicates)');
+
+    function drawBootstrapHist(estimates) {
+      // clip extreme outliers for display only
+      const sorted = estimates.slice().sort((a,b)=>a-b);
+      const lo = sorted[Math.floor(0.01*sorted.length)];
+      const hi = sorted[Math.floor(0.99*sorted.length)];
+      // fix a sensible x-domain so the viewer sees variance changes
+      const domLo = Math.min(-5, lo);
+      const domHi = Math.max(20, hi);
+      const x = d3.scaleLinear().domain([domLo, domHi]).range([0, histInnerW]);
+      const bins = d3.bin().domain(x.domain()).thresholds(40)(estimates);
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(bins, b => b.length) || 1])
+        .range([histInnerH, 0]);
+
+      histXAxisG.call(d3.axisBottom(x).ticks(8));
+
+      const bars = histG.selectAll('rect.bin').data(bins);
+      bars.enter().append('rect').attr('class', 'bin')
+        .merge(bars)
+          .attr('x', d => x(d.x0) + 1)
+          .attr('y', d => y(d.length))
+          .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+          .attr('height', d => histInnerH - y(d.length))
+          .attr('fill', PALETTE.repairgreen)
+          .attr('opacity', 0.55);
+      bars.exit().remove();
+
+      // truth line
+      histG.selectAll('line.truth').remove();
+      histG.append('line').attr('class', 'truth')
+        .attr('x1', x(TRUE_BETA1)).attr('x2', x(TRUE_BETA1))
+        .attr('y1', 0).attr('y2', histInnerH)
+        .attr('stroke', PALETTE.truthgold)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4');
+    }
+
+    // Run R bootstrap replicates of IV under current pi.
+    function bootstrapIV(R, pi) {
+      const ests = [];
+      // seed offsets for reproducibility per slider value
+      const seedBase = (Math.floor(pi * 1000) * 991) | 0;
+      for (let r = 0; r < R; r++) {
+        const d = generateIVData(state.n, (seedBase + r * 17) | 0, pi);
+        const f = ivFit(d.Y, d.X1, d.Z);
+        if (isFinite(f.beta)) ests.push(Math.max(-100, Math.min(100, f.beta)));
+      }
+      return ests;
+    }
+
+    // ============ UI wiring ============
+    const slider = document.getElementById('strength-slider');
+    const sliderVal = document.getElementById('strength-value');
+    const fstatValEl = document.getElementById('fstat-value');
+    const fstatBadgeEl = document.getElementById('fstat-badge');
+    const celebrateEl = document.getElementById('celebrate-box');
+    const cautionEl   = document.getElementById('caution-box');
+    const covCalcEl   = document.getElementById('covcalc');
+
+    function refresh() {
+      state.pi = +slider.value;
+      sliderVal.textContent = state.pi.toFixed(2);
+
+      // One "main" dataset drives the OLS-vs-IV plot + table.
+      const data = generateIVData(state.n, state.seed, state.pi);
+      const olsFit = olsSlopeLogX1(data.Y, data.X1);
+      const ivF = ivFit(data.Y, data.X1, data.Z);
+
+      drawCmp(data, olsFit, ivF);
+      updateEstTable(olsFit, ivF);
+
+      // F-stat display
+      fstatValEl.textContent = isFinite(ivF.F) ? ivF.F.toFixed(1) : '—';
+      if (ivF.F >= 10) {
+        fstatBadgeEl.textContent = 'Strong instrument';
+        fstatBadgeEl.className = 'warn-badge strong';
+        celebrateEl.classList.remove('hidden');
+        cautionEl.classList.add('hidden');
+      } else {
+        fstatBadgeEl.textContent = 'WEAK INSTRUMENT';
+        fstatBadgeEl.className = 'warn-badge weak';
+        celebrateEl.classList.add('hidden');
+        cautionEl.classList.remove('hidden');
+      }
+
+      // Weak-instrument Cov(Z,Y)/Cov(Z,X) calc
+      const n = data.Y.length;
+      const covZY = ivF.sZY / n;
+      const covZX = ivF.sZX / n;
+      covCalcEl.textContent =
+        `β̂_IV = Cov(Z, Y) / Cov(Z, log X₁) = ${fmt(covZY)} / ${fmt(covZX)} = ${fmt(ivF.beta)}`;
+
+      // Bootstrap histogram
+      const ests = bootstrapIV(500, state.pi);
+      drawBootstrapHist(ests);
+    }
+
+    slider.addEventListener('input', refresh);
+
+    // ============ 7. Name that instrument ============
+    const candidates = [
+      {
+        id: 'iq',
+        title: '(a) IQ score',
+        short: 'IQ score (measured before college)',
+        relevance: true, exclusion: false,
+        explain:
+          'Relevance: yes — higher-IQ students often study differently. ' +
+          'But exclusion FAILS: IQ has a direct effect on exam score that has nothing to do with study hours. ' +
+          'Using IQ as an instrument would bake cognitive ability into β̂₁.'
+      },
+      {
+        id: 'library',
+        title: '(b) Library random closure week',
+        short: 'A week when the library was randomly closed for renovations',
+        relevance: true, exclusion: true,
+        explain:
+          'Relevance: yes — closure forces study hours down for that cohort. ' +
+          'Exclusion: yes — the closure was scheduled for building reasons, not student behaviour, ' +
+          'and it doesn\'t directly change the exam (no other path to Y). ' +
+          'This is a valid instrument.'
+      },
+      {
+        id: 'instagram',
+        title: '(c) Instagram screen time',
+        short: 'Weekly Instagram screen time',
+        relevance: true, exclusion: false,
+        explain:
+          'Relevance: yes — more scrolling, less studying. ' +
+          'But exclusion FAILS: screen time is itself a symptom of (low) self-discipline U. ' +
+          'Using it as an instrument just smuggles the confounder back in.'
+      }
+    ];
+
+    const candsEl = document.getElementById('candidates');
+    const candExplainEl = document.getElementById('cand-explain');
+    candidates.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'candidate';
+      div.dataset.id = c.id;
+      const relOk = c.relevance;
+      const exclOk = c.exclusion;
+      div.innerHTML = `
+        <h4>${c.title}</h4>
+        <div style="font-size:13px;color:var(--ink-muted);">${c.short}</div>
+        <div class="badges">
+          <span class="badge ${relOk ? 'ok' : 'fail'}">relevance ${relOk ? '✓' : '✗'}</span>
+          <span class="badge ${exclOk ? 'ok' : 'fail'}">exclusion ${exclOk ? '✓' : '✗'}</span>
+        </div>
+      `;
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.candidate').forEach(el => el.classList.remove('selected'));
+        div.classList.add('selected');
+        const verdict = (c.relevance && c.exclusion)
+          ? '<strong style="color:var(--repairgreen);">Valid instrument.</strong> '
+          : '<strong style="color:var(--biasred);">Invalid.</strong> ';
+        candExplainEl.innerHTML = verdict + c.explain;
+      });
+      candsEl.appendChild(div);
+    });
+
+    // ============ kick off ============
+    refresh();
+  </script>
+</body>
+</html>
