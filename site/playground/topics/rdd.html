@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Regression discontinuity design — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    /* RDD-specific layout */
+    .rdd-main {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 24px;
+      margin-top: 24px;
+    }
+    .rdd-main h2 {
+      font-family: var(--sans);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .rdd-readout {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--ink);
+      margin: 8px 0 14px;
+      padding: 10px 14px;
+      background: #f5f4ef;
+      border-left: 3px solid var(--olsblue);
+      border-radius: 2px;
+    }
+    .rdd-readout .label { color: var(--ink-muted); font-family: var(--sans); margin-right: 4px; }
+    .rdd-readout .sep { color: var(--border); margin: 0 10px; }
+
+    .rdd-slider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+      margin: 10px 0 8px;
+    }
+    .rdd-slider label { min-width: 160px; color: var(--ink-muted); }
+    .rdd-slider input[type="range"] { flex: 1; }
+    .rdd-slider .value-tag {
+      font-family: var(--mono);
+      font-size: 13px;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    .rdd-diagnostics {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+    .rdd-diag-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+    }
+    .rdd-diag-card h3 {
+      font-family: var(--sans);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      margin: 0 0 6px;
+      font-weight: 600;
+    }
+    .rdd-diag-card .diag-sub {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin: 0 0 8px;
+    }
+    .rdd-diag-verdict {
+      font-family: var(--sans);
+      font-size: 13px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 2px;
+      background: #f5f4ef;
+      border-left: 3px solid var(--neutral);
+    }
+    .rdd-diag-verdict.good { border-left-color: var(--repairgreen); color: var(--ink); }
+    .rdd-diag-verdict.bad { border-left-color: var(--biasred); color: var(--ink); }
+
+    .rdd-cases {
+      margin-top: 28px;
+      padding: 18px 22px;
+      background: #fdfcf6;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .rdd-cases h2 {
+      font-family: var(--sans);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .rdd-cases ul { margin: 0; padding-left: 20px; }
+    .rdd-cases li { margin: 8px 0; font-size: 14.5px; }
+    .rdd-cases .case-name { font-weight: 600; }
+
+    .rdd-warn {
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: #fbf4f1;
+      border-left: 4px solid var(--biasred);
+      border-radius: 2px;
+      font-style: italic;
+    }
+
+    .rdd-callback {
+      margin-top: 36px;
+      padding: 22px 26px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      border-left: 4px solid var(--truthgold);
+    }
+    .rdd-callback h2 {
+      font-family: var(--sans);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral);
+      margin: 0 0 8px;
+      font-weight: 600;
+    }
+    .rdd-callback p { margin: 6px 0; font-size: 15.5px; }
+
+    .rdd-nav {
+      margin-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .rdd-nav a.prev::before { content: '← '; }
+    .rdd-nav a.next::after { content: ' →'; }
+    .rdd-nav .done {
+      padding: 10px 16px;
+      background: var(--truthgold);
+      color: #fff;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .rdd-nav .done:hover { text-decoration: none; opacity: 0.92; }
+
+    .rdd-diag-plot svg { width: 100%; height: auto; font-family: var(--sans); }
+    .rdd-diag-plot .axis path,
+    .rdd-diag-plot .axis line { stroke: #bfbdb3; }
+    .rdd-diag-plot .axis text { fill: var(--ink-muted); font-size: 10px; }
+
+    .pg-btn.small {
+      padding: 4px 10px;
+      font-size: 12.5px;
+    }
+
+    @media (max-width: 900px) {
+      .rdd-diagnostics { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../index.html">← back to playground</a>
+  </nav>
+
+  <main class="pg-container">
+    <header class="pg-header">
+      <h1>Regression discontinuity design</h1>
+      <p class="subtitle">The sharp cutoff is the quietest randomiser in empirical economics.</p>
+    </header>
+
+    <section id="topic-content">
+      <p>
+        Imagine a scholarship awarded to every student whose test score reaches 70. A student with
+        69 and a student with 70 are, by every measure we can think of, nearly the same person. But
+        one gets the money and the other does not. If a year later their outcomes differ by a
+        visible <em>jump</em> at the threshold, that jump cannot be explained by ability, motivation,
+        or any other trait that varies smoothly across the cutoff. It must be the scholarship.
+      </p>
+      <p>
+        That is the logic of regression discontinuity. Near a sharp cutoff, units just above and
+        just below are nearly identical — so the jump in outcomes at the cutoff identifies the
+        causal effect of treatment, without any random assignment.
+      </p>
+      <p>
+        Formally:
+        \[ \tau_{\text{RDD}} \;=\; \lim_{r \downarrow c} E[Y \mid R = r] \;-\; \lim_{r \uparrow c} E[Y \mid R = r] \]
+        where \(R\) is the running variable (here, the test score) and \(c\) is the cutoff (here, 70).
+      </p>
+    </section>
+
+    <!-- THE CLIFF -->
+    <section class="rdd-main">
+      <h2>The cliff</h2>
+      <p class="muted" style="font-size: 14px; margin: 0 0 10px;">
+        Each dot is a student. Blue: below cutoff (no scholarship). Green: above (scholarship).
+        Two local linear fits extrapolated to the threshold. <strong>The gap at R = 70 is the causal effect.</strong>
+      </p>
+      <div id="scatter-cliff"></div>
+      <div class="rdd-slider">
+        <label for="ctrl-bw">Bandwidth h</label>
+        <input type="range" id="ctrl-bw" min="1" max="30" value="15" step="1" />
+        <span class="value-tag" id="ctrl-bw-val">15</span>
+      </div>
+      <div class="rdd-readout" id="rdd-readout">
+        <span class="label">Effect estimate τ̂:</span><span id="rdd-tau">—</span>
+        <span class="sep">|</span>
+        <span class="label">SE:</span><span id="rdd-se">—</span>
+        <span class="sep">|</span>
+        <span class="label">95% CI:</span><span id="rdd-ci">—</span>
+        <span class="sep">|</span>
+        <span class="label">Points in window:</span><span id="rdd-nwin">—</span>
+      </div>
+      <p class="pg-hint">
+        Narrow bandwidth: fewer points, noisier estimate, less bias. Wide bandwidth: more data, but
+        curvature can creep in and bias the slope. The bias–variance trade-off, alive and well.
+      </p>
+    </section>
+
+    <!-- DIAGNOSTICS -->
+    <section>
+      <h2 style="font-family: var(--sans); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--neutral); margin: 28px 0 4px; font-weight: 600;">Design validity checks</h2>
+      <p class="muted" style="font-size: 14px; margin: 4px 0 0;">
+        Before trusting that gap, an RDD analyst runs three diagnostics. Each one can kill the design.
+      </p>
+      <div class="rdd-diagnostics">
+        <!-- a. McCrary density -->
+        <div class="rdd-diag-card">
+          <h3>a. McCrary density test</h3>
+          <p class="diag-sub">Distribution of the running variable near the cutoff. A spike at the threshold suggests students are <em>gaming</em> their score.</p>
+          <div class="rdd-diag-plot" id="diag-mccrary"></div>
+          <div class="pg-button-row" style="margin-top: 8px;">
+            <button class="pg-btn small" id="btn-manip">Simulate manipulation</button>
+            <button class="pg-btn small secondary" id="btn-manip-reset">Reset</button>
+          </div>
+          <div class="rdd-diag-verdict good" id="mccrary-verdict">✓ Density smooth across cutoff — no manipulation detected.</div>
+        </div>
+
+        <!-- b. Covariate balance -->
+        <div class="rdd-diag-card">
+          <h3>b. Covariate balance</h3>
+          <p class="diag-sub">Pre-treatment covariates (age, prior GPA) should have similar means just above and just below the cutoff.</p>
+          <div class="rdd-diag-plot" id="diag-balance"></div>
+          <div class="rdd-diag-verdict good" id="balance-verdict">✓ Covariates balanced across the cutoff.</div>
+        </div>
+
+        <!-- c. Placebo test -->
+        <div class="rdd-diag-card">
+          <h3>c. Placebo cutoff</h3>
+          <p class="diag-sub">Move the cutoff to a value where no treatment actually occurs. The "effect" should vanish.</p>
+          <div class="rdd-slider" style="margin: 0;">
+            <label for="ctrl-placebo" style="min-width: 90px;">Placebo c</label>
+            <input type="range" id="ctrl-placebo" min="50" max="90" value="70" step="1" />
+            <span class="value-tag" id="ctrl-placebo-val">70</span>
+          </div>
+          <div class="rdd-readout" style="font-size: 13px; margin: 8px 0 0;">
+            <span class="label">τ̂ at placebo:</span><span id="placebo-tau">—</span>
+          </div>
+          <div class="rdd-diag-verdict" id="placebo-verdict">Move the slider to a placebo cutoff.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MANIPULATION WARNING -->
+    <div class="rdd-warn">
+      RDD fails if agents manipulate the running variable. If students could retake exams until they
+      hit 70, the groups just above and below are no longer comparable — motivated strivers pile up
+      on the treated side. The density test is your canary.
+    </div>
+
+    <!-- REAL CASES -->
+    <section class="rdd-cases">
+      <h2>Where RDD has paid off</h2>
+      <ul>
+        <li>
+          <span class="case-name">Angrist &amp; Lavy (1999)</span> — <em>Maimonides' Rule</em>: Israeli
+          class sizes are capped at 40, so a grade with 41 enrolled is split in two. The sharp drop
+          in class size at each multiple of 40 identifies the causal effect of class size on test
+          scores.
+          <a href="https://doi.org/10.1162/003355399556061" target="_blank" rel="noopener">QJE paper</a>.
+        </li>
+        <li>
+          <span class="case-name">Carpenter &amp; Dobkin (2009)</span> — <em>Minimum legal drinking age</em>:
+          US mortality jumps discontinuously on the 21st birthday. A clean estimate of how alcohol
+          access affects death rates.
+          <a href="https://doi.org/10.1257/app.1.1.164" target="_blank" rel="noopener">AEJ: Applied</a>.
+        </li>
+        <li>
+          <span class="case-name">Lee (2008)</span> — <em>US House incumbency</em>: parties barely
+          winning an election are, by luck of a few votes, nearly identical to those barely losing.
+          The discontinuity at 50% vote share identifies the causal incumbent advantage.
+          <a href="https://doi.org/10.1016/j.jeconom.2007.05.004" target="_blank" rel="noopener">J. Econometrics</a>.
+        </li>
+      </ul>
+    </section>
+
+    <!-- CALLBACK -->
+    <section class="rdd-callback">
+      <h2>Looking back</h2>
+      <p>
+        After eight sections of everything going wrong — omitted variables, heteroscedasticity,
+        multicollinearity, endogeneity, measurement error, selection, post-treatment controls,
+        colliders — RDD is the first design that earns OLS's trust back. Same estimator, different
+        credibility. Not because the math changed, but because the <em>design</em> did the work the
+        regression couldn't.
+      </p>
+      <p class="muted" style="font-style: italic;">
+        That is the lesson of the course. A coefficient means whatever the design says it means.
+      </p>
+    </section>
+
+    <!-- NAV -->
+    <div class="rdd-nav">
+      <a class="prev" href="collider.html">Previous: collider bias</a>
+      <a class="done" href="../index.html">You've completed the tour</a>
+    </div>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { seededRandom, randn, mean } from '../shared/dgp.js';
+    import { ols } from '../shared/regression.js';
+    import { PALETTE } from '../shared/plot.js';
+
+    // KaTeX
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+
+    // ================================================================
+    // Scholarship DGP
+    //   R ~ Uniform(40, 100)
+    //   D = 1 if R >= 70 else 0
+    //   Y = 60 + 0.3*R + 5*D + eps, eps ~ N(0, 3)
+    //   Also: a pre-treatment covariate Z (prior GPA) correlated with R.
+    // ================================================================
+    const CUTOFF = 70;
+    const TRUE_TAU = 5;
+
+    function generateRDDData(n = 400, seed = 11, { manipulated = false } = {}) {
+      const rng = seededRandom(seed);
+      const R = new Float64Array(n);
+      const D = new Float64Array(n);
+      const Y = new Float64Array(n);
+      const Z = new Float64Array(n); // pre-treatment covariate
+      for (let i = 0; i < n; i++) {
+        let r = 40 + 60 * rng();
+        // Manipulation: with probability 0.35, a student just below cutoff
+        // "retakes" and ends up just above. Creates a density spike.
+        if (manipulated && r >= 65 && r < 70 && rng() < 0.55) {
+          r = 70 + rng() * 2.5;
+        }
+        const d = r >= CUTOFF ? 1 : 0;
+        const eps = randn(rng) * 3;
+        const y = 60 + 0.3 * r + TRUE_TAU * d + eps;
+        const z = 2.5 + 0.015 * r + randn(rng) * 0.25; // prior GPA, smooth in R
+        R[i] = r; D[i] = d; Y[i] = y; Z[i] = z;
+      }
+      return { R, D, Y, Z };
+    }
+
+    let DATA = generateRDDData(500, 11);
+
+    // ---------- Local linear RDD estimator ----------
+    // Within [c - h, c + h], fit Y ~ R separately on each side; estimate tau as
+    // the gap at R = c. Returns { tau, se, ciLo, ciHi, nLeft, nRight, fitL, fitR }.
+    function rddFit(data, h, c = CUTOFF) {
+      const leftY = [], leftX = [];
+      const rightY = [], rightX = [];
+      for (let i = 0; i < data.R.length; i++) {
+        const r = data.R[i];
+        if (r >= c - h && r < c) { leftX.push(r - c); leftY.push(data.Y[i]); }
+        else if (r >= c && r <= c + h) { rightX.push(r - c); rightY.push(data.Y[i]); }
+      }
+      if (leftX.length < 3 || rightX.length < 3) {
+        return { tau: NaN, se: NaN, ciLo: NaN, ciHi: NaN,
+                 nLeft: leftX.length, nRight: rightX.length, fitL: null, fitR: null };
+      }
+      const fitL = ols(leftY, leftX.map(x => [x]));
+      const fitR = ols(rightY, rightX.map(x => [x]));
+      // intercepts are E[Y|R=c] limits (since x = R - c)
+      const yLeft = fitL.coefficients[0];
+      const yRight = fitR.coefficients[0];
+      const tau = yRight - yLeft;
+      const se = Math.sqrt(fitL.se[0] ** 2 + fitR.se[0] ** 2);
+      const z = 1.96;
+      return {
+        tau, se,
+        ciLo: tau - z * se, ciHi: tau + z * se,
+        nLeft: leftX.length, nRight: rightX.length,
+        fitL, fitR
+      };
+    }
+
+    // ================================================================
+    // THE CLIFF — main scatter plot
+    // ================================================================
+    const cliffWidth = 880, cliffHeight = 420;
+    const cliffMargin = { top: 16, right: 24, bottom: 44, left: 56 };
+
+    const cliffSvg = d3.select('#scatter-cliff').append('svg')
+      .attr('viewBox', `0 0 ${cliffWidth} ${cliffHeight}`)
+      .attr('class', 'pg-scatter')
+      .attr('preserveAspectRatio', 'xMidYMid meet');
+
+    const cliffG = cliffSvg.append('g')
+      .attr('transform', `translate(${cliffMargin.left},${cliffMargin.top})`);
+    const cliffInnerW = cliffWidth - cliffMargin.left - cliffMargin.right;
+    const cliffInnerH = cliffHeight - cliffMargin.top - cliffMargin.bottom;
+
+    const xScale = d3.scaleLinear().domain([40, 100]).range([0, cliffInnerW]);
+    const yScale = d3.scaleLinear().range([cliffInnerH, 0]);
+
+    cliffG.append('g').attr('class', 'axis x-axis')
+      .attr('transform', `translate(0,${cliffInnerH})`);
+    cliffG.append('g').attr('class', 'axis y-axis');
+
+    cliffG.append('text').attr('class', 'axis-label')
+      .attr('x', cliffInnerW / 2).attr('y', cliffInnerH + 36)
+      .attr('text-anchor', 'middle')
+      .text('R — test score (running variable)');
+    cliffG.append('text').attr('class', 'axis-label')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -cliffInnerH / 2).attr('y', -42)
+      .attr('text-anchor', 'middle')
+      .text('Y — outcome');
+
+    const pointsG = cliffG.append('g').attr('class', 'points');
+    const fitG = cliffG.append('g').attr('class', 'fits');
+    const cutoffG = cliffG.append('g').attr('class', 'cutoff');
+    const labelG = cliffG.append('g').attr('class', 'labels');
+
+    function drawCliff(h) {
+      const data = DATA;
+      const yExt = d3.extent(data.Y);
+      yScale.domain([yExt[0] - 2, yExt[1] + 2]);
+
+      cliffG.select('.x-axis').call(d3.axisBottom(xScale).ticks(7));
+      cliffG.select('.y-axis').call(d3.axisLeft(yScale).ticks(6));
+
+      // Points
+      const n = data.R.length;
+      const pts = pointsG.selectAll('circle').data(d3.range(n));
+      pts.enter().append('circle')
+          .attr('r', 2.8)
+        .merge(pts)
+          .attr('cx', i => xScale(data.R[i]))
+          .attr('cy', i => yScale(data.Y[i]))
+          .attr('fill', i => data.D[i] ? PALETTE.repairgreen : PALETTE.olsblue)
+          .attr('opacity', i => {
+            const inWin = Math.abs(data.R[i] - CUTOFF) <= h;
+            return inWin ? 0.85 : 0.18;
+          });
+      pts.exit().remove();
+
+      // Cutoff line
+      cutoffG.selectAll('*').remove();
+      cutoffG.append('line')
+        .attr('x1', xScale(CUTOFF)).attr('x2', xScale(CUTOFF))
+        .attr('y1', 0).attr('y2', cliffInnerH)
+        .attr('stroke', PALETTE.neutral)
+        .attr('stroke-dasharray', '4 4')
+        .attr('stroke-width', 1.5);
+      cutoffG.append('text')
+        .attr('x', xScale(CUTOFF) + 5).attr('y', 14)
+        .attr('fill', PALETTE.neutral)
+        .attr('font-family', 'var(--sans)').attr('font-size', 11)
+        .text(`cutoff c = ${CUTOFF}`);
+
+      // Local linear fits on each side, within bandwidth window
+      const fit = rddFit(data, h);
+      fitG.selectAll('*').remove();
+
+      if (fit.fitL && fit.fitR) {
+        const bL0 = fit.fitL.coefficients[0];
+        const bL1 = fit.fitL.coefficients[1];
+        const bR0 = fit.fitR.coefficients[0];
+        const bR1 = fit.fitR.coefficients[1];
+
+        // Left line: over [c-h, c]
+        const xL0 = CUTOFF - h, xL1 = CUTOFF;
+        fitG.append('line')
+          .attr('x1', xScale(xL0)).attr('y1', yScale(bL0 + bL1 * (xL0 - CUTOFF)))
+          .attr('x2', xScale(xL1)).attr('y2', yScale(bL0 + bL1 * 0))
+          .attr('stroke', PALETTE.olsblue).attr('stroke-width', 2.2);
+
+        // Right line: over [c, c+h]
+        const xR0 = CUTOFF, xR1 = CUTOFF + h;
+        fitG.append('line')
+          .attr('x1', xScale(xR0)).attr('y1', yScale(bR0 + bR1 * 0))
+          .attr('x2', xScale(xR1)).attr('y2', yScale(bR0 + bR1 * (xR1 - CUTOFF)))
+          .attr('stroke', PALETTE.repairgreen).attr('stroke-width', 2.2);
+
+        // Gap markers at cutoff
+        fitG.append('circle')
+          .attr('cx', xScale(CUTOFF)).attr('cy', yScale(bL0))
+          .attr('r', 4).attr('fill', PALETTE.olsblue).attr('stroke', '#fff').attr('stroke-width', 1.2);
+        fitG.append('circle')
+          .attr('cx', xScale(CUTOFF)).attr('cy', yScale(bR0))
+          .attr('r', 4).attr('fill', PALETTE.repairgreen).attr('stroke', '#fff').attr('stroke-width', 1.2);
+
+        // Gap label
+        labelG.selectAll('*').remove();
+        const gapMidY = (yScale(bL0) + yScale(bR0)) / 2;
+        labelG.append('text')
+          .attr('x', xScale(CUTOFF) + 10).attr('y', gapMidY)
+          .attr('fill', PALETTE.truthgold).attr('font-weight', 700)
+          .attr('font-family', 'var(--sans)').attr('font-size', 13)
+          .text(`Causal effect ≈ ${fit.tau.toFixed(2)}  (truth = ${TRUE_TAU})`);
+      }
+
+      // Readout
+      document.getElementById('rdd-tau').textContent =
+        isFinite(fit.tau) ? fit.tau.toFixed(3) : '—';
+      document.getElementById('rdd-se').textContent =
+        isFinite(fit.se) ? fit.se.toFixed(3) : '—';
+      document.getElementById('rdd-ci').textContent =
+        (isFinite(fit.ciLo) && isFinite(fit.ciHi))
+          ? `[${fit.ciLo.toFixed(2)}, ${fit.ciHi.toFixed(2)}]` : '—';
+      document.getElementById('rdd-nwin').textContent = `${fit.nLeft + fit.nRight} (${fit.nLeft} L / ${fit.nRight} R)`;
+    }
+
+    // ================================================================
+    // DIAGNOSTIC A — McCrary density
+    // ================================================================
+    const mcW = 260, mcH = 120, mcM = { top: 8, right: 8, bottom: 22, left: 28 };
+    const mcSvg = d3.select('#diag-mccrary').append('svg')
+      .attr('viewBox', `0 0 ${mcW} ${mcH}`).attr('preserveAspectRatio', 'xMidYMid meet');
+    const mcG = mcSvg.append('g').attr('transform', `translate(${mcM.left},${mcM.top})`);
+    const mcIW = mcW - mcM.left - mcM.right;
+    const mcIH = mcH - mcM.top - mcM.bottom;
+    const mcX = d3.scaleLinear().domain([55, 85]).range([0, mcIW]);
+    const mcY = d3.scaleLinear().range([mcIH, 0]);
+    mcG.append('g').attr('class', 'axis x-axis').attr('transform', `translate(0,${mcIH})`);
+    mcG.append('g').attr('class', 'axis y-axis');
+    const mcBars = mcG.append('g');
+    const mcLine = mcG.append('line')
+      .attr('stroke', PALETTE.neutral).attr('stroke-dasharray', '3 3');
+
+    function drawMcCrary() {
+      const bins = d3.histogram().domain([55, 85]).thresholds(30)(Array.from(DATA.R));
+      const maxC = d3.max(bins, b => b.length);
+      mcY.domain([0, maxC * 1.1 || 1]);
+      mcG.select('.x-axis').call(d3.axisBottom(mcX).ticks(5));
+      mcG.select('.y-axis').call(d3.axisLeft(mcY).ticks(3));
+      const sel = mcBars.selectAll('rect').data(bins);
+      sel.enter().append('rect')
+        .merge(sel)
+          .attr('x', b => mcX(b.x0) + 1)
+          .attr('y', b => mcY(b.length))
+          .attr('width', b => Math.max(0, mcX(b.x1) - mcX(b.x0) - 1))
+          .attr('height', b => mcIH - mcY(b.length))
+          .attr('fill', b => (b.x0 >= CUTOFF - 1 && b.x0 < CUTOFF + 2) ? PALETTE.biasred : PALETTE.olsblue)
+          .attr('opacity', 0.7);
+      sel.exit().remove();
+      mcLine
+        .attr('x1', mcX(CUTOFF)).attr('x2', mcX(CUTOFF))
+        .attr('y1', 0).attr('y2', mcIH);
+
+      // Verdict: detect a spike — compare density just above cutoff to just below
+      const just = bins.filter(b => b.x0 >= CUTOFF - 5 && b.x0 < CUTOFF + 5);
+      const below = just.filter(b => b.x0 < CUTOFF);
+      const above = just.filter(b => b.x0 >= CUTOFF);
+      const mBelow = d3.mean(below, b => b.length) || 0;
+      const mAbove = d3.mean(above, b => b.length) || 0;
+      const verdictEl = document.getElementById('mccrary-verdict');
+      if (mAbove > mBelow * 1.6 && mAbove > 5) {
+        verdictEl.className = 'rdd-diag-verdict bad';
+        verdictEl.innerHTML = '⚠ Spike at threshold — possible manipulation. RDD assumptions in doubt.';
+      } else {
+        verdictEl.className = 'rdd-diag-verdict good';
+        verdictEl.innerHTML = '✓ Density smooth across cutoff — no manipulation detected.';
+      }
+    }
+
+    // ================================================================
+    // DIAGNOSTIC B — Covariate balance
+    // Compare means of Z (prior GPA) and R/100 age-proxy above vs. below
+    // in a tight window.
+    // ================================================================
+    const balW = 260, balH = 130, balM = { top: 10, right: 8, bottom: 24, left: 36 };
+    const balSvg = d3.select('#diag-balance').append('svg')
+      .attr('viewBox', `0 0 ${balW} ${balH}`).attr('preserveAspectRatio', 'xMidYMid meet');
+    const balG = balSvg.append('g').attr('transform', `translate(${balM.left},${balM.top})`);
+    const balIW = balW - balM.left - balM.right;
+    const balIH = balH - balM.top - balM.bottom;
+
+    function drawBalance() {
+      const win = 5;
+      const below = [], above = [];
+      for (let i = 0; i < DATA.R.length; i++) {
+        if (DATA.R[i] >= CUTOFF - win && DATA.R[i] < CUTOFF) below.push(DATA.Z[i]);
+        else if (DATA.R[i] >= CUTOFF && DATA.R[i] <= CUTOFF + win) above.push(DATA.Z[i]);
+      }
+      // Also a synthetic "age" covariate (for visual variety): mean(R-60)/4 + noise
+      const belowAge = [], aboveAge = [];
+      for (let i = 0; i < DATA.R.length; i++) {
+        const ageLike = 18 + (DATA.R[i] - 40) / 60 * 4; // smooth in R
+        if (DATA.R[i] >= CUTOFF - win && DATA.R[i] < CUTOFF) belowAge.push(ageLike);
+        else if (DATA.R[i] >= CUTOFF && DATA.R[i] <= CUTOFF + win) aboveAge.push(ageLike);
+      }
+
+      const bars = [
+        { cov: 'Prior GPA', below: d3.mean(below) || 0, above: d3.mean(above) || 0 },
+        { cov: 'Age',       below: d3.mean(belowAge) || 0, above: d3.mean(aboveAge) || 0 }
+      ];
+
+      const x0 = d3.scaleBand().domain(bars.map(b => b.cov)).range([0, balIW]).padding(0.3);
+      const x1 = d3.scaleBand().domain(['below', 'above']).range([0, x0.bandwidth()]).padding(0.1);
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(bars, b => Math.max(b.below, b.above)) * 1.15 || 1])
+        .range([balIH, 0]);
+
+      balG.selectAll('*').remove();
+      balG.append('g').attr('class', 'axis')
+        .attr('transform', `translate(0,${balIH})`)
+        .call(d3.axisBottom(x0));
+      balG.append('g').attr('class', 'axis')
+        .call(d3.axisLeft(y).ticks(3));
+
+      const grp = balG.selectAll('.group').data(bars).enter().append('g')
+        .attr('transform', b => `translate(${x0(b.cov)},0)`);
+      grp.append('rect')
+        .attr('x', x1('below')).attr('width', x1.bandwidth())
+        .attr('y', b => y(b.below)).attr('height', b => balIH - y(b.below))
+        .attr('fill', PALETTE.olsblue).attr('opacity', 0.8);
+      grp.append('rect')
+        .attr('x', x1('above')).attr('width', x1.bandwidth())
+        .attr('y', b => y(b.above)).attr('height', b => balIH - y(b.above))
+        .attr('fill', PALETTE.repairgreen).attr('opacity', 0.8);
+
+      // Verdict
+      const maxRel = d3.max(bars, b => Math.abs(b.above - b.below) / ((b.above + b.below) / 2));
+      const ve = document.getElementById('balance-verdict');
+      if (maxRel > 0.08) {
+        ve.className = 'rdd-diag-verdict bad';
+        ve.innerHTML = '⚠ Covariates differ across cutoff — design is suspect.';
+      } else {
+        ve.className = 'rdd-diag-verdict good';
+        ve.innerHTML = '✓ Covariates balanced across the cutoff.';
+      }
+    }
+
+    // ================================================================
+    // DIAGNOSTIC C — Placebo cutoff
+    // ================================================================
+    const placeboSlider = document.getElementById('ctrl-placebo');
+    const placeboVal = document.getElementById('ctrl-placebo-val');
+    const placeboTau = document.getElementById('placebo-tau');
+    const placeboVerdict = document.getElementById('placebo-verdict');
+
+    function updatePlacebo() {
+      const c = Number(placeboSlider.value);
+      placeboVal.textContent = String(c);
+      const fit = rddFit(DATA, 8, c);
+      if (!isFinite(fit.tau)) {
+        placeboTau.textContent = '—';
+        placeboVerdict.className = 'rdd-diag-verdict';
+        placeboVerdict.textContent = 'Too few points near placebo c.';
+        return;
+      }
+      placeboTau.textContent = fit.tau.toFixed(3);
+      if (c === CUTOFF) {
+        placeboVerdict.className = 'rdd-diag-verdict good';
+        placeboVerdict.innerHTML = 'At the true cutoff: a real jump (≈ 5).';
+      } else if (Math.abs(fit.tau) < 1.5) {
+        placeboVerdict.className = 'rdd-diag-verdict good';
+        placeboVerdict.innerHTML = `✓ No jump at c = ${c}. Design survives the placebo.`;
+      } else {
+        placeboVerdict.className = 'rdd-diag-verdict bad';
+        placeboVerdict.innerHTML = `⚠ Unexpected jump at c = ${c}. Something else is going on.`;
+      }
+    }
+
+    // ================================================================
+    // Manipulation button
+    // ================================================================
+    document.getElementById('btn-manip').addEventListener('click', () => {
+      DATA = generateRDDData(500, 11, { manipulated: true });
+      refreshAll();
+    });
+    document.getElementById('btn-manip-reset').addEventListener('click', () => {
+      DATA = generateRDDData(500, 11);
+      refreshAll();
+    });
+
+    // ================================================================
+    // Bandwidth slider
+    // ================================================================
+    const bwCtrl = document.getElementById('ctrl-bw');
+    const bwVal = document.getElementById('ctrl-bw-val');
+    bwCtrl.addEventListener('input', () => {
+      bwVal.textContent = bwCtrl.value;
+      drawCliff(Number(bwCtrl.value));
+    });
+    placeboSlider.addEventListener('input', updatePlacebo);
+
+    function refreshAll() {
+      drawCliff(Number(bwCtrl.value));
+      drawMcCrary();
+      drawBalance();
+      updatePlacebo();
+    }
+
+    // Initial render
+    refreshAll();
+  </script>
+</body>
+</html>
