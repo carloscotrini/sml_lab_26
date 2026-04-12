@@ -142,7 +142,7 @@ A study of 50{,}000 university students found that sitting in a higher-numbered 
 \begin{tcolorbox}[colback=biasred!5, colframe=biasred!80!black, fonttitle=\bfseries, title={The Algorithm That Ruined 72 Hours}]
 In August 2020, the UK exam regulator Ofqual deployed a regression model to assign A-level grades to half a million students whose exams had been cancelled due to COVID-19. The model included school-level variables, prior performance, and teacher predictions. Its $R^2$ was good. Its diagnostics passed. On Tuesday, students received their grades. By Thursday, the algorithm had been scrapped.
 
-The model systematically downgraded students from disadvantaged schools. A student with identical ability and identical teacher predictions received a lower grade if their school had historically underperformed---a textbook case of conditioning on a collider (school reputation is caused by both student quality \emph{and} institutional resources). The algorithm did not measure student ability; it measured school postcode.
+The model systematically downgraded students from disadvantaged schools. A student with identical ability and identical teacher predictions received a lower grade if their school had historically underperformed---a textbook case of conditioning on a collider (school reputation is caused by both student quality \emph{and} institutional resources). The full causal structure is more complex than a single collider, but the core error is the same: the algorithm conditioned on school-level performance, which is influenced by both individual ability and socioeconomic factors, manufacturing a spurious penalty for high-ability students at historically low-performing schools. The algorithm did not measure student ability; it measured school postcode.
 
 This course is about why. Every failure mode we study---omitted variable bias, bad controls, specification error, fragile diagnostics---was present in the Ofqual model. We will return to this example in the conclusion, once you have the vocabulary to say exactly what went wrong.
 \end{tcolorbox}
@@ -243,6 +243,10 @@ The data are generated according to the following structural equations:
   X_3 &= 0.9\,Y + \eta_3, \quad \eta_3 \sim \mathcal{N}(0,\,2). \label{eq:X3}
 \end{align}
 \end{definition}
+
+\begin{remark}[Logarithm convention]
+Throughout these notes, $\log$ denotes the natural logarithm (base $e$), also written $\ln$ in some textbooks.
+\end{remark}
 
 If these structural equations look intimidating, don't worry. Let's walk through each one in plain language.
 
@@ -495,6 +499,8 @@ In general, the sign of the total bias is indeterminate without knowledge of all
 \begin{repairbox}
 In the studying scenario, the true confounder is self-discipline ($U$)---the Instagram slider score that lives on a social media server, not in the university's records. But suppose we can measure something related, like attendance at optional review sessions. Call this proxy $\tilde{U}$. If $\tilde{U}$ explains a fraction $q \in [0,1]$ of the variation in $U$, the residual bias is approximately $(1-q)$ times the original bias.
 At $q = 1$ (the proxy perfectly captures self-discipline), the bias vanishes entirely. At $q = 0$ (the proxy is useless noise), the full bias remains. In practice, even an imperfect proxy---$q = 0.5$, say---cuts the bias in half, which is a substantial improvement over ignoring the confounder entirely.
+
+To see why, suppose $\tilde{U} = qU + \sqrt{1-q^2}\,\nu$ where $\nu \perp U$. Including $\tilde{U}$ in the regression removes the component of $U$ that is linearly predictable from $\tilde{U}$. The residual confounding is proportional to the unexplained variance of $U$, which is $(1-q^2) \approx 2(1-q)$ for $q$ near 1, and approximately $(1-q)$ as a rough linear approximation for moderate $q$. The exact reduction depends on the joint distribution, but $(1-q)$ captures the intuition: a proxy that explains half the variation cuts the bias roughly in half.
 \end{repairbox}
 
 \subsection{The Collider Trap: When ``Controlling For'' Backfires}
@@ -830,6 +836,10 @@ For genome-wide association studies ($m \approx 10^6$), the corrected threshold 
 In our 200-classroom-feature example, the corrected threshold is $0.05/200 = 0.00025$---any ``significant'' result that only cleared the 0.05 bar disappears under this stricter standard.
 Always report effect sizes and confidence intervals alongside $p$-values.
 \end{repairbox}
+
+\begin{remark}[Why the Bonferroni correction works]
+The Bonferroni correction follows from the \emph{union bound}: $P(\text{at least one false positive}) = P\!\left(\bigcup_{j=1}^m A_j\right) \leq \sum_{j=1}^m P(A_j) = m \cdot (\alpha/m) = \alpha$, where $A_j$ is the event that test $j$ falsely rejects. By testing each hypothesis at level $\alpha/m$, the probability of \emph{any} false positive across all $m$ tests is at most $\alpha$.
+\end{remark}
 
 \begin{remark}[The Replication Crisis]
 The multiple testing problem is not a theoretical curiosity---it is at the heart of the \emph{replication crisis} that has shaken psychology, medicine, and economics since 2011. The Open Science Collaboration (2015) attempted to replicate 100 published psychology studies. Only 36 produced significant results the second time around. Among the casualties: the famous ``power posing'' study (Carney et al., 2010), which claimed that standing in an expansive pose for two minutes raises testosterone and lowers cortisol. The original had $p = 0.045$ with $n = 42$. Multiple replications with larger samples found no effect. The reasons are exactly what this section teaches: $p$-hacking (running many tests and reporting only the significant ones), underpowered studies (small $n$, large effect needed), and the base rate problem (most hypotheses tested are probably false, so even with $\alpha = 0.05$, a large fraction of ``discoveries'' are false positives).
@@ -1757,7 +1767,7 @@ Since $\E[\varepsilon \mid X_1, X_2] = 0$ implies $\Cov(X_1, \varepsilon) = 0$, 
 \subsection{Proof of Collider Bias (Proposition~\ref{prop:collider})}
 
 \begin{proof}
-Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:
+Since $C$ is a function of $X$, $U$, and $\eta$, fixing $C$ constrains the sum $\alpha_1 X + \alpha_2 U$. Knowing that $\alpha_1 X + \alpha_2 U \approx C - \eta$ means that a large $X$ implies a small $U$ (and vice versa). Formally, for a linear system with jointly normal variables:\footnote{This is the standard formula for conditional covariance in a multivariate normal distribution. For jointly normal $(X, U, C)$: $\Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U)$. It follows from the projection properties of the multivariate normal: conditioning on $C$ is equivalent to regressing out $C$, and the residual covariance is the original covariance minus the part explained by $C$.}
 \[
   \Cov(X, U \mid C) = \Cov(X, U) - \Cov(X, C)\,\Var(C)^{-1}\,\Cov(C, U).
 \]
@@ -1796,7 +1806,11 @@ Let $\mu = \E[\hat{f}(x_0)]$.  Then
   &= \E[(f - \hat{f})^2] + \E[\varepsilon^2] + 2\E[\varepsilon(f - \hat{f})] \\
   &= \E[(f - \hat{f})^2] + \sigma^2_\varepsilon,
 \end{align*}
-where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ (trained on separate data) and has mean zero.
+where the cross-term vanishes because $\varepsilon$ is independent of $\hat{f}$ and has mean zero.
+
+\begin{remark}[Independence of noise and fitted model]
+This independence assumption is subtle but critical: $\varepsilon$ is the noise in the \emph{new} test observation, while $\hat{f}$ was trained on \emph{different} data. Because the test point was not used in training, its noise $\varepsilon$ is independent of the fitted model $\hat{f}$. If we evaluated prediction error on the \emph{training} data instead, this independence would fail, and the decomposition would not hold---which is precisely why training error is an unreliable estimate of prediction error.
+\end{remark}
 Now expand:
 \[
   \E[(f - \hat{f})^2]
