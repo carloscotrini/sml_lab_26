@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>A spiral introduction to the DGP — SML playground</title>
+  <title>A spiral introduction to the DGP: SML playground</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
   <link rel="stylesheet" href="shared/style.css" />
   <style>
@@ -11,8 +11,8 @@
       --c-bg: #fbf8f3;
       --c-ink: #2a2a2a;
       --c-ink-muted: #5a5a5a;
-      --c-anna: #d4722c;
-      --c-ben:  #3c8dbc;
+      --c-alice: #d4722c;
+      --c-bob:  #3c8dbc;
       --c-noise: #9aa0a6;
       --c-truth: #7b2cbf;
       --c-est:  #2d8659;
@@ -188,9 +188,9 @@
     }
     .stage .controls button:hover { background: var(--c-truth); color: #fff; }
     .stage .controls button.climax {
-      border-color: var(--c-anna);
+      border-color: var(--c-alice);
       color: #fff;
-      background: linear-gradient(90deg, var(--c-anna), var(--c-ben));
+      background: linear-gradient(90deg, var(--c-alice), var(--c-bob));
       font-weight: 600;
       padding: 10px 16px;
       font-size: 14px;
@@ -275,10 +275,33 @@
 
     /* residual stick default */
     .resid { stroke: var(--c-noise); stroke-width: 1.2; opacity: 0.6; }
-    .resid.anna-tone { stroke: var(--c-anna); }
-    .resid.ben-tone { stroke: var(--c-ben); }
+    .resid.alice-tone { stroke: var(--c-alice); }
+    .resid.bob-tone { stroke: var(--c-bob); }
 
     .katex { font-size: 1em; }
+
+    /* per-stage "this stage introduced" equation box */
+    .stage-eq {
+      margin-top: 20px;
+      padding: 12px 14px;
+      background: rgba(123, 44, 191, 0.06);
+      border: 1px solid rgba(123, 44, 191, 0.25);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stage-eq .stage-eq-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-truth);
+      font-weight: 600;
+    }
+    .stage-eq span:last-child {
+      font-size: 15px;
+      color: var(--c-ink);
+    }
   </style>
 </head>
 <body>
@@ -294,11 +317,11 @@
         <text x="6" y="14" font-size="9" fill="#5a5a5a">high U</text>
         <text x="6" y="56" font-size="9" fill="#5a5a5a">low U</text>
         <g id="uWidgetDots"></g>
-        <circle id="uAnna" cx="100" cy="16" r="4" fill="var(--c-anna)"/>
-        <circle id="uBen" cx="100" cy="44" r="4" fill="var(--c-ben)"/>
+        <circle id="uAlice" cx="100" cy="16" r="4" fill="var(--c-alice)"/>
+        <circle id="uBob" cx="100" cy="44" r="4" fill="var(--c-bob)"/>
       </svg>
       <div class="veil" id="uVeil"></div>
-      <div class="label">U — self-discipline</div>
+      <div class="label">U: self-discipline</div>
     </div>
 
     <div class="formula-tracker" id="formulaTracker" aria-live="polite">
@@ -320,18 +343,20 @@
 
       <section class="stage" data-stage="1">
         <div class="kicker">Stage 1</div>
-        <h2>Meet Anna and Ben</h2>
+        <h2>Meet Alice and Bob</h2>
         <blockquote>
-          Meet Anna. Meet Ben. They sit in the same lecture hall. They take the same notes. This semester, both tell you — honestly — that they studied <strong>2 hours a day</strong> and attended <strong>10 out of 12 lectures</strong>. Then the exam happens. Anna scores <strong>72</strong>. Ben scores <strong>58</strong>.
+          Meet Alice. Meet Bob. They sit in the same lecture hall. They take the same notes. This semester, both tell you, honestly, that they studied <strong>2 hours a day</strong> and attended <strong>10 out of 12 lectures</strong>. Then the exam happens. Alice scores <strong>72</strong>. Bob scores <strong>58</strong>.
         </blockquote>
         <p><em>Same hours. Same attendance. Fourteen-point gap.</em></p>
-        <p>You're going to spend the next ten minutes figuring out why — by building, piece by piece, the hidden machine that produces exam scores in this world.</p>
-        <p>First, something you won't see in any spreadsheet. Call it <strong>U</strong> — self-discipline, grit, focus, whatever you like. Anna has a lot of it. Ben has less. It's real, and it's about to start pulling strings.</p>
-        <p><em>U is who they really are — and we will never see it directly.</em></p>
+        <p>You're going to spend the next ten minutes figuring out why, by building, piece by piece, the hidden machine that produces exam scores in this world.</p>
+        <p>First, something you won't see in any spreadsheet. Call it <strong>U</strong>: self-discipline, grit, focus, whatever you like. Alice has a lot of it. Bob has less. It's real, and it's about to start pulling strings.</p>
+        <p><strong>How was U measured?</strong> U is the score each student gave themselves on an Instagram story slider at the start of the semester: "How disciplined are you with your studies? Drag the slider from 0 (not at all) to 1 (very)." The university has not released this data, so the analyst cannot see it. We standardise these scores to mean 0 and standard deviation 1, giving U ~ N(0,1).</p>
+        <p><em>U is who they really are, and we will never see it directly.</em></p>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( U \sim \mathcal{N}(0,1) \)</span></div>
         <div class="controls">
           <button id="btnDrawPeople">Draw new people</button>
           <label>
-            Anna & Ben positions on U
+            Alice & Bob positions on U
             <input type="range" id="sldU" min="0" max="1" step="0.01" value="0.5" />
             <span class="val" id="valU">0.50</span>
           </label>
@@ -342,32 +367,34 @@
         <div class="kicker">Stage 2</div>
         <h2>What U does to study hours</h2>
         <p>Every real measurement is the signal plus something else. A sneeze. A typo. A question that happened to favour one student's intuition.</p>
-        <p>But before the noise arrives, notice something else: <strong>U has already moved them.</strong> Anna's discipline didn't just sit in her head — it pushed her to study more hours. Ben's lower U pushed him to study fewer. The <em>same</em> hidden trait leaked into what we thought was an independent input.</p>
-        <p>That violet arrow is the cause. The grey shimmer is the chance. Both land in the same number — hours studied — and from the outside, we can't tell them apart.</p>
+        <p><strong>U has already moved them.</strong> Alice's discipline didn't just sit in her head. It pushed her to study more hours. Bob's lower U pushed him to study fewer. The <em>same</em> hidden trait leaked into what we thought was an independent input.</p>
+        <p>That violet arrow is the cause. The grey shimmer is the chance. Both land in the same number, hours studied, and from the outside, we can't tell them apart.</p>
         <div class="controls">
           <label>
-            \( \gamma_1 \) — U's pull on X₁
+            \( \gamma_1 \): U's pull on X₁
             <input type="range" id="sldGamma1" min="0" max="1.5" step="0.01" value="0.5" />
             <span class="val" id="valGamma1">0.50</span>
           </label>
           <button id="btnResampleEta1">Resample η₁</button>
         </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_1 = 2 + 0.5\,U + \eta_1 \)</span></div>
       </section>
 
       <section class="stage" data-stage="3">
         <div class="kicker">Stage 3</div>
         <h2>Two windows onto U</h2>
         <p>A detective never trusts a single witness. Neither should a model.</p>
-        <p>We're going to add a second variable — <strong>X₂</strong>, lectures attended. Same story: U pushes it, noise jitters it. But watch what happens when we put both axes in the same picture.</p>
-        <p>A hundred anonymous students rain in. The cloud tilts. Why? Because U is still pulling the strings — on both axes at once. Students with high U study more <em>and</em> attend more. Students with low U do neither. The tilt you see is U's fingerprint on the data.</p>
+        <p>We're going to add a second variable: <strong>X₂</strong>, lectures attended. Same story: U pushes it, noise jitters it. But watch what happens when we put both axes in the same picture.</p>
+        <p>A hundred anonymous students rain in. The cloud tilts. Why? Because U is still pulling the strings, on both axes at once. Students with high U study more <em>and</em> attend more. Students with low U do neither. The tilt you see is U's fingerprint on the data.</p>
         <div class="controls">
           <label>
-            \( \gamma_2 \) — U's pull on X₂
+            \( \gamma_2 \): U's pull on X₂
             <input type="range" id="sldGamma2" min="0" max="1.5" step="0.01" value="0.3" />
             <span class="val" id="valGamma2">0.30</span>
           </label>
           <button id="btnReplayFountain">Replay the fountain</button>
         </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_2 = 10 + 0.3\,U + \eta_2 \)</span></div>
       </section>
 
       <section class="stage" data-stage="4">
@@ -375,21 +402,22 @@
         <h2>The outcome (the full DGP arrives)</h2>
         <p>Now the exam happens. And the machine that produces scores looks like this:</p>
         <p style="text-align:center;" class="katex-big">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</p>
-        <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth — diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>2·U</code> is the direct fingerprint of discipline on the exam itself. And <code>ε</code> is what's left — the sneezes, the lucky guesses, the pen that ran out.</p>
-        <p>Look closely at that noise. The cloud doesn't have uniform width. Students who studied little scatter tightly. Students who studied a lot scatter wildly. This is called <strong>heteroscedasticity</strong> — different scatter in different regions — and it will matter when we start trusting our predictions.</p>
+        <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth: diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>2·U</code> is the direct fingerprint of discipline on the exam itself. And <code>ε</code> is what's left: the sneezes, the lucky guesses, the pen that ran out.</p>
+        <p>Look closely at that noise. The cloud doesn't have uniform width. Students who studied little scatter tightly. Students who studied a lot scatter wildly. This is called <strong>heteroscedasticity</strong> (different scatter in different regions) and it will matter when we start trusting our predictions.</p>
         <div class="controls">
           <label class="toggle-row">
             <input type="checkbox" id="tglLinearY" />
             Fit with a straight line (no log)
           </label>
         </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + \beta_1 X_1 + 3\,X_2 + 2\,U + \varepsilon \)</span></div>
       </section>
 
       <section class="stage" data-stage="5">
         <div class="kicker">Stage 5</div>
         <h2>The estimator arrives</h2>
         <p>Here is the magic trick at the heart of regression. We can't see U. We can't see ε. All we get is the cloud.</p>
-        <p>Our job is to draw the line that sits as close as possible to every dot at once — the line that minimises the total squared distance from the dots to itself. <strong>Ordinary Least Squares.</strong> OLS. The workhorse of every statistics course ever taught.</p>
+        <p>Our job is to draw the line that sits as close as possible to every dot at once: the line that minimises the total squared distance from the dots to itself. <strong>Ordinary Least Squares.</strong> OLS. The workhorse of every statistics course ever taught.</p>
         <p>Watch it find its equilibrium. The little grey sticks are like springs pulling on the line; it settles where the total tension is smallest.</p>
         <p>But our line is straight, and the truth isn't. Look at the gap at the extremes. Going from 1 hour to 2 is life-changing. Going from 9 to 10 is just an extra hour of panic. Can we fix this?</p>
         <div class="controls">
@@ -399,33 +427,53 @@
           </label>
           <button id="btnResampleAll">Resample the data</button>
         </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon \)</span></div>
       </section>
 
       <section class="stage" data-stage="6">
-        <div class="kicker">Stage 6 — the climax</div>
+        <div class="kicker">Stage 6: the climax</div>
         <h2>The ghost in the residuals</h2>
-        <p>Here's something strange. Every semester we run, Anna sits above the line. Every semester, Ben sits below. If the residuals were really just noise, they'd flip sign half the time.</p>
-        <p>They don't. Something is <strong>systematically</strong> lifting Anna and sinking Ben — and it's the thing we named at the very start. U.</p>
+        <p>Here's something strange. Every semester we run, Alice sits above the line. Every semester, Bob sits below. If the residuals were really just noise, they'd flip sign half the time.</p>
+        <p>They don't. Something is <strong>systematically</strong> lifting Alice and sinking Bob, and it's the thing we named at the very start. U.</p>
         <p>Flip the switch. Watch what colour the residuals actually are.</p>
         <blockquote><em>The noise wasn't noise. It was someone we weren't looking at.</em></blockquote>
-        <p>This is what a <strong>confounder</strong> does. It shapes the inputs. It shapes the outputs. And when we leave it out of our model, our model happily blames the inputs for what the confounder did. Anna's "extra" points don't belong to her hours — they belong to U, which also made her hours higher. OLS cannot tell the two apart.</p>
+        <p>This is what a <strong>confounder</strong> does. It shapes the inputs. It shapes the outputs. And when we leave it out of our model, our model happily blames the inputs for what the confounder did. Alice's "extra" points don't belong to her hours. They belong to U, which also made her hours higher. OLS cannot tell the two apart.</p>
         <div class="controls">
           <button id="btnReveal" class="climax">Reveal the ghost</button>
           <div id="ghostLabel" style="display:none;font-family:var(--serif);font-style:italic;color:var(--c-truth);font-size:15px;margin-top:4px;">
             The ghost has a name. It's self-discipline.
           </div>
         </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon \)<br/><small style="color:#888;">(same equation; this stage revealed U's role)</small></span></div>
       </section>
 
       <section class="stage" data-stage="7">
         <div class="kicker">Stage 7</div>
-        <h2>The seductive shortcut</h2>
-        <p>Imagine a magic new feature. After each exam, you ask every student: <em>"How do you think you did?"</em> Call their answer <strong>X₃</strong>. It correlates beautifully with the actual score. Should you put it in your model?</p>
-        <p>Your instincts are about to betray you.</p>
-        <p>Look at that R². Near-perfect. You could publish this. You could sell this. You would be lying.</p>
-        <p>X₃ isn't a <em>cause</em> of the exam score. X₃ is a <strong>consequence</strong> of it. Students who did well feel like they did well. You're not predicting the score — you're predicting the score using a slightly noisier copy of the score itself.</p>
-        <p>When you include X₃, it steals the credit from every honest predictor. Hours studied? "No longer matters." <strong>You don't score well because you feel confident. You feel confident because you scored well.</strong></p>
+        <h2>The shape of the noise</h2>
+        <p>One piece of the DGP is still underspecified. We wrote \( \varepsilon \) as if it were a single, uniform cloud. It isn't.</p>
+        <p>The scatter grows with X₁. A student who studied barely at all produces a tight, predictable score. A student who studied a lot has more going on: momentum, fatigue, lucky topic overlap. Their outcomes fan out.</p>
+        <p>We encode this directly in the DGP. The noise variance is not a constant. It scales with \( |X_1| \):</p>
+        <p style="text-align:center;" class="katex-big">\( \varepsilon \sim \mathcal{N}(0,\; 0.5\,|X_1|) \)</p>
+        <p>That is heteroscedasticity written as an equation. It will matter later, when we start asking how much to trust any single prediction.</p>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( \varepsilon \sim \mathcal{N}(0,\; 0.5\,|X_1|) \)</span></div>
+      </section>
+
+      <section class="stage" data-stage="8">
+        <div class="kicker">Stage 8</div>
+        <h2>One last variable, and three ways to use it all</h2>
+        <p>After the exam, imagine we ask every student: <em>"How do you think you did?"</em> Call their answer <strong>X₃</strong>: self-assessed performance. It tracks the score closely, because students who did well feel like they did well.</p>
+        <p>Formally, X₃ is a noisy copy of Y:</p>
+        <p style="text-align:center;" class="katex-big">\( X_3 = 0.9\,Y + \eta_3 \)</p>
+        <p>Notice the direction of the arrow. Y causes X₃. X₃ does not cause Y. That makes X₃ a <strong>post-treatment</strong> variable: measured after the outcome, shaped by it.</p>
+        <p>Now back to Alice and Bob. Alice: 2 hours, 10 lectures, score 72. Bob: 2 hours, 10 lectures, score 58. You now know why. Alice's U was high. That same discipline made her 2 hours denser than Bob's 2 hours, made her lectures more attentive, and gave her a direct boost on exam day beyond anything we could measure. The 14-point gap wasn't mysterious. It was U, doing what U always does: shaping inputs, shaping outputs, staying invisible.</p>
+        <p>Three analysts walk into this dataset. Click their strategies and read what each one actually fits.</p>
         <div class="controls">
+          <button id="btnScenarioIdeal">Ideal researcher</button>
+          <button id="btnScenarioNaive">Naive analyst</button>
+          <button id="btnScenarioHonest">Honest minimum</button>
+          <div id="scenarioExplainer" style="font-size:13px;color:var(--c-ink);background:rgba(123,44,191,0.06);border-left:3px solid var(--c-truth);padding:10px 12px;border-radius:3px;margin-top:6px;">
+            Click one of the three buttons above to see what that analyst's model looks like.
+          </div>
           <label class="toggle-row">
             <input type="checkbox" id="tglIncludeX3" />
             Include X₃ in the model
@@ -435,21 +483,7 @@
           </div>
           <div id="coefReadout" style="font-family:'SF Mono',monospace;font-size:12px;color:var(--c-ink-muted);white-space:pre;margin-top:6px;"></div>
         </div>
-      </section>
-
-      <section class="stage" data-stage="8">
-        <div class="kicker">Stage 8</div>
-        <h2>Anna and Ben, revisited</h2>
-        <p>Let's return to where we started. Anna: 2 hours, 10 lectures, score 72. Ben: 2 hours, 10 lectures, score 58. You now know why.</p>
-        <p>Anna's U was high. That same discipline made her 2 hours denser than Ben's 2 hours, made her lectures more attentive, and gave her a direct boost on exam day beyond anything we could measure. The 14-point gap wasn't mysterious. It was U, doing what U always does — shaping inputs, shaping outputs, staying invisible.</p>
-        <p>A regression on (X₁, X₂) alone would call this gap noise. A regression including X₃ would "explain" it by cheating. Neither tells you the truth: <strong>the most important variable in this story was the one we never got to measure.</strong></p>
-        <p>That's the job, from here on out. Not just to fit lines. To know which lines are honest.</p>
-        <p><em>Welcome to the rest of the course. Play.</em></p>
-        <div class="controls">
-          <button id="btnScenarioIdeal">Ideal researcher (U observed, log feature)</button>
-          <button id="btnScenarioNaive">Naive analyst (linear + X₃)</button>
-          <button id="btnScenarioHonest">Honest minimum (X₁ + X₂, log)</button>
-        </div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_3 = 0.9\,Y + \eta_3 \)</span></div>
       </section>
     </div>
 
@@ -460,7 +494,7 @@
 
   <section class="coda">
     <p style="font-family:var(--serif);font-style:italic;color:var(--c-ink-muted);font-size:15px;">
-      Next up: a focused lab on omitted-variable bias — see what happens when U is there, but left out of the regression.
+      Next up: a focused lab on omitted-variable bias. See what happens when U is there, but left out of the regression.
     </p>
     <a href="topics/ovb.html" class="nav-next">Continue to OVB →</a>
   </section>
@@ -493,8 +527,8 @@
       linearY: false,   // stage 4 toggle
       includeX3: false,
       revealed: false,
-      annaU: 0.85,
-      benU: -0.85,
+      aliceU: 0.85,
+      bobU: -0.85,
       sample: null
     };
 
@@ -525,9 +559,9 @@
     }
     draw();
 
-    // Anna & Ben fixed values (narrator's canonical coords)
-    const anna = { U: 0.85, X1: 2.43, X2: 10.25, Y: 72 };
-    const ben  = { U: -0.85, X1: 1.57, X2: 9.75, Y: 58 };
+    // Alice & Bob fixed values (narrator's canonical coords)
+    const alice = { U: 0.85, X1: 2.43, X2: 10.25, Y: 72 };
+    const bob  = { U: -0.85, X1: 1.57, X2: 9.75, Y: 58 };
 
     // ---------- svg setup ----------
     const svg = d3.select('#mainSvg');
@@ -544,7 +578,7 @@
     const gTrueCurve = root.append('g').attr('class', 'g-true');
     const gFit = root.append('g').attr('class', 'g-fit');
     const gResid = root.append('g').attr('class', 'g-resid');
-    const gAnnaBen = root.append('g').attr('class', 'g-ab');
+    const gAliceBob = root.append('g').attr('class', 'g-ab');
     const gOverlay = root.append('g').attr('class', 'g-overlay');
 
     // defs for halo glows
@@ -556,12 +590,12 @@
       merge.append('feMergeNode').attr('in','blur');
       merge.append('feMergeNode').attr('in','SourceGraphic');
     }
-    makeGlow('glow-anna', 'var(--c-anna)', 4);
-    makeGlow('glow-ben', 'var(--c-ben)', 2);
+    makeGlow('glow-alice', 'var(--c-alice)', 4);
+    makeGlow('glow-bob', 'var(--c-bob)', 2);
 
     // Avatar renderer: returns a <g> you can transform
     function renderAvatar(sel, who, size=24) {
-      const color = who === 'anna' ? 'var(--c-anna)' : 'var(--c-ben)';
+      const color = who === 'alice' ? 'var(--c-alice)' : 'var(--c-bob)';
       const g = sel.append('g').attr('class', `avatar ${who}`);
       // halo
       g.append('circle').attr('class','halo').attr('r', size*0.9).attr('fill', color).attr('opacity', 0.18);
@@ -570,8 +604,8 @@
       // eyes
       g.append('circle').attr('cx', -size*0.18).attr('cy', -size*0.08).attr('r', size*0.055).attr('fill', '#2a2a2a');
       g.append('circle').attr('cx', size*0.18).attr('cy', -size*0.08).attr('r', size*0.055).attr('fill', '#2a2a2a');
-      // mouth (Anna smiles, Ben neutral)
-      if (who === 'anna') {
+      // mouth (Alice smiles, Bob neutral)
+      if (who === 'alice') {
         g.append('path').attr('d', `M${-size*0.2},${size*0.1} Q0,${size*0.28} ${size*0.2},${size*0.1}`)
           .attr('fill','none').attr('stroke','#2a2a2a').attr('stroke-width', 1.5).attr('stroke-linecap','round');
       } else {
@@ -580,7 +614,7 @@
       }
       // name
       g.append('text').attr('class','name').attr('y', size*0.9 + 12).attr('text-anchor','middle')
-        .text(who === 'anna' ? 'Anna' : 'Ben');
+        .text(who === 'alice' ? 'Alice' : 'Bob');
       return g;
     }
 
@@ -607,15 +641,16 @@
 
     function clearAll() {
       gRidge.selectAll('*').remove();
+      gAxes.selectAll('*').remove();
       gCloud.selectAll('*').remove();
       gTrueCurve.selectAll('*').remove();
       gFit.selectAll('*').remove();
       gResid.selectAll('*').remove();
-      gAnnaBen.selectAll('*').remove();
+      gAliceBob.selectAll('*').remove();
       gOverlay.selectAll('*').remove();
     }
 
-    // stage 1: U axis vertical, Anna/Ben as large avatars along U
+    // stage 1: U axis vertical, Alice/Bob as large avatars along U
     function renderStage1() {
       clearAll();
       xScale = d3.scaleLinear().domain([-3, 3]).range([0, iw]);
@@ -626,7 +661,7 @@
       const cx = iw / 2;
       gAxes.append('line').attr('x1', cx).attr('y1', 10).attr('x2', cx).attr('y2', ih-10)
         .attr('stroke', '#bfbdb3').attr('stroke-width', 1).attr('opacity', 0.4);
-      gAxes.append('text').attr('x', cx+8).attr('y', 20).style('font-size','12px').style('fill','#666').text('U — self-discipline');
+      gAxes.append('text').attr('x', cx+8).attr('y', 20).style('font-size','12px').style('fill','#666').text('U: self-discipline');
       gAxes.append('text').attr('x', cx+8).attr('y', 36).style('font-size','10px').style('fill','#999').text('(higher = more)');
 
       // normal ridge
@@ -655,10 +690,10 @@
           .transition().delay(i*80).duration(400).attr('opacity',0.6);
       }
 
-      // anna and ben avatars
-      const annaG = renderAvatar(gAnnaBen, 'anna', 28).attr('transform', `translate(${cx-40},${yScale(state.annaU)})`);
-      const benG  = renderAvatar(gAnnaBen, 'ben', 28).attr('transform', `translate(${cx+40},${yScale(state.benU)})`);
-      annaG.select('.halo').attr('filter', 'url(#glow-anna)');
+      // alice and bob avatars
+      const aliceG = renderAvatar(gAliceBob, 'alice', 28).attr('transform', `translate(${cx-40},${yScale(state.aliceU)})`);
+      const bobG  = renderAvatar(gAliceBob, 'bob', 28).attr('transform', `translate(${cx+40},${yScale(state.bobU)})`);
+      aliceG.select('.halo').attr('filter', 'url(#glow-alice)');
     }
 
     // stage 2: 1D number line for X1. U is encoded by color (blue = low, gold = high).
@@ -692,7 +727,7 @@
         .attr('x', xScale(4.5)).attr('y', centreY + 40)
         .attr('text-anchor', 'end').attr('font-size', 12).attr('fill', '#222')
         .attr('font-style', 'italic')
-        .text('X₁ — hours studied');
+        .text('X₁: hours studied');
 
       // baseline marker at X₁ = 2 (U=0 student)
       axisG.append('line')
@@ -732,36 +767,36 @@
       legend.append('text').attr('x', 0).attr('y', 24).attr('font-size', 10).attr('fill', '#666').text('low');
       legend.append('text').attr('x', 120).attr('y', 24).attr('text-anchor', 'end').attr('font-size', 10).attr('fill', '#666').text('high');
 
-      // Anna and Ben positioned ON the line
-      const annaX1 = 2 + state.gamma1 * state.annaU;
-      const benX1  = 2 + state.gamma1 * state.benU;
+      // Alice and Bob positioned ON the line
+      const aliceX1 = 2 + state.gamma1 * state.aliceU;
+      const bobX1  = 2 + state.gamma1 * state.bobU;
 
-      // violet arrows from baseline to Anna (above) and Ben (below)
-      const arrowOffsetAnna = -35;
-      const arrowOffsetBen = 35;
+      // violet arrows from baseline to Alice (above) and Bob (below)
+      const arrowOffsetAlice = -35;
+      const arrowOffsetBob = 35;
       gOverlay.append('line')
-        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetAnna)
-        .attr('x2', xScale(annaX1)).attr('y2', centreY + arrowOffsetAnna)
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetAlice)
+        .attr('x2', xScale(aliceX1)).attr('y2', centreY + arrowOffsetAlice)
         .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
         .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
       gOverlay.append('text')
-        .attr('x', (xScale(baseline) + xScale(annaX1)) / 2).attr('y', centreY + arrowOffsetAnna - 5)
+        .attr('x', (xScale(baseline) + xScale(aliceX1)) / 2).attr('y', centreY + arrowOffsetAlice - 5)
         .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
-        .text(`+ 0.5 × ${state.annaU.toFixed(2)} = ${(state.gamma1 * state.annaU).toFixed(2)}`);
+        .text(`+ 0.5 × ${state.aliceU.toFixed(2)} = ${(state.gamma1 * state.aliceU).toFixed(2)}`);
 
       gOverlay.append('line')
-        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetBen)
-        .attr('x2', xScale(benX1)).attr('y2', centreY + arrowOffsetBen)
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetBob)
+        .attr('x2', xScale(bobX1)).attr('y2', centreY + arrowOffsetBob)
         .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
         .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
       gOverlay.append('text')
-        .attr('x', (xScale(baseline) + xScale(benX1)) / 2).attr('y', centreY + arrowOffsetBen + 15)
+        .attr('x', (xScale(baseline) + xScale(bobX1)) / 2).attr('y', centreY + arrowOffsetBob + 15)
         .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
-        .text(`+ 0.5 × (${state.benU.toFixed(2)}) = ${(state.gamma1 * state.benU).toFixed(2)}`);
+        .text(`+ 0.5 × (${state.bobU.toFixed(2)}) = ${(state.gamma1 * state.bobU).toFixed(2)}`);
 
-      // Anna and Ben avatars pinned to axis
-      renderAvatar(gAnnaBen, 'anna', 24).attr('transform', `translate(${xScale(annaX1)},${centreY + arrowOffsetAnna})`);
-      renderAvatar(gAnnaBen, 'ben', 24).attr('transform', `translate(${xScale(benX1)},${centreY + arrowOffsetBen})`);
+      // Alice and Bob avatars pinned to axis
+      renderAvatar(gAliceBob, 'alice', 24).attr('transform', `translate(${xScale(aliceX1)},${centreY + arrowOffsetAlice})`);
+      renderAvatar(gAliceBob, 'bob', 24).attr('transform', `translate(${xScale(bobX1)},${centreY + arrowOffsetBob})`);
     }
 
     function ensureArrowMarker() {
@@ -777,7 +812,7 @@
       clearAll();
       xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
       yScale = d3.scaleLinear().domain([6, 14]).range([ih, 0]);
-      axes('X₁ — hours studied', 'X₂ — lectures attended');
+      axes('X₁: hours studied', 'X₂: lectures attended');
 
       const d = state.sample;
       gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
@@ -798,62 +833,69 @@
         .attr('x2', xScale(xs[1])).attr('y2', yScale(intercept+slope*xs[1]))
         .attr('stroke','var(--c-truth)').attr('stroke-width', 1.4).attr('opacity', 0.35);
 
-      const annaX1 = 2 + state.gamma1*state.annaU;
-      const annaX2 = 10 + state.gamma2*state.annaU;
-      const benX1  = 2 + state.gamma1*state.benU;
-      const benX2  = 10 + state.gamma2*state.benU;
-      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(annaX1)},${yScale(annaX2)})`);
-      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(benX1)},${yScale(benX2)})`);
+      const aliceX1 = 2 + state.gamma1*state.aliceU;
+      const aliceX2 = 10 + state.gamma2*state.aliceU;
+      const bobX1  = 2 + state.gamma1*state.bobU;
+      const bobX2  = 10 + state.gamma2*state.bobU;
+      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceX1)},${yScale(aliceX2)})`);
+      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobX1)},${yScale(bobX2)})`);
     }
 
-    // stage 4: (X1, Y) scatter with true log curve + ribbon
+    // shared helper: U -> colour (blue -> gold gradient)
+    const uColorScale = d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]).clamp(true);
+    const colourForU = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(uColorScale(u));
+
+    // draws the (X1, X2) scatter coloured by U into gCloud. Caller sets xScale/yScale.
+    function drawX1X2ScatterColoured(opts = {}) {
+      const d = state.sample;
+      const opacity = opts.opacity ?? 0.7;
+      for (let i = 0; i < d.X1.length; i++) {
+        gCloud.append('circle')
+          .attr('cx', xScale(d.X1[i]))
+          .attr('cy', yScale(d.X2[i]))
+          .attr('r', 3)
+          .attr('fill', colourForU(d.U[i]))
+          .attr('opacity', opacity)
+          .attr('stroke', '#fff')
+          .attr('stroke-width', 0.3);
+      }
+      // legend for U colour
+      const legend = gOverlay.append('g').attr('transform', `translate(${iw - 150}, -10)`);
+      if (defs.select('#uGrad').empty()) {
+        const g = defs.append('linearGradient').attr('id', 'uGrad').attr('x1','0%').attr('x2','100%');
+        g.append('stop').attr('offset','0%').attr('stop-color','#2E5EA8');
+        g.append('stop').attr('offset','100%').attr('stop-color','#D4A017');
+      }
+      legend.append('rect').attr('width', 120).attr('height', 8).attr('fill', 'url(#uGrad)');
+      legend.append('text').attr('x', 0).attr('y', -3).attr('font-size', 10).attr('fill', '#666').text('colour = U');
+      legend.append('text').attr('x', 0).attr('y', 20).attr('font-size', 10).attr('fill', '#666').text('low');
+      legend.append('text').attr('x', 120).attr('y', 20).attr('text-anchor', 'end').attr('font-size', 10).attr('fill', '#666').text('high');
+    }
+
+    function setupX1X2Scales() {
+      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
+      yScale = d3.scaleLinear().domain([6, 14]).range([ih, 0]);
+      axes('X₁: hours studied', 'X₂: lectures attended');
+    }
+
+    // stage 4: (X1, X2) scatter coloured by U. Alice/Bob plotted; reveal Y via a tooltip-style annotation.
     function renderStage4() {
       clearAll();
-      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
-      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
-      axes('X₁ — hours studied', 'Y — exam score');
+      setupX1X2Scales();
+      drawX1X2ScatterColoured();
 
-      const d = state.sample;
-      const mX2 = mean(d.X2), mU = mean(d.U);
-      // heteroscedastic ribbon
-      const bandPts = [];
-      const bandPtsBot = [];
-      const curvePts = [];
-      for (let x=0.2; x<=4; x+=0.05) {
-        const y = 50 + 8*Math.log(x) + 3*mX2 + 2*mU;
-        const sd = Math.sqrt(0.5*Math.abs(x));
-        curvePts.push([xScale(x), yScale(y)]);
-        bandPts.push([xScale(x), yScale(y+2*sd)]);
-        bandPtsBot.push([xScale(x), yScale(y-2*sd)]);
-      }
-      const area = d3.area().x(d=>d[0]).y0((_,i)=>bandPtsBot[i][1]).y1((_,i)=>bandPts[i][1]);
-      gTrueCurve.append('path').datum(bandPts).attr('d', area)
-        .attr('fill','rgba(123,44,191,0.12)');
+      const aliceX1 = 2 + state.gamma1 * state.aliceU;
+      const aliceX2 = 10 + state.gamma2 * state.aliceU;
+      const bobX1  = 2 + state.gamma1 * state.bobU;
+      const bobX2  = 10 + state.gamma2 * state.bobU;
+      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceX1)},${yScale(aliceX2)})`);
+      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobX1)},${yScale(bobX2)})`);
 
-      // scatter
-      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
-        .attr('cx', i => xScale(d.X1[i]))
-        .attr('cy', i => yScale(d.Y[i]))
-        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0.5);
-
-      // true curve
-      const line = d3.line();
-      gTrueCurve.append('path').attr('d', line(curvePts))
-        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 2).attr('opacity', 0.85);
-
-      // optional linear fit to illustrate misspec
-      if (state.linearY) {
-        const fit = fitOLS(['X1'], false);
-        const b0 = fit.coefs[0], b1 = fit.coefs[1];
-        const adj = 3*mX2; // not included → absorbed into intercept, but show slope on X1
-        gFit.append('line')
-          .attr('x1', xScale(0.2)).attr('y1', yScale(b0 + b1*0.2))
-          .attr('x2', xScale(4)).attr('y2', yScale(b0 + b1*4))
-          .attr('stroke','var(--c-est)').attr('stroke-width', 2).attr('opacity', 0.85);
-      }
-
-      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
-      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
+      // annotate Alice/Bob with Y
+      gOverlay.append('text').attr('x', xScale(aliceX1)+18).attr('y', yScale(aliceX2)-14)
+        .style('font-size','11px').style('fill','var(--c-alice)').text('Y ≈ 72');
+      gOverlay.append('text').attr('x', xScale(bobX1)+18).attr('y', yScale(bobX2)+22)
+        .style('font-size','11px').style('fill','var(--c-bob)').text('Y ≈ 58');
     }
 
     // helper: fit OLS with chosen features
@@ -872,65 +914,55 @@
       return { coefs: res.coefficients, residuals: res.residuals, r2: res.r2, features };
     }
 
-    // stage 5: fit OLS on X1 (optionally log) + show residuals
+    // stage 5: (X1, X2) scatter coloured by U. Overlay a contour of the fitted plane
+    // via colour-coded prediction bands. For visual simplicity we show the population
+    // regression line of X2 on X1 as the "tilt" illustration — the key story of stage 5
+    // is that OLS exists; the actual coefficients come later.
     function renderStage5(showResidColoredByU=false) {
       clearAll();
-      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
-      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
-      axes('X₁ — hours studied', 'Y — exam score');
+      setupX1X2Scales();
+      drawX1X2ScatterColoured({ opacity: 0.55 });
 
       const d = state.sample;
-      const mX2 = mean(d.X2), mU = mean(d.U);
-      // true curve
-      const line = d3.line();
-      const curvePts = [];
-      for (let x=0.2; x<=4; x+=0.05) {
-        curvePts.push([xScale(x), yScale(50 + 8*Math.log(x) + 3*mX2 + 2*mU)]);
-      }
-      gTrueCurve.append('path').attr('d', line(curvePts))
-        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 1.8).attr('opacity', 0.7);
+      // OLS of X2 on X1 (the tilt) — just for visual intuition on the 2D canvas
+      const xBar = mean(d.X1), yBar = mean(d.X2);
+      let num=0, den=0;
+      for (let i=0;i<d.X1.length;i++) { num += (d.X1[i]-xBar)*(d.X2[i]-yBar); den += (d.X1[i]-xBar)**2; }
+      const slope = den>0 ? num/den : 0;
+      const intercept = yBar - slope*xBar;
+      const xs = [0.2, 4];
+      gFit.append('line')
+        .attr('x1', xScale(xs[0])).attr('y1', yScale(intercept+slope*xs[0]))
+        .attr('x2', xScale(xs[1])).attr('y2', yScale(intercept+slope*xs[1]))
+        .attr('stroke','var(--c-est)').attr('stroke-width', 2.2).attr('opacity', 0.85);
 
-      // scatter
-      gCloud.selectAll('circle').data(d3.range(d.X1.length)).enter().append('circle')
-        .attr('cx', i => xScale(d.X1[i]))
-        .attr('cy', i => yScale(d.Y[i]))
-        .attr('r', 2.5).attr('fill', '#9aa0a6').attr('opacity', 0.5);
-
-      // fit
-      const fit = fitOLS(['X1'], state.useLog);
-      const b0 = fit.coefs[0], b1 = fit.coefs[1];
-      // draw fit curve (log or line)
-      const fitPts = [];
-      for (let x=0.2; x<=4; x+=0.05) {
-        const y = state.useLog ? b0 + b1*Math.log(x) : b0 + b1*x;
-        fitPts.push([xScale(x), yScale(y)]);
-      }
-      gFit.append('path').attr('d', line(fitPts))
-        .attr('fill','none').attr('stroke','var(--c-est)').attr('stroke-width', 2.4);
-
-      // residual sticks
-      for (let i=0;i<d.Y.length;i++) {
-        const yhat = state.useLog ? b0 + b1*Math.log(d.X1[i]) : b0 + b1*d.X1[i];
+      // residual sticks: vertical distance from each point to the fitted line (in X2 direction)
+      for (let i=0;i<d.X1.length;i++) {
+        const yhat = intercept + slope*d.X1[i];
         const u = d.U[i];
         let colorClass = '';
         if (showResidColoredByU) {
-          colorClass = u > 0 ? 'anna-tone' : 'ben-tone';
+          colorClass = u > 0 ? 'alice-tone' : 'bob-tone';
         }
         gResid.append('line')
           .attr('class', 'resid ' + colorClass)
-          .attr('x1', xScale(d.X1[i])).attr('y1', yScale(d.Y[i]))
+          .attr('x1', xScale(d.X1[i])).attr('y1', yScale(d.X2[i]))
           .attr('x2', xScale(d.X1[i])).attr('y2', yScale(yhat))
-          .attr('opacity', showResidColoredByU ? 0.75 : 0.35)
-          .attr('stroke-width', Math.min(2, 0.5 + Math.abs(u)));
+          .attr('opacity', showResidColoredByU ? 0.6 : 0.25)
+          .attr('stroke-width', Math.min(1.6, 0.5 + Math.abs(u)*0.4));
       }
 
-      renderAvatar(gAnnaBen, 'anna', 22).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
-      renderAvatar(gAnnaBen, 'ben', 22).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
+      const aliceX1 = 2 + state.gamma1*state.aliceU;
+      const aliceX2 = 10 + state.gamma2*state.aliceU;
+      const bobX1  = 2 + state.gamma1*state.bobU;
+      const bobX2  = 10 + state.gamma2*state.bobU;
+      renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceX1)},${yScale(aliceX2)})`);
+      renderAvatar(gAliceBob, 'bob', 22).attr('transform', `translate(${xScale(bobX1)},${yScale(bobX2)})`);
     }
 
-    // stage 6: same as 5, but residuals bloom by U (wave animation if revealed)
+    // stage 6: same 2D scatter, residual sticks bloom to U-colour on reveal
     function renderStage6() {
-      renderStage5(false); // start grey
+      renderStage5(false);
       if (state.revealed) {
         bloomResiduals();
         unveilUWidget();
@@ -940,7 +972,6 @@
     function bloomResiduals() {
       const d = state.sample;
       const sticks = gResid.selectAll('line.resid').nodes();
-      // sort by x for left-to-right wave
       const order = d3.range(d.X1.length).sort((a,b)=> d.X1[a] - d.X1[b]);
       order.forEach((i, k) => {
         const stick = d3.select(sticks[i]);
@@ -948,7 +979,7 @@
         stick.transition()
           .delay(k * (1200 / order.length))
           .duration(350)
-          .attr('stroke', u > 0 ? 'var(--c-anna)' : 'var(--c-ben)')
+          .attr('stroke', u > 0 ? 'var(--c-alice)' : 'var(--c-bob)')
           .attr('opacity', 0.85)
           .attr('stroke-width', Math.min(2.5, 0.7 + Math.abs(u)));
       });
@@ -978,141 +1009,101 @@
       document.getElementById('uVeil').classList.remove('lifted');
     }
 
-    // stage 7: 2-panel visualisation — left (X1,Y) dimmed, right (X3,Y)
+    // stage 7: NO GRAPHIC. Just a large centred KaTeX equation of the heteroscedastic noise.
     function renderStage7() {
       clearAll();
-      const leftW = iw * 0.42;
-      const rightX = iw * 0.52;
-      const rightW = iw - rightX;
+      const fo = gOverlay.append('foreignObject')
+        .attr('x', 0).attr('y', 0).attr('width', iw).attr('height', ih);
+      const div = fo.append('xhtml:div')
+        .attr('xmlns', 'http://www.w3.org/1999/xhtml')
+        .style('width', '100%')
+        .style('height', '100%')
+        .style('display', 'flex')
+        .style('flex-direction', 'column')
+        .style('align-items', 'center')
+        .style('justify-content', 'center')
+        .style('gap', '18px')
+        .style('font-family', 'var(--serif)');
+      div.append('xhtml:div')
+        .style('font-size', '13px')
+        .style('color', '#888')
+        .style('letter-spacing', '0.1em')
+        .style('text-transform', 'uppercase')
+        .text('Heteroscedastic noise');
+      const eqDiv = div.append('xhtml:div')
+        .style('font-size', '28px')
+        .style('color', '#2a2a2a');
+      eqDiv.node().innerHTML = '\\( \\varepsilon \\sim \\mathcal{N}\\left(0,\\; 0.5\\,|X_1|\\right) \\)';
+      div.append('xhtml:div')
+        .style('font-size', '13px')
+        .style('color', '#666')
+        .style('max-width', '420px')
+        .style('text-align', 'center')
+        .style('line-height', '1.5')
+        .text('The noise scales with hours studied. Tight near zero, wide at the upper end.');
+      try { renderMathInElement(eqDiv.node(), {
+        delimiters: [{ left: '\\(', right: '\\)', display: false }],
+        throwOnError: false
+      }); } catch(e) {}
+    }
 
-      // left panel axes
-      const xL = d3.scaleLinear().domain([0.2, 4]).range([0, leftW]);
-      const yL = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
-      // right panel axes
+    // stage 8: (X1, X2) scatter with U colour + X3 highlighted via larger marker / ring.
+    function renderStage8() {
+      clearAll();
+      setupX1X2Scales();
+      drawX1X2ScatterColoured({ opacity: 0.55 });
+
       const d = state.sample;
-      const x3Ext = d3.extent(d.X3);
-      const xR = d3.scaleLinear().domain([x3Ext[0]-5, x3Ext[1]+5]).range([0, rightW]);
-      const yR = yL;
 
-      const gL = gAxes.append('g');
-      const gR = gAxes.append('g').attr('transform', `translate(${rightX},0)`);
-      gL.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xL).ticks(4));
-      gL.append('g').call(d3.axisLeft(yL).ticks(5));
-      gR.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xR).ticks(4));
-      gR.append('g').call(d3.axisLeft(yR).ticks(5));
-      gL.append('text').attr('x', leftW/2).attr('y', ih+38).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('X₁ — hours');
-      gR.append('text').attr('x', rightW/2).attr('y', ih+38).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('X₃ — self-assessment');
-      gL.append('text').attr('transform', `translate(-44,${ih/2})rotate(-90)`).attr('text-anchor','middle').style('font-size','11px').style('fill','#666').text('Y');
-
-      // left scatter dimmed when X3 is included
-      const dimFactor = state.includeX3 ? 0.15 : 0.5;
-      for (let i=0;i<d.Y.length;i++) {
-        gCloud.append('circle')
-          .attr('cx', xL(d.X1[i])).attr('cy', yL(d.Y[i]))
-          .attr('r', 2).attr('fill', '#9aa0a6').attr('opacity', dimFactor);
-      }
-      // right scatter
-      for (let i=0;i<d.Y.length;i++) {
-        gCloud.append('circle')
-          .attr('cx', rightX + xR(d.X3[i])).attr('cy', yR(d.Y[i]))
-          .attr('r', 2).attr('fill', '#9aa0a6').attr('opacity', 0.55);
+      // Optional overlay: ring points by X3 rank (deciles) to visualise X3 hugging Y.
+      if (state.includeX3) {
+        const sorted = d3.range(d.X3.length).sort((a,b) => d.X3[a] - d.X3[b]);
+        const topQ = new Set(sorted.slice(-Math.floor(sorted.length*0.15)));
+        topQ.forEach(i => {
+          gOverlay.append('circle')
+            .attr('cx', xScale(d.X1[i])).attr('cy', yScale(d.X2[i]))
+            .attr('r', 6).attr('fill', 'none')
+            .attr('stroke', 'var(--c-warn)').attr('stroke-width', 1.2).attr('opacity', 0.7);
+        });
+        gOverlay.append('text').attr('x', 10).attr('y', 20)
+          .attr('font-size', 11).attr('fill', 'var(--c-warn)')
+          .text('ringed = top 15% of X₃ (self-assessment)');
       }
 
-      // fit
+      // Alice & Bob on the (X1, X2) plane
+      const aliceG = renderAvatar(gAliceBob, 'alice', 26).attr('transform', `translate(${xScale(alice.X1)},${yScale(alice.X2)})`);
+      aliceG.select('.halo').attr('filter','url(#glow-alice)');
+      renderAvatar(gAliceBob, 'bob', 26).attr('transform', `translate(${xScale(bob.X1)},${yScale(bob.X2)})`);
+
+      gOverlay.append('text').attr('x', xScale(alice.X1)+20).attr('y', yScale(alice.X2)-12)
+        .style('font-size','12px').style('fill','var(--c-alice)').style('font-style','italic')
+        .text('Y = 72: high U lifted her');
+      gOverlay.append('text').attr('x', xScale(bob.X1)+20).attr('y', yScale(bob.X2)+22)
+        .style('font-size','12px').style('fill','var(--c-bob)').style('font-style','italic')
+        .text('Y = 58: low U pulled him');
+
+      // fit readout (if any) — used by the scenario buttons
       let features = ['X1','X2'];
       if (state.includeX3) features.push('X3');
       const fit = fitOLS(features, state.useLog);
-
-      // show coefs
       const readout = document.getElementById('coefReadout');
-      let txt = '';
-      const names = ['(Intercept)', ...features.map(f => f==='X1' && state.useLog ? 'log(X1)' : f)];
-      for (let i=0;i<fit.coefs.length;i++) {
-        txt += `${names[i].padEnd(12)} ${fit.coefs[i].toFixed(3)}\n`;
+      if (readout) {
+        let txt = '';
+        const names = ['(Intercept)', ...features.map(f => f==='X1' && state.useLog ? 'log(X1)' : f)];
+        for (let i=0;i<fit.coefs.length;i++) {
+          txt += `${names[i].padEnd(12)} ${fit.coefs[i].toFixed(3)}\n`;
+        }
+        txt += `R² = ${fit.r2.toFixed(3)}`;
+        readout.textContent = txt;
       }
-      txt += `R² = ${fit.r2.toFixed(3)}`;
-      readout.textContent = txt;
-
-      // warning
       const warn = document.getElementById('x3Warning');
-      warn.classList.toggle('on', state.includeX3);
-
-      // right-panel fit line for X3
-      if (state.includeX3) {
-        const b0 = fit.coefs[0];
-        const bX3 = fit.coefs[fit.coefs.length-1];
-        const b1raw = fit.coefs[1];
-        const bX2 = fit.coefs[2];
-        const mX1 = mean(d.X1), mX2 = mean(d.X2);
-        const xs = [x3Ext[0]-2, x3Ext[1]+2];
-        const yOfX3 = x3 => b0 + (state.useLog ? b1raw*Math.log(mX1) : b1raw*mX1) + bX2*mX2 + bX3*x3;
-        gFit.append('line')
-          .attr('x1', rightX+xR(xs[0])).attr('y1', yR(yOfX3(xs[0])))
-          .attr('x2', rightX+xR(xs[1])).attr('y2', yR(yOfX3(xs[1])))
-          .attr('stroke','var(--c-est)').attr('stroke-width', 2.2);
-      }
-
-      // Anna/Ben pinned in both panels
-      renderAvatar(gAnnaBen, 'anna', 20).attr('transform', `translate(${xL(anna.X1)},${yL(anna.Y)})`).attr('opacity', state.includeX3?0.35:1);
-      renderAvatar(gAnnaBen, 'ben', 20).attr('transform', `translate(${xL(ben.X1)},${yL(ben.Y)})`).attr('opacity', state.includeX3?0.35:1);
-      const annaX3 = 0.9*anna.Y, benX3 = 0.9*ben.Y;
-      renderAvatar(gAnnaBen, 'anna', 20).attr('transform', `translate(${rightX+xR(annaX3)},${yR(anna.Y)})`);
-      renderAvatar(gAnnaBen, 'ben', 20).attr('transform', `translate(${rightX+xR(benX3)},${yR(ben.Y)})`);
-    }
-
-    // stage 8: the revisit — show Anna and Ben's causal trace
-    function renderStage8() {
-      clearAll();
-      xScale = d3.scaleLinear().domain([0.2, 4]).range([0, iw]);
-      yScale = d3.scaleLinear().domain([40, 100]).range([ih, 0]);
-      axes('X₁ — hours studied', 'Y — exam score');
-
-      // same main scatter + true curve + fit (with whatever toggles)
-      const d = state.sample;
-      for (let i=0;i<d.Y.length;i++) {
-        gCloud.append('circle')
-          .attr('cx', xScale(d.X1[i])).attr('cy', yScale(d.Y[i]))
-          .attr('r', 2).attr('fill', d.U[i]>0?'rgba(212,114,44,0.45)':'rgba(60,141,188,0.45)');
-      }
-      const line = d3.line();
-      const mX2 = mean(d.X2), mU = mean(d.U);
-      const curvePts = [];
-      for (let x=0.2; x<=4; x+=0.05) {
-        curvePts.push([xScale(x), yScale(50 + 8*Math.log(x) + 3*mX2 + 2*mU)]);
-      }
-      gTrueCurve.append('path').attr('d', line(curvePts))
-        .attr('fill','none').attr('stroke','var(--c-truth)').attr('stroke-width', 2);
-
-      // green fit
-      const feats = state.includeX3 ? ['X1','X2','X3'] : ['X1','X2'];
-      const fit = fitOLS(feats, state.useLog);
-      const b0 = fit.coefs[0], b1 = fit.coefs[1], b2 = fit.coefs[2];
-      const fitPts = [];
-      for (let x=0.2; x<=4; x+=0.05) {
-        const y = b0 + (state.useLog?b1*Math.log(x):b1*x) + b2*mX2 + (state.includeX3?fit.coefs[3]*0.9*(50+8*Math.log(x)+3*mX2):0);
-        fitPts.push([xScale(x), yScale(y)]);
-      }
-      gFit.append('path').attr('d', line(fitPts))
-        .attr('fill','none').attr('stroke','var(--c-est)').attr('stroke-width', 2.2);
-
-      // Anna and Ben with causal trace annotations
-      const annaG = renderAvatar(gAnnaBen, 'anna', 26).attr('transform', `translate(${xScale(anna.X1)},${yScale(anna.Y)})`);
-      annaG.select('.halo').attr('filter','url(#glow-anna)');
-      renderAvatar(gAnnaBen, 'ben', 26).attr('transform', `translate(${xScale(ben.X1)},${yScale(ben.Y)})`);
-
-      // annotation
-      gOverlay.append('text').attr('x', xScale(anna.X1)+20).attr('y', yScale(anna.Y)-10)
-        .style('font-size','12px').style('fill','var(--c-anna)').style('font-style','italic')
-        .text('72 — high U lifted her');
-      gOverlay.append('text').attr('x', xScale(ben.X1)+20).attr('y', yScale(ben.Y)+20)
-        .style('font-size','12px').style('fill','var(--c-ben)').style('font-style','italic')
-        .text('58 — low U pulled him');
+      if (warn) warn.classList.toggle('on', state.includeX3);
     }
 
     // ---------- dispatcher ----------
     const stageTitles = {
       1: 'Meet U', 2: 'U → X₁', 3: 'U → X₂', 4: 'Full DGP',
-      5: 'OLS arrives', 6: 'Ghost in residuals', 7: 'Post-treatment trap', 8: 'Revisit'
+      5: 'OLS arrives', 6: 'Ghost in residuals', 7: 'Noise shape', 8: 'X₃ and three analysts'
     };
 
     function renderStage(n) {
@@ -1144,7 +1135,7 @@
         4: ['U','X1','X2','Y'],
         5: ['U','X1','X2','Y'],
         6: ['U','X1','X2','Y'],
-        7: ['U','X1','X2','Y','X3'],
+        7: ['U','X1','X2','Y'],
         8: ['U','X1','X2','Y','X3']
       };
       const active = new Set(lines[n] || []);
@@ -1168,8 +1159,8 @@
     // ---------- control wiring ----------
     document.getElementById('sldU').addEventListener('input', e => {
       const t = +e.target.value;
-      state.annaU = 0.3 + t*1.7;
-      state.benU = -(0.3 + t*1.7);
+      state.aliceU = 0.3 + t*1.7;
+      state.bobU = -(0.3 + t*1.7);
       document.getElementById('valU').textContent = t.toFixed(2);
       if (state.activeStage === 1) renderStage1();
     });
@@ -1233,23 +1224,35 @@
       renderStage(state.activeStage);
     });
 
-    // stage 8 presets
+    // stage 8 presets with explanations
+    const scenarioExplanations = {
+      ideal: '<strong>Ideal researcher.</strong> Fits the correctly-specified model: Y regressed on log(X₁), X₂, and U. Includes all real causes of Y. But U is unobservable in practice, so this is a fantasy.',
+      naive: '<strong>Naive analyst.</strong> Fits Y on X₁ (not log(X₁)), X₂, and X₃. Includes the post-treatment confidence variable. Misses the log transform. Uses what is easily available in the data.',
+      honest: '<strong>Honest minimum.</strong> Fits Y on log(X₁) and X₂ only. Uses the correct functional form. Excludes X₃ because it is post-treatment. Excludes U because it is unobservable. This is what a careful analyst actually does.'
+    };
+    function setScenarioExplainer(key) {
+      const el = document.getElementById('scenarioExplainer');
+      if (el) el.innerHTML = scenarioExplanations[key];
+    }
     document.getElementById('btnScenarioIdeal').addEventListener('click', () => {
       state.useLog = true; state.includeX3 = false;
-      document.getElementById('tglUseLog').checked = true;
-      document.getElementById('tglIncludeX3').checked = false;
+      const t = document.getElementById('tglUseLog'); if (t) t.checked = true;
+      const t2 = document.getElementById('tglIncludeX3'); if (t2) t2.checked = false;
+      setScenarioExplainer('ideal');
       renderStage(state.activeStage);
     });
     document.getElementById('btnScenarioNaive').addEventListener('click', () => {
       state.useLog = false; state.includeX3 = true;
-      document.getElementById('tglUseLog').checked = false;
-      document.getElementById('tglIncludeX3').checked = true;
+      const t = document.getElementById('tglUseLog'); if (t) t.checked = false;
+      const t2 = document.getElementById('tglIncludeX3'); if (t2) t2.checked = true;
+      setScenarioExplainer('naive');
       renderStage(state.activeStage);
     });
     document.getElementById('btnScenarioHonest').addEventListener('click', () => {
       state.useLog = true; state.includeX3 = false;
-      document.getElementById('tglUseLog').checked = true;
-      document.getElementById('tglIncludeX3').checked = false;
+      const t = document.getElementById('tglUseLog'); if (t) t.checked = true;
+      const t2 = document.getElementById('tglIncludeX3'); if (t2) t2.checked = false;
+      setScenarioExplainer('honest');
       renderStage(state.activeStage);
     });
 
