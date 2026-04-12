@@ -113,6 +113,23 @@ All theorems stated here are validated by Monte Carlo simulation in the correspo
 \tableofcontents
 \newpage
 
+\section*{How to Read These Notes}
+
+These notes are structured for two audiences:
+
+\begin{itemize}
+  \item \textbf{First pass (the lecture):} Read the \colorbox{truthgold!15}{Toy Story} boxes, the \colorbox{olsblue!10}{Key Insight} boxes, and the \colorbox{olsblue!5}{Numerical Examples}. Skip the theorems and proofs. This gives you the intuition and the punchlines.
+
+  \item \textbf{Second pass (exam prep):} Read the theorem statements and the ``Why is this true?'' summaries. Work through the numerical examples with pen and paper. Consult the proofs in \Cref{app:proofs} only if you want the full derivation.
+\end{itemize}
+
+Each section follows the same rhythm: a \emph{story} that makes the problem visceral, the \emph{mathematics} that makes it precise, a \emph{numerical example} you can verify on paper, and a \emph{visualization} you can play with online. If you feel lost, jump to the next coloured box --- the narrative will pick you back up.
+
+\medskip
+\noindent\textbf{Running gags to watch for:} When you see ``Is this a seat number?'' --- we are asking whether a statistically significant result is actually meaningful. When you see a ``ghost'' --- we mean an omitted variable whose effect is hiding inside another coefficient.
+
+\newpage
+
 % ============================================================
 % 1. INTRODUCTION
 % ============================================================
@@ -777,7 +794,7 @@ Always report effect sizes and confidence intervals alongside $p$-values.
 \end{repairbox}
 
 \begin{remark}[The Replication Crisis]
-The multiple testing problem is not a theoretical curiosity---it is at the heart of the \emph{replication crisis} that has shaken psychology, medicine, and economics since 2011. The Open Science Collaboration (2015) attempted to replicate 100 published psychology studies. Only 36 produced significant results the second time around. The reasons are exactly what this section teaches: $p$-hacking (running many tests and reporting only the significant ones), underpowered studies (small $n$, large effect needed), and the base rate problem (most hypotheses tested are probably false, so even with $\alpha = 0.05$, a large fraction of ``discoveries'' are false positives).
+The multiple testing problem is not a theoretical curiosity---it is at the heart of the \emph{replication crisis} that has shaken psychology, medicine, and economics since 2011. The Open Science Collaboration (2015) attempted to replicate 100 published psychology studies. Only 36 produced significant results the second time around. Among the casualties: the famous ``power posing'' study (Carney et al., 2010), which claimed that standing in an expansive pose for two minutes raises testosterone and lowers cortisol. The original had $p = 0.045$ with $n = 42$. Multiple replications with larger samples found no effect. The reasons are exactly what this section teaches: $p$-hacking (running many tests and reporting only the significant ones), underpowered studies (small $n$, large effect needed), and the base rate problem (most hypotheses tested are probably false, so even with $\alpha = 0.05$, a large fraction of ``discoveries'' are false positives).
 
 The lesson for your own work: a single $p < 0.05$ result from an observational study is the \emph{beginning} of an investigation, not the end. Always ask: what is the effect size? Could this survive a pre-registered replication? Is this a seat number?
 \end{remark}
@@ -1273,6 +1290,30 @@ A small RV indicates fragility: a weak confounder suffices to nullify the result
 A large RV indicates robustness: only a confounder with a very strong relationship to both treatment and outcome could overturn the finding.
 
 In our tutoring example, the observational estimate that ``tutoring hurts'' has a tiny robustness value. A confounder (like self-discipline) with even modest partial $R^2$ with both tutoring attendance and exam score would flip the sign---which is exactly what happens when you account for self-selection in the experimental design.
+
+\begin{numermark}[title={How Fragile Is the Tutoring Estimate?}]
+The observational regression of exam score on tutoring attendance (with controls for prior GPA and attendance) yields $\bhat_{\text{tutor}} = -4.2$ with $\se = 1.8$ and $t = -2.33$ ($p = 0.02$). The estimate is ``significant'' --- tutoring appears to \emph{hurt}.
+
+How strong would an unobserved confounder need to be to explain this away?
+
+Using the Cinelli--Hazlett framework, we compute the \textbf{robustness value}: $\text{RV} = 0.04$. This means: a confounder that explains just 4\% of the residual variance in \emph{both} tutoring attendance and exam scores would be enough to reduce the coefficient to zero.
+
+Is 4\% a lot? Compare it to the observed covariates:
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Covariate} & \textbf{Partial $R^2$ with tutoring} & \textbf{Partial $R^2$ with score} \\
+\midrule
+Prior GPA & 0.12 & 0.18 \\
+Lecture attendance & 0.08 & 0.09 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Both observed covariates have partial $R^2$ values far above the robustness value of 0.04. An unobserved confounder weaker than lecture attendance would suffice to flip the sign. The result is \textbf{extremely fragile}: self-discipline ($U$), which we know exists but cannot measure, almost certainly exceeds this threshold.
+
+\textbf{Contrast with the experimental estimate:} The randomised trial gave $\bhat_{\text{tutor}} = +1{,}800$. The observational estimate was not just wrong --- it had the wrong \emph{sign}. The robustness value warned us: the result was one weak confounder away from flipping.
+\end{numermark}
 
 \begin{keyinsight}
 The Lalonde dataset---and its tutoring analog---teaches the hardest lesson in applied statistics: a well-fitting model with clean diagnostics can still give you an answer that is not just wrong, but \emph{directionally} wrong. Diagnostics check the model's internal consistency. Only the research design can tell you whether the estimate is credible. When in doubt, compute the robustness value. If a plausible confounder could flip your result, treat the finding with extreme scepticism.
