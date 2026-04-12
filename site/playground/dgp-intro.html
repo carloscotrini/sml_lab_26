@@ -661,42 +661,107 @@
       annaG.select('.halo').attr('filter', 'url(#glow-anna)');
     }
 
-    // stage 2: horizontal X1 axis, Anna/Ben at their X1
+    // stage 2: 1D number line for X1. U is encoded by color (blue = low, gold = high).
+    // This avoids a meaningless vertical axis while still making U visible.
     function renderStage2() {
       clearAll();
-      xScale = d3.scaleLinear().domain([0, 4]).range([0, iw]);
-      yScale = d3.scaleLinear().domain([-1, 1]).range([ih, 0]);
-      axes('X₁ — hours studied', '');
+      xScale = d3.scaleLinear().domain([0, 4.5]).range([0, iw]);
+      // one-dimensional: pin everything vertically to the centre line
+      const centreY = ih / 2;
+      const baseline = 2;
+      ensureArrowMarker();
 
-      // jitter cloud (noise showing)
+      // axis line + ticks
+      const axisG = gOverlay.append('g').attr('class', 'x1-axis');
+      axisG.append('line')
+        .attr('x1', xScale(0)).attr('x2', xScale(4.5))
+        .attr('y1', centreY).attr('y2', centreY)
+        .attr('stroke', '#444').attr('stroke-width', 1);
+      const ticks = d3.range(0, 5, 1);
+      ticks.forEach(t => {
+        axisG.append('line')
+          .attr('x1', xScale(t)).attr('x2', xScale(t))
+          .attr('y1', centreY - 5).attr('y2', centreY + 5)
+          .attr('stroke', '#444');
+        axisG.append('text')
+          .attr('x', xScale(t)).attr('y', centreY + 20)
+          .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#444')
+          .text(t);
+      });
+      axisG.append('text')
+        .attr('x', xScale(4.5)).attr('y', centreY + 40)
+        .attr('text-anchor', 'end').attr('font-size', 12).attr('fill', '#222')
+        .attr('font-style', 'italic')
+        .text('X₁ — hours studied');
+
+      // baseline marker at X₁ = 2 (U=0 student)
+      axisG.append('line')
+        .attr('x1', xScale(baseline)).attr('x2', xScale(baseline))
+        .attr('y1', centreY - 60).attr('y2', centreY + 10)
+        .attr('stroke', '#888').attr('stroke-dasharray', '3 3').attr('stroke-width', 1);
+      axisG.append('text')
+        .attr('x', xScale(baseline)).attr('y', centreY - 68)
+        .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#888')
+        .text('baseline (U = 0)');
+
+      // rug plot: 50 students as circles on the line, coloured by U
+      // (tiny vertical jitter purely to stop them overlapping)
       const rng = seededRandom(state.seed + 200);
-      for (let i=0;i<50;i++) {
+      const uScale = d3.scaleLinear().domain([-2.5, 2.5]).range([0, 1]);
+      const colourForU = u => d3.interpolateRgb('#2E5EA8', '#D4A017')(uScale(u));
+      for (let i = 0; i < 50; i++) {
         const u = randn(rng);
-        const x1 = 2 + state.gamma1*u + randn(rng)*Math.sqrt(0.3);
+        const x1 = 2 + state.gamma1 * u + randn(rng) * Math.sqrt(0.3);
+        const jitter = (Math.random() - 0.5) * 10;
         gCloud.append('circle')
-          .attr('cx', xScale(Math.max(0.05,x1)))
-          .attr('cy', yScale(0) + (Math.random()-0.5)*40)
-          .attr('r', 3).attr('fill','#9aa0a6').attr('opacity',0.4);
+          .attr('cx', xScale(Math.max(0.05, x1)))
+          .attr('cy', centreY + jitter)
+          .attr('r', 4).attr('fill', colourForU(u)).attr('opacity', 0.75)
+          .attr('stroke', '#fff').attr('stroke-width', 0.5);
       }
 
-      // Anna and Ben at their effective X1 given gamma1
+      // tiny color legend showing U encoding
+      const legend = gOverlay.append('g').attr('transform', `translate(${iw - 150}, 20)`);
+      const grad = defs.selectAll('#uGrad').data([null]).enter()
+        .append('linearGradient').attr('id', 'uGrad').attr('x1','0%').attr('x2','100%');
+      defs.select('#uGrad').selectAll('stop').data([
+        {o: '0%', c: '#2E5EA8'}, {o: '100%', c: '#D4A017'}
+      ]).join('stop').attr('offset', d => d.o).attr('stop-color', d => d.c);
+      legend.append('rect').attr('width', 120).attr('height', 10).attr('fill', 'url(#uGrad)');
+      legend.append('text').attr('x', 0).attr('y', -4).attr('font-size', 10).attr('fill', '#666').text('colour = U value');
+      legend.append('text').attr('x', 0).attr('y', 24).attr('font-size', 10).attr('fill', '#666').text('low');
+      legend.append('text').attr('x', 120).attr('y', 24).attr('text-anchor', 'end').attr('font-size', 10).attr('fill', '#666').text('high');
+
+      // Anna and Ben positioned ON the line
       const annaX1 = 2 + state.gamma1 * state.annaU;
       const benX1  = 2 + state.gamma1 * state.benU;
-      renderAvatar(gAnnaBen, 'anna', 24).attr('transform', `translate(${xScale(annaX1)},${yScale(0.3)})`);
-      renderAvatar(gAnnaBen, 'ben', 24).attr('transform', `translate(${xScale(benX1)},${yScale(-0.3)})`);
 
-      // violet arrows showing U push
+      // violet arrows from baseline to Anna (above) and Ben (below)
+      const arrowOffsetAnna = -35;
+      const arrowOffsetBen = 35;
       gOverlay.append('line')
-        .attr('x1', xScale(2)).attr('y1', yScale(0.3))
-        .attr('x2', xScale(annaX1)).attr('y2', yScale(0.3))
-        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.5)
-        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.7);
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetAnna)
+        .attr('x2', xScale(annaX1)).attr('y2', centreY + arrowOffsetAnna)
+        .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
+      gOverlay.append('text')
+        .attr('x', (xScale(baseline) + xScale(annaX1)) / 2).attr('y', centreY + arrowOffsetAnna - 5)
+        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
+        .text(`+ 0.5 × ${state.annaU.toFixed(2)} = ${(state.gamma1 * state.annaU).toFixed(2)}`);
+
       gOverlay.append('line')
-        .attr('x1', xScale(2)).attr('y1', yScale(-0.3))
-        .attr('x2', xScale(benX1)).attr('y2', yScale(-0.3))
-        .attr('stroke','var(--c-truth)').attr('stroke-width', 1.5)
-        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.7);
-      ensureArrowMarker();
+        .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetBen)
+        .attr('x2', xScale(benX1)).attr('y2', centreY + arrowOffsetBen)
+        .attr('stroke', 'var(--c-truth)').attr('stroke-width', 2)
+        .attr('marker-end', 'url(#arrowV)').attr('opacity', 0.85);
+      gOverlay.append('text')
+        .attr('x', (xScale(baseline) + xScale(benX1)) / 2).attr('y', centreY + arrowOffsetBen + 15)
+        .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
+        .text(`+ 0.5 × (${state.benU.toFixed(2)}) = ${(state.gamma1 * state.benU).toFixed(2)}`);
+
+      // Anna and Ben avatars pinned to axis
+      renderAvatar(gAnnaBen, 'anna', 24).attr('transform', `translate(${xScale(annaX1)},${centreY + arrowOffsetAnna})`);
+      renderAvatar(gAnnaBen, 'ben', 24).attr('transform', `translate(${xScale(benX1)},${centreY + arrowOffsetBen})`);
     }
 
     function ensureArrowMarker() {
