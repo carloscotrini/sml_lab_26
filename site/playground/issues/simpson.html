@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Sign Flip — Simpson's paradox — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-alice: #d4722c;
+      --c-bob:  #3c8dbc;
+      --c-charlie: #6a4caf;
+      --c-david: #2c8c7a;
+      --c-evelyn: #b25fa8;
+      --c-gauss: #1b5e8e;
+      --c-noise: #9aa0a6;
+      --c-truth: #7b2cbf;
+      --c-est:  #2d8659;
+      --c-warn: #b5654a;
+      --c-border: #e4dfd5;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    a { color: var(--c-truth); }
+
+    .pg-nav {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+      background: var(--c-bg);
+    }
+    .pg-nav a { color: var(--c-ink-muted); text-decoration: none; }
+    .pg-nav a:hover { text-decoration: underline; color: var(--c-truth); }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    .kicker {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--c-warn);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .page h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 40px;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      margin: 0 0 12px;
+    }
+    .page h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 26px;
+      letter-spacing: -0.005em;
+      margin: 56px 0 12px;
+    }
+    .page .dek {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 19px;
+      color: var(--c-ink-muted);
+      margin: 0 0 36px;
+      line-height: 1.45;
+    }
+    .page p { margin: 0 0 14px; }
+    .page blockquote {
+      border-left: 3px solid var(--c-warn);
+      margin: 18px 0;
+      padding: 4px 16px;
+      color: var(--c-ink-muted);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 17px;
+    }
+
+    .viz-card {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      padding: 20px;
+      margin: 18px 0 8px;
+    }
+    .viz-card figcaption {
+      font-size: 13px;
+      color: var(--c-ink-muted);
+      margin-top: 8px;
+      font-style: italic;
+      text-align: center;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      margin: 12px 0 4px;
+      font-size: 14px;
+    }
+    .toggle-btn {
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 7px 14px;
+      border: 1px solid var(--c-truth);
+      background: #fff;
+      color: var(--c-truth);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      font-weight: 500;
+    }
+    .toggle-btn.active,
+    .toggle-btn:hover { background: var(--c-truth); color: #fff; }
+
+    .legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--c-ink-muted);
+    }
+    .legend .bar {
+      width: 120px; height: 8px;
+      background: linear-gradient(to right, #2c5aa0, #b03030);
+      border-radius: 2px;
+    }
+
+    svg.chart { display: block; width: 100%; height: auto; font-family: var(--sans); }
+    svg.chart .axis path,
+    svg.chart .axis line { stroke: #bfbdb3; }
+    svg.chart .axis text { fill: var(--c-ink-muted); font-size: 11px; }
+    svg.chart .axis-label { fill: var(--c-ink); font-size: 12px; }
+    svg.chart .fit-pooled { stroke: #c23a2f; stroke-width: 2.3px; fill: none; }
+    svg.chart .fit-group  { stroke-width: 2px; fill: none; stroke-dasharray: 4 3; }
+    svg.chart .fit-group.mild   { stroke: #2c5aa0; }
+    svg.chart .fit-group.severe { stroke: #b03030; }
+    svg.chart .fit-label {
+      font-size: 12px;
+      font-family: var(--sans);
+      fill: var(--c-ink);
+    }
+
+    .coef-bar {
+      display: grid;
+      grid-template-columns: 140px 1fr 90px;
+      gap: 12px;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 13.5px;
+    }
+    .coef-bar .coef-label { color: var(--c-ink-muted); font-family: var(--sans); }
+    .coef-bar .coef-track {
+      position: relative;
+      height: 22px;
+      background: #f4f1ea;
+      border-radius: 2px;
+      border: 1px solid var(--c-border);
+    }
+    .coef-bar .coef-track .zero {
+      position: absolute; top: -3px; bottom: -3px;
+      width: 1px; background: #999;
+    }
+    .coef-bar .coef-track .fill {
+      position: absolute; top: 0; bottom: 0;
+      border-radius: 1px;
+      transition: left .25s, width .25s, background .25s;
+    }
+    .coef-bar .coef-val {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 13px;
+      text-align: right;
+    }
+    .coef-bar.truth .fill { background: var(--c-truth); opacity: 0.8; }
+    .coef-bar.short .fill { background: #c23a2f; }
+    .coef-bar.short.safe .fill { background: var(--c-est); }
+
+    .math-display {
+      background: #fff;
+      border-left: 3px solid var(--c-truth);
+      border-radius: 2px;
+      padding: 14px 20px;
+      margin: 16px 0 6px;
+      font-size: 16px;
+      overflow-x: auto;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin: 10px 0 14px;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .slider-row input[type=range] { width: 100%; }
+    .slider-row .val {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 13px;
+      color: var(--c-ink);
+      min-width: 60px;
+      text-align: right;
+    }
+    .slider-row .lbl { color: var(--c-ink-muted); display: block; font-size: 13px; margin-bottom: 4px; }
+
+    .insight-box {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-left: 4px solid var(--c-truth);
+      border-radius: 4px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 15px;
+    }
+    .insight-box strong { color: var(--c-truth); }
+
+    footer {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+      border-top: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+    }
+    footer a { color: var(--c-ink-muted); }
+  </style>
+</head>
+<body>
+
+  <nav class="pg-nav">
+    <a href="../hub.html">← Back to the hub</a>
+  </nav>
+
+  <main class="page">
+
+    <div class="kicker">Issue 02 · Simpson's paradox</div>
+    <h1>The Sign Flip</h1>
+    <p class="dek">A hospital administrator thinks nursing hurts patients. The data says so. The data is correct. The interpretation would be a catastrophe.</p>
+
+    <!-- SECTION 1 -->
+    <h2>1. The administrator's dilemma</h2>
+    <p>A hospital administrator looks at the data. Patients who receive more nursing hours per day take <em>longer</em> to recover. She considers cutting nursing staff to "speed up recovery." A statistician walks in and says: wait.</p>
+
+    <figure class="viz-card" style="margin-bottom:4px;">
+      <svg id="chart" class="chart" viewBox="0 0 620 420" preserveAspectRatio="xMidYMid meet"></svg>
+      <figcaption id="chart-caption">Dr. Naive's regression: more nursing appears to mean slower recovery.</figcaption>
+    </figure>
+    <div class="controls">
+      <button id="btn-color" class="toggle-btn">Colour by severity</button>
+      <button id="btn-groupfits" class="toggle-btn" disabled style="opacity:0.5">Show within-group fits</button>
+      <span class="legend" id="legend" style="display:none;">
+        <span>mild (U=1)</span><span class="bar"></span><span>severe (U=10)</span>
+      </span>
+    </div>
+
+    <p style="margin-top:18px;">Emphasize: the fit is not wrong in a mathematical sense. The arithmetic is exact. <strong>The interpretation would be catastrophic.</strong></p>
+
+    <blockquote>"If we cut nursing by two hours a day, patients will recover two days faster, right?" — the administrator, extrapolating from β̂ = +1.44.</blockquote>
+
+    <!-- SECTION 2 -->
+    <h2>2. The hidden variable</h2>
+    <p>Every patient was admitted with some severity <em>U</em> — on a scale from 1 (mild) to 10 (severe). The severely ill get more nursing (naturally), and they also take longer to recover (also naturally). Severity is doing the work. Nursing is just along for the ride.</p>
+    <p>Click <strong>Colour by severity</strong> above. Suddenly you see the structure: the dots are not a shapeless cloud. They are stratified.</p>
+
+    <!-- SECTION 3 -->
+    <h2>3. Within-group reveals the truth</h2>
+    <p>Now split the patients by severity — mild (U ≤ 5) and severe (U &gt; 5) — and fit a line within each group.</p>
+    <p>Click <strong>Show within-group fits</strong> above. Both slopes are <em>negative</em>. Within each severity stratum, more nursing really does speed recovery — by roughly half a day per hour, just as the true DGP says.</p>
+
+    <div class="insight-box">
+      <strong>Simpson's paradox.</strong> Within each severity group, more nursing speeds recovery. The aggregate pooled slope is wrong because it confuses the <em>within-group</em> effect with the <em>between-group</em> differences in severity. Pooling across a confounder hides the truth.
+    </div>
+
+    <!-- coefficient bars -->
+    <div style="margin: 24px 0 8px;">
+      <div class="coef-bar truth">
+        <span class="coef-label">True β<sub>X</sub></span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-true"></span></div>
+        <span class="coef-val">−0.50</span>
+      </div>
+      <div class="coef-bar short">
+        <span class="coef-label">Short β̂ (pooled)</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-short"></span></div>
+        <span class="coef-val" id="bar-short-val">+1.44</span>
+      </div>
+      <div class="coef-bar truth">
+        <span class="coef-label">Within mild group</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-mild"></span></div>
+        <span class="coef-val" id="bar-mild-val">—</span>
+      </div>
+      <div class="coef-bar truth">
+        <span class="coef-label">Within severe group</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-severe"></span></div>
+        <span class="coef-val" id="bar-severe-val">—</span>
+      </div>
+    </div>
+
+    <!-- SECTION 4 -->
+    <h2>4. The DGP is simple</h2>
+    <p>Here is the data-generating process, in full. No hidden complexity — just a two-variable truth.</p>
+
+    <div class="math-display">
+      \[ U \in \{1, 2, \ldots, 10\} \text{ (severity)}, \qquad X = 2 + 0.8\,U + \eta, \quad \eta \sim \mathcal{N}(0, \sigma_\eta^2) \]
+      \[ Y = 5 \;-\; 0.5\,X \;+\; 2\,U \;+\; \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, 0.5^2) \]
+    </div>
+
+    <p>The coefficient on X is <strong>−0.5</strong>. Negative. Nursing helps. Simpson's paradox is the catastrophe of aggregating over a missing variable.</p>
+
+    <!-- SECTION 5 -->
+    <h2>5. The OVB formula explains exactly</h2>
+    <p>The sign flip is not mysterious. It is arithmetic. The omitted-variable-bias formula says:</p>
+
+    <div class="math-display">
+      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X \;+\; \beta_U \cdot \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; -0.5 \;+\; 2 \cdot 0.97 \;\approx\; +1.44 \]
+    </div>
+
+    <p>The short regression gives nursing credit — actually, blame — for severity's effect. And severity's effect (β<sub>U</sub> = +2) is four times larger than nursing's (β<sub>X</sub> = −0.5). The larger effect wins. The sign flips.</p>
+
+    <!-- SECTION 6 -->
+    <h2>6. Try it yourself</h2>
+    <p>The strength of the confounding depends on how strongly severity drives nursing hours. Call this γ — the coefficient on U in the equation for X. In the real DGP, γ = 0.8. What if the hospital assigned nursing without regard to severity (γ = 0)? What if the link were even stronger?</p>
+
+    <div class="viz-card">
+      <div>
+        <span class="lbl">γ — how strongly severity drives nursing:</span>
+        <div class="slider-row">
+          <input id="gamma-slider" type="range" min="0" max="1.5" step="0.01" value="0.8" />
+          <span class="val" id="gamma-val">0.80</span>
+        </div>
+      </div>
+      <div class="coef-bar truth">
+        <span class="coef-label">True β<sub>X</sub> (fixed)</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-true2"></span></div>
+        <span class="coef-val">−0.50</span>
+      </div>
+      <div class="coef-bar short" id="bar-short2-row">
+        <span class="coef-label">Pooled β̂ (you)</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-short2"></span></div>
+        <span class="coef-val" id="bar-short2-val">+1.44</span>
+      </div>
+      <figcaption style="margin-top:10px; font-size:13px; color:var(--c-ink-muted); font-style:italic;">
+        When γ = 0, severity doesn't drive nursing: the pooled slope recovers the truth (−0.5). Turn γ up even a little and the bias appears; the sign flip is easy to produce.
+      </figcaption>
+    </div>
+
+    <!-- SECTION 7 -->
+    <h2>7. The real-world corollary</h2>
+    <p>The canonical real example is the <strong>1973 UC Berkeley graduate admissions case</strong>. Aggregated across the university, men were admitted at higher rates than women. Prima facie evidence of sex discrimination?</p>
+    <p>Not quite. Within each individual department, women were admitted at <em>equal or higher</em> rates than men. Women simply applied in greater numbers to more competitive departments (lower admission rates overall), while men applied more to less competitive departments. Department was the confounder. Include it, and the pooled sign flips — just like in the nursing paradox.</p>
+
+    <blockquote>Every time you read a surprising sign in an observational study — "exercise is bad for you," "more inspections cause more defects," "richer countries consume less energy" — ask: what confounder could be doing the work?</blockquote>
+
+  </main>
+
+  <footer>
+    <a href="../hub.html">← Back to the hub</a>
+    · <a href="ovb.html">Next door: The Ghost (OVB)</a>
+  </footer>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { ols } from '../shared/regression.js';
+
+    // ---------- KaTeX ----------
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+
+    // ---------- Seeded RNG ----------
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function normal(rng) {
+      let u = 0, v = 0;
+      while (u === 0) u = rng();
+      while (v === 0) v = rng();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    // ---------- Generate 40 patients ----------
+    // Nursing Paradox DGP (discrete severity levels for clearer within-group slopes):
+    //   U ∈ {2, 3, 4} (mild) or {7, 8, 9} (severe), equal probability within each
+    //   X = 2 + gamma*U + N(0, 0.3^2)                         (nursing hours)
+    //   Y = 5 - 0.5*X + 2*U + N(0, 0.5^2)                     (recovery days)
+    // With equal numbers of mild and severe patients, the confounder U creates
+    // the sign flip between the pooled fit and the within-group fits.
+    function makeData(n, seed, gamma) {
+      const rng = mulberry32(seed);
+      // Two severity groups: mild (U = 3) and severe (U = 8). Half of each.
+      // Within each group, U is constant, so X varies only through nursing noise eta,
+      // and Y = 5 - 0.5*X + 2*U + eps has a clean within-group slope of -0.5.
+      const U = new Array(n), X = new Array(n), Y = new Array(n);
+      for (let i = 0; i < n; i++) {
+        U[i] = (i < n / 2) ? 3 : 8;
+        // wider eta to spread nursing hours visibly within a group
+        X[i] = 2 + gamma * U[i] + 0.8 * normal(rng);
+        Y[i] = 5 - 0.5 * X[i] + 2 * U[i] + 0.5 * normal(rng);
+      }
+      return { U, X, Y };
+    }
+
+    const N = 40;
+    const SEED = 2026;
+    const data = makeData(N, SEED, 0.8);
+
+    // Pooled fit
+    const pooledFit = ols(data.Y, data.X.map(x => [x]));
+    const betaPooled = pooledFit.coefficients[1];
+    const interPooled = pooledFit.coefficients[0];
+
+    // Group fits
+    const mildIdx = [], sevIdx = [];
+    for (let i = 0; i < N; i++) (data.U[i] <= 5 ? mildIdx : sevIdx).push(i);
+    const fitGroup = (idx) => {
+      const y = idx.map(i => data.Y[i]);
+      const x = idx.map(i => [data.X[i]]);
+      return ols(y, x);
+    };
+    const mildFit = fitGroup(mildIdx);
+    const sevFit  = fitGroup(sevIdx);
+
+    // ---------- Chart ----------
+    const svg = d3.select('#chart');
+    const W = 620, H = 420;
+    const margin = { top: 20, right: 24, bottom: 46, left: 52 };
+    const innerW = W - margin.left - margin.right;
+    const innerH = H - margin.top - margin.bottom;
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const xExt = d3.extent(data.X);
+    const xPad = (xExt[1] - xExt[0]) * 0.06;
+    const yExt = d3.extent(data.Y);
+    const yPad = (yExt[1] - yExt[0]) * 0.06;
+    const xScale = d3.scaleLinear().domain([xExt[0] - xPad, xExt[1] + xPad]).range([0, innerW]);
+    const yScale = d3.scaleLinear().domain([yExt[0] - yPad, yExt[1] + yPad]).range([innerH, 0]);
+
+    // axes
+    g.append('g').attr('class', 'axis')
+      .attr('transform', `translate(0,${innerH})`)
+      .call(d3.axisBottom(xScale).ticks(6));
+    g.append('g').attr('class', 'axis')
+      .call(d3.axisLeft(yScale).ticks(6));
+    g.append('text').attr('class', 'axis-label')
+      .attr('x', innerW / 2).attr('y', innerH + 36).attr('text-anchor', 'middle')
+      .text('Nursing hours per day (X)');
+    g.append('text').attr('class', 'axis-label')
+      .attr('transform', `translate(-38,${innerH/2}) rotate(-90)`)
+      .attr('text-anchor', 'middle')
+      .text('Recovery days (Y)');
+
+    // severity color scale
+    const sevColor = d3.scaleLinear()
+      .domain([1, 5.5, 10])
+      .range(['#2c5aa0', '#a58b4a', '#b03030']);
+
+    // dots
+    const dots = g.selectAll('circle')
+      .data(d3.range(N))
+      .enter().append('circle')
+      .attr('cx', i => xScale(data.X[i]))
+      .attr('cy', i => yScale(data.Y[i]))
+      .attr('r', 5)
+      .attr('fill', '#9aa0a6')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1);
+
+    // pooled fit line
+    const xLineDomain = [xExt[0] - xPad, xExt[1] + xPad];
+    g.append('line')
+      .attr('class', 'fit-pooled')
+      .attr('x1', xScale(xLineDomain[0]))
+      .attr('y1', yScale(interPooled + betaPooled * xLineDomain[0]))
+      .attr('x2', xScale(xLineDomain[1]))
+      .attr('y2', yScale(interPooled + betaPooled * xLineDomain[1]));
+
+    // pooled fit label
+    g.append('text').attr('class', 'fit-label')
+      .attr('x', xScale(xLineDomain[1]) - 4).attr('y', yScale(interPooled + betaPooled * xLineDomain[1]) - 8)
+      .attr('text-anchor', 'end').attr('fill', '#c23a2f')
+      .text(`β̂ = ${betaPooled >= 0 ? '+' : ''}${betaPooled.toFixed(2)}`);
+
+    // group-fit lines (hidden initially)
+    function groupLineEndpoints(fit, idx) {
+      const xs = idx.map(i => data.X[i]);
+      const [lo, hi] = d3.extent(xs);
+      const b0 = fit.coefficients[0], b1 = fit.coefficients[1];
+      return { x1: lo, y1: b0 + b1 * lo, x2: hi, y2: b0 + b1 * hi, b1 };
+    }
+    const mildEnds = groupLineEndpoints(mildFit, mildIdx);
+    const sevEnds = groupLineEndpoints(sevFit, sevIdx);
+
+    const mildLine = g.append('line').attr('class', 'fit-group mild')
+      .attr('x1', xScale(mildEnds.x1)).attr('y1', yScale(mildEnds.y1))
+      .attr('x2', xScale(mildEnds.x2)).attr('y2', yScale(mildEnds.y2))
+      .style('opacity', 0);
+    const sevLine = g.append('line').attr('class', 'fit-group severe')
+      .attr('x1', xScale(sevEnds.x1)).attr('y1', yScale(sevEnds.y1))
+      .attr('x2', xScale(sevEnds.x2)).attr('y2', yScale(sevEnds.y2))
+      .style('opacity', 0);
+    const mildLabel = g.append('text').attr('class', 'fit-label')
+      .attr('fill', '#2c5aa0')
+      .attr('x', xScale(mildEnds.x1) + 6).attr('y', yScale(mildEnds.y1) - 6)
+      .text(`mild: β̂ = ${mildEnds.b1.toFixed(2)}`)
+      .style('opacity', 0);
+    const sevLabel = g.append('text').attr('class', 'fit-label')
+      .attr('fill', '#b03030')
+      .attr('x', xScale(sevEnds.x2) - 6).attr('y', yScale(sevEnds.y2) + 14)
+      .attr('text-anchor', 'end')
+      .text(`severe: β̂ = ${sevEnds.b1.toFixed(2)}`)
+      .style('opacity', 0);
+
+    // ---------- Toggle handlers ----------
+    let coloured = false;
+    let groupShown = false;
+    const btnColor = document.getElementById('btn-color');
+    const btnGroup = document.getElementById('btn-groupfits');
+    const legend = document.getElementById('legend');
+    const caption = document.getElementById('chart-caption');
+
+    btnColor.addEventListener('click', () => {
+      coloured = !coloured;
+      btnColor.classList.toggle('active', coloured);
+      btnColor.textContent = coloured ? 'Hide severity colour' : 'Colour by severity';
+      dots.transition().duration(500)
+        .attr('fill', i => coloured ? sevColor(data.U[i]) : '#9aa0a6')
+        .attr('r', coloured ? 6 : 5);
+      legend.style.display = coloured ? 'inline-flex' : 'none';
+      btnGroup.disabled = !coloured;
+      btnGroup.style.opacity = coloured ? 1 : 0.5;
+      if (coloured) {
+        caption.textContent = 'Coloured by severity: blue = mild, red = severe. Stratification appears.';
+      } else {
+        caption.textContent = 'Dr. Naive\'s regression: more nursing appears to mean slower recovery.';
+        // Hide group fits if we turn colouring off
+        if (groupShown) btnGroup.click();
+      }
+    });
+
+    btnGroup.addEventListener('click', () => {
+      if (btnGroup.disabled) return;
+      groupShown = !groupShown;
+      btnGroup.classList.toggle('active', groupShown);
+      btnGroup.textContent = groupShown ? 'Hide within-group fits' : 'Show within-group fits';
+      const target = groupShown ? 1 : 0;
+      mildLine.transition().duration(500).style('opacity', target);
+      sevLine.transition().duration(500).style('opacity', target);
+      mildLabel.transition().duration(500).style('opacity', target);
+      sevLabel.transition().duration(500).style('opacity', target);
+      if (groupShown) {
+        caption.textContent = 'Within each severity group, the slope is negative — the truth emerges.';
+      } else if (coloured) {
+        caption.textContent = 'Coloured by severity: blue = mild, red = severe. Stratification appears.';
+      }
+    });
+
+    // ---------- Coefficient bars ----------
+    // Scale: map coefficients in [-2, +2] into the track
+    const COEF_MIN = -2, COEF_MAX = 2;
+    function setBar(elId, value) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const track = el.parentElement;
+      // zero marker position
+      const pctZero = (0 - COEF_MIN) / (COEF_MAX - COEF_MIN);
+      track.querySelector('.zero').style.left = `${pctZero * 100}%`;
+      // fill from zero to value
+      const pctVal = Math.max(0, Math.min(1, (value - COEF_MIN) / (COEF_MAX - COEF_MIN)));
+      const left = Math.min(pctZero, pctVal) * 100;
+      const width = Math.abs(pctVal - pctZero) * 100;
+      el.style.left = `${left}%`;
+      el.style.width = `${width}%`;
+    }
+    setBar('bar-true', -0.5);
+    setBar('bar-short', betaPooled);
+    setBar('bar-mild', mildEnds.b1);
+    setBar('bar-severe', sevEnds.b1);
+    document.getElementById('bar-short-val').textContent = (betaPooled >= 0 ? '+' : '') + betaPooled.toFixed(2);
+    document.getElementById('bar-mild-val').textContent  = (mildEnds.b1 >= 0 ? '+' : '') + mildEnds.b1.toFixed(2);
+    document.getElementById('bar-severe-val').textContent = (sevEnds.b1 >= 0 ? '+' : '') + sevEnds.b1.toFixed(2);
+
+    // ---------- Slider (Section 6) ----------
+    setBar('bar-true2', -0.5);
+    const slider = document.getElementById('gamma-slider');
+    const gVal = document.getElementById('gamma-val');
+    const bar2 = document.getElementById('bar-short2');
+    const bar2Val = document.getElementById('bar-short2-val');
+    const bar2Row = document.getElementById('bar-short2-row');
+
+    function updateSlider() {
+      const gamma = parseFloat(slider.value);
+      gVal.textContent = gamma.toFixed(2);
+      // Generate a fresh sample (same seed so changes look smooth as gamma varies)
+      const d = makeData(N, SEED, gamma);
+      const fit = ols(d.Y, d.X.map(x => [x]));
+      const b = fit.coefficients[1];
+      setBar('bar-short2', b);
+      bar2Val.textContent = (b >= 0 ? '+' : '') + b.toFixed(2);
+      // colour safety: green if close to truth, red if far
+      const closeToTruth = Math.abs(b - (-0.5)) < 0.25;
+      bar2Row.classList.toggle('safe', closeToTruth);
+    }
+    slider.addEventListener('input', updateSlider);
+    updateSlider();
+  </script>
+</body>
+</html>
