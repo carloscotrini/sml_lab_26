@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omitted variable bias — re-examining Dr. Gauss's Y~X2 fit</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\\\(',right:'\\\\)',display:false},{left:'\\\\[',right:'\\\\]',display:true}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-gauss: #1b5e8e;
+      --c-noise: #9aa0a6;
+      --c-truth: #7b2cbf;
+      --c-est: #2d8659;
+      --c-warn: #b5654a;
+      --c-biased: #C0392B;
+      --c-repair: #27AE60;
+      --c-border: #e4dfd5;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+      --mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    a { color: var(--c-truth); }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--c-bg);
+      border-bottom: 1px solid var(--c-border);
+      padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; color: var(--c-ink-muted);
+    }
+    .topbar a { color: var(--c-ink-muted); text-decoration: none; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar .title {
+      font-family: var(--serif);
+      color: var(--c-ink);
+      font-size: 15px;
+      letter-spacing: 0.02em;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    section {
+      margin-bottom: 60px;
+    }
+    section h2 {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 6px;
+      color: var(--c-ink);
+    }
+    section .kicker {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--c-truth);
+      margin-bottom: 6px;
+    }
+    section p { margin: 0 0 14px; }
+
+    blockquote {
+      border-left: 3px solid var(--c-gauss);
+      padding: 4px 0 4px 14px;
+      margin: 16px 0;
+      font-style: italic;
+      color: var(--c-ink);
+    }
+
+    .eq-box {
+      margin: 18px 0;
+      padding: 16px 18px;
+      background: rgba(123, 44, 191, 0.05);
+      border: 1px solid rgba(123, 44, 191, 0.22);
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .plot-card {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+    .plot-card h3 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+    .plot-card .sub {
+      font-size: 12px;
+      color: var(--c-ink-muted);
+      margin-bottom: 6px;
+    }
+    .plot-card.biased h3 { color: var(--c-biased); }
+    .plot-card.repair h3 { color: var(--c-repair); }
+    .plot-card svg { width: 100%; height: 260px; display: block; }
+
+    .bias-bar-holder {
+      margin: 20px auto 0;
+      padding: 16px 18px;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+    }
+    .bias-bar-holder .row {
+      display: grid;
+      grid-template-columns: 160px 1fr 120px;
+      gap: 14px;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .bias-bar-holder .row + .row { margin-top: 8px; }
+    .bias-bar-holder .lbl { color: var(--c-ink-muted); }
+    .bias-bar-holder .val { text-align: right; }
+    .bias-bar-holder .bar-track {
+      position: relative;
+      height: 18px;
+      background: #f4efe4;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bias-bar-holder .bar-fill {
+      position: absolute;
+      top: 0; bottom: 0;
+      background: linear-gradient(90deg, var(--c-biased), #e08c7e);
+      transition: width .4s ease;
+    }
+    .bias-bar-holder .bar-fill.true { background: linear-gradient(90deg, var(--c-repair), #7ed3a2); }
+    .bias-bar-holder .bar-fill.gap { background: linear-gradient(90deg, var(--c-warn), #e4b29a); }
+
+    .controls {
+      margin: 18px 0;
+      padding: 16px 18px;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+    }
+    .controls .slider-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 90px;
+      gap: 12px;
+      align-items: center;
+      font-size: 14px;
+    }
+    .controls label.lbl { color: var(--c-ink-muted); font-family: var(--mono); }
+    .controls .val { font-family: var(--mono); text-align: right; color: var(--c-ink); }
+    .controls input[type=range] { width: 100%; }
+    .controls .readout {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .controls .readout .cell {
+      background: #fafafa;
+      border: 1px solid var(--c-border);
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    .controls .readout .cell .k {
+      font-size: 10.5px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--c-ink-muted);
+    }
+    .controls .readout .cell .v {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--c-ink);
+    }
+    .controls .readout .cell.biased .v { color: var(--c-biased); }
+    .controls .readout .cell.truth .v { color: var(--c-repair); }
+
+    .regout {
+      margin-top: 14px;
+      background: #fafafa;
+      border: 1px solid var(--c-border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--c-ink);
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .regout .hdr { color: var(--c-truth); font-weight: 600; }
+    .regout .sig { color: var(--c-warn); }
+    .regout .comment { color: var(--c-ink-muted); font-style: italic; }
+
+    .teaser {
+      margin-top: 40px;
+      padding: 18px 22px;
+      background: linear-gradient(90deg, rgba(192,57,43,0.06), rgba(123,44,191,0.06));
+      border-left: 4px solid var(--c-biased);
+      border-radius: 6px;
+    }
+    .teaser h3 {
+      margin: 0 0 4px;
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    footer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 30px 24px 60px;
+      border-top: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+    }
+    footer a { color: var(--c-ink-muted); }
+
+    .dot { fill: var(--c-gauss); opacity: 0.55; }
+    .axis line, .axis path { stroke: #d7d2c7; }
+    .axis text { fill: var(--c-ink-muted); font-size: 11px; font-family: var(--mono); }
+    .line-biased { stroke: var(--c-biased); stroke-width: 2.2; fill: none; }
+    .line-truth { stroke: var(--c-repair); stroke-width: 2.2; fill: none; stroke-dasharray: 5 4; }
+    .partial-dot { fill: var(--c-repair); opacity: 0.55; }
+
+    @media (max-width: 720px) {
+      .compare { grid-template-columns: 1fr; }
+      .bias-bar-holder .row { grid-template-columns: 1fr; }
+      .controls .readout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <a href="../hub.html">← Back to the hub</a>
+    <span class="title">Issue 1 — Omitted variable bias</span>
+    <span></span>
+  </nav>
+
+  <main>
+
+    <section id="setup">
+      <div class="kicker">The setup</div>
+      <h2>Dr. Gauss's lucky coefficient</h2>
+      <p>On the last page, Dr. Gauss fit a single regression:</p>
+      <div class="eq-box">
+        $$ Y \;=\; \beta_0 \;+\; \beta_2\, X_2 \;+\; \text{error} $$
+      </div>
+      <p>He was delighted. His estimate came out near <span style="font-family:var(--mono);color:var(--c-biased);font-weight:600;">&beta;&#770;<sub>2</sub> &approx; 3.1</span>, which looked suspiciously close to the truth (<span style="font-family:var(--mono);color:var(--c-repair);font-weight:600;">&beta;<sub>2</sub> = 3</span>). Case closed?</p>
+      <blockquote>Not quite. Dr. Gauss made a mistake the DGP quietly punishes: he ignored <em>U</em>, the hidden self-discipline. The fact that his answer landed near 3 is a <em>coincidence of the numbers</em> in this particular DGP — the bias is small here, but it is real, it is signable, and in a nastier world it would bite him.</blockquote>
+      <p>Let's look under the hood.</p>
+    </section>
+
+    <section id="formula">
+      <div class="kicker">The OVB formula</div>
+      <h2>Where the ghost enters</h2>
+      <p>The true DGP for exam scores is</p>
+      <div class="eq-box">
+        $$ Y \;=\; 50 \;+\; 8\,\log X_1 \;+\; 3\,X_2 \;+\; 2\,U \;+\; \varepsilon, $$
+      </div>
+      <p>and both <em>X</em><sub>2</sub> (lectures attended) and <em>U</em> (self-discipline) are positively correlated, because disciplined students attend more lectures. When you regress <em>Y</em> on <em>X</em><sub>2</sub> alone, your estimator converges not to <em>&beta;</em><sub>2</sub> but to</p>
+      <div class="eq-box">
+        $$ \operatorname{plim}\hat\beta_2^{\text{short}} \;=\; \beta_2 \;+\; \beta_U \cdot \delta_U, \qquad \delta_U \;=\; \frac{\operatorname{Cov}(X_2,\, U)}{\operatorname{Var}(X_2)}. $$
+      </div>
+      <p>The bias is <strong>&beta;<sub>U</sub> · &delta;<sub>U</sub></strong>. In this DGP, <em>&beta;<sub>U</sub></em> = 2 (self-discipline helps scores) and <em>&delta;<sub>U</sub></em> &gt; 0 (self-discipline drives lecture attendance upward). Both are positive, so Dr. Gauss's estimate is <strong>too high</strong>. The ghost of self-discipline is silently padding the coefficient on lectures.</p>
+    </section>
+
+    <section id="compare">
+      <div class="kicker">Interactive — watch the bias</div>
+      <h2>The biased fit vs. the honest fit</h2>
+      <p>Same 150 students, same data (seed 7, just like Page 2). Left: what Dr. Gauss saw when he regressed <em>Y</em> on <em>X</em><sub>2</sub> alone. Right: the residual-on-residual (partialled-out) picture once we include <em>X</em><sub>1</sub> and <em>U</em> in the model.</p>
+      <div class="compare">
+        <div class="plot-card biased">
+          <h3>Dr. Gauss (biased)</h3>
+          <div class="sub">Y regressed on X<sub>2</sub> only.</div>
+          <svg id="plotBiased" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="plot-card repair">
+          <h3>With all variables</h3>
+          <div class="sub">Partial effect of X<sub>2</sub> after removing X<sub>1</sub>, U.</div>
+          <svg id="plotRepair" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+
+      <div class="bias-bar-holder" id="biasBarHolder">
+        <div class="row">
+          <span class="lbl">&beta;&#770;<sub>2</sub><sup>short</sup> (Dr. Gauss)</span>
+          <div class="bar-track"><div class="bar-fill" id="barShort"></div></div>
+          <span class="val" id="valShort">—</span>
+        </div>
+        <div class="row">
+          <span class="lbl">&beta;<sub>2</sub><sup>true</sup> = 3.00</span>
+          <div class="bar-track"><div class="bar-fill true" id="barTrue"></div></div>
+          <span class="val" id="valTrue">3.00</span>
+        </div>
+        <div class="row">
+          <span class="lbl">bias = &beta;&#770;&minus;&beta;</span>
+          <div class="bar-track"><div class="bar-fill gap" id="barGap"></div></div>
+          <span class="val" id="valGap">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="slider">
+      <div class="kicker">Slider — strength of the confounder</div>
+      <h2>Dial up the ghost</h2>
+      <p>In the true DGP, <em>X</em><sub>2</sub> = 10 + <em>&gamma;</em><sub>2</sub>·<em>U</em> + <em>&eta;</em><sub>2</sub>. The baseline value is <em>&gamma;</em><sub>2</sub> = 0.3 — a mild confounding link. Watch what happens when we crank <em>&gamma;</em><sub>2</sub> up (disciplined students attend <em>much</em> more) or push it to zero (discipline no longer drives attendance).</p>
+
+      <div class="controls" id="ctrl">
+        <div class="slider-row">
+          <label class="lbl" for="gamma">&gamma;<sub>2</sub></label>
+          <input type="range" id="gamma" min="-0.5" max="1.5" step="0.02" value="0.3" />
+          <span class="val" id="gammaVal">0.30</span>
+        </div>
+        <div class="readout">
+          <div class="cell">
+            <div class="k">&delta;<sub>U</sub></div>
+            <div class="v" id="rdDelta">—</div>
+          </div>
+          <div class="cell biased">
+            <div class="k">Dr. Gauss: &beta;&#770;<sub>2</sub><sup>short</sup></div>
+            <div class="v" id="rdShort">—</div>
+          </div>
+          <div class="cell truth">
+            <div class="k">Truth: &beta;<sub>2</sub> = 3.00</div>
+            <div class="v" id="rdBias">bias —</div>
+          </div>
+        </div>
+        <p style="margin-top:14px;margin-bottom:0;font-size:13px;color:var(--c-ink-muted);">
+          When <em>&gamma;</em><sub>2</sub> = 0, <em>X</em><sub>2</sub> and <em>U</em> become uncorrelated, <em>&delta;<sub>U</sub></em> collapses to zero, and the bias vanishes. The short regression is only safe when the confounder doesn't actually confound.
+        </p>
+      </div>
+    </section>
+
+    <section id="repair">
+      <div class="kicker">The repair</div>
+      <h2>Include U, and the bias evaporates</h2>
+      <p>If we are lucky enough to <em>observe</em> self-discipline (a rare luxury), we can simply include it. The regression <em>Y</em> on <em>X</em><sub>1</sub>, <em>X</em><sub>2</sub>, <em>U</em> recovers the true coefficient:</p>
+      <div class="regout" id="regoutFull">Loading…</div>
+      <p>Compare side-by-side with Dr. Gauss's short regression:</p>
+      <div class="regout" id="regoutShort">Loading…</div>
+      <p>In the short fit, the coefficient on <em>X</em><sub>2</sub> absorbs <em>&beta;<sub>U</sub>&middot;&delta;<sub>U</sub></em>. In the full fit, once <em>U</em> is an explicit column in the design matrix, there is nothing left for <em>X</em><sub>2</sub> to steal. The estimate lands on 3.</p>
+      <blockquote>But this repair only works because we can observe <em>U</em>. In real life, self-discipline is hidden, childhood nutrition is unrecorded, genetic predisposition is invisible. When the confounder is unobservable, we cannot just drop it into the regression — we need heavier machinery: <strong>proxy variables</strong> (use something correlated with <em>U</em>, like GPA), or <strong>instrumental variables</strong> (find a source of variation in <em>X</em><sub>2</sub> that is independent of <em>U</em>, like a random assignment to attend lectures). Both partially rescue us. Neither is free.</blockquote>
+    </section>
+
+    <section id="teaser">
+      <div class="teaser">
+        <h3>When OVB goes nuclear</h3>
+        <p>Here the bias was around +0.3 — big enough to worry about, small enough that Dr. Gauss slept through it. But OVB has a more spectacular mode: it can <strong>flip the sign of a coefficient</strong>, turning a positive effect into a negative one. For the most dramatic version — and the story of the 1973 Berkeley admissions lawsuit — see the <a href="simpson.html">Simpson's paradox page</a>.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <a href="../hub.html">← Back to the hub</a>
+  </footer>
+
+  <script type="module">
+    import { generateData, TRUE_BETAS, mean } from '../shared/dgp.js';
+    import { ols } from '../shared/regression.js';
+    import { seededRandom, randn } from '../shared/dgp.js';
+
+    // ---- Section 3: baseline data (seed 7, n=150) ----
+    const N = 150;
+    const SEED = 7;
+    const base = generateData(N, SEED);
+
+    // Short regression: Y on X2
+    const X_short = Array.from(base.X2, v => [v]);
+    const fitShort = ols(Array.from(base.Y), X_short);
+    const b2Short = fitShort.coefficients[1];
+    const b0Short = fitShort.coefficients[0];
+
+    // Full regression: Y on log(X1), X2, U
+    const X_full = [];
+    for (let i = 0; i < N; i++) X_full.push([Math.log(base.X1[i]), base.X2[i], base.U[i]]);
+    const fitFull = ols(Array.from(base.Y), X_full);
+    const b2Full = fitFull.coefficients[2];
+
+    // ---- Left plot: Y vs X2 with short regression line ----
+    function drawScatter(svgId, xs, ys, slope, intercept, lineClass, xLabel, yLabel) {
+      const svg = d3.select('#' + svgId);
+      svg.selectAll('*').remove();
+      const W = 420, H = 260;
+      const m = { t: 10, r: 14, b: 32, l: 40 };
+      const iw = W - m.l - m.r, ih = H - m.t - m.b;
+      const xExt = d3.extent(xs), yExt = d3.extent(ys);
+      const xPad = (xExt[1] - xExt[0]) * 0.05;
+      const yPad = (yExt[1] - yExt[0]) * 0.05;
+      const xs_ = d3.scaleLinear().domain([xExt[0] - xPad, xExt[1] + xPad]).range([m.l, m.l + iw]);
+      const ys_ = d3.scaleLinear().domain([yExt[0] - yPad, yExt[1] + yPad]).range([m.t + ih, m.t]);
+
+      // axes
+      svg.append('g').attr('class', 'axis')
+        .attr('transform', `translate(0,${m.t + ih})`)
+        .call(d3.axisBottom(xs_).ticks(5));
+      svg.append('g').attr('class', 'axis')
+        .attr('transform', `translate(${m.l},0)`)
+        .call(d3.axisLeft(ys_).ticks(5));
+
+      svg.append('text').attr('x', m.l + iw / 2).attr('y', H - 6)
+        .attr('text-anchor', 'middle').attr('fill', 'var(--c-ink-muted)')
+        .style('font-size', '11px').text(xLabel);
+      svg.append('text').attr('transform', `translate(12,${m.t + ih / 2}) rotate(-90)`)
+        .attr('text-anchor', 'middle').attr('fill', 'var(--c-ink-muted)')
+        .style('font-size', '11px').text(yLabel);
+
+      // dots
+      svg.append('g').selectAll('circle').data(xs).join('circle')
+        .attr('class', lineClass === 'line-biased' ? 'dot' : 'partial-dot')
+        .attr('cx', (_, i) => xs_(xs[i]))
+        .attr('cy', (_, i) => ys_(ys[i]))
+        .attr('r', 2.8);
+
+      // fitted line
+      const x1 = xExt[0] - xPad, x2 = xExt[1] + xPad;
+      svg.append('line').attr('class', lineClass)
+        .attr('x1', xs_(x1)).attr('y1', ys_(intercept + slope * x1))
+        .attr('x2', xs_(x2)).attr('y2', ys_(intercept + slope * x2));
+
+      // slope annotation
+      svg.append('text')
+        .attr('x', m.l + iw - 8).attr('y', m.t + 14)
+        .attr('text-anchor', 'end')
+        .attr('fill', lineClass === 'line-biased' ? 'var(--c-biased)' : 'var(--c-repair)')
+        .style('font-family', 'var(--mono)')
+        .style('font-size', '12px')
+        .style('font-weight', '600')
+        .text(`slope = ${slope.toFixed(3)}`);
+    }
+
+    drawScatter('plotBiased',
+      Array.from(base.X2), Array.from(base.Y),
+      b2Short, b0Short,
+      'line-biased',
+      'X2 (lectures attended)', 'Y (exam score)');
+
+    // Right plot: partialled-out Y vs partialled-out X2 (after removing log(X1) and U).
+    // Regress X2 on log(X1), U -> residuals rX2.
+    // Regress Y  on log(X1), U -> residuals rY.
+    // Slope of rY on rX2 = b2Full (Frisch-Waugh).
+    const Z = [];
+    for (let i = 0; i < N; i++) Z.push([Math.log(base.X1[i]), base.U[i]]);
+    const fitX2onZ = ols(Array.from(base.X2), Z);
+    const fitYonZ = ols(Array.from(base.Y),  Z);
+    const rX2 = fitX2onZ.residuals;
+    const rY  = fitYonZ.residuals;
+
+    drawScatter('plotRepair',
+      rX2, rY,
+      b2Full, 0,
+      'line-truth',
+      'X2 | (log X1, U)', 'Y | (log X1, U)');
+
+    // ---- Bias bar ----
+    function updateBiasBar(bShort, bTrue) {
+      const bias = bShort - bTrue;
+      const maxAbs = Math.max(Math.abs(bShort), Math.abs(bTrue), Math.abs(bias), 3.5);
+      const pct = v => Math.max(0, Math.min(100, (Math.abs(v) / maxAbs) * 100));
+      document.getElementById('barShort').style.width = pct(bShort) + '%';
+      document.getElementById('barTrue').style.width  = pct(bTrue)  + '%';
+      document.getElementById('barGap').style.width   = pct(bias)   + '%';
+      document.getElementById('valShort').textContent = bShort.toFixed(3);
+      document.getElementById('valTrue').textContent  = bTrue.toFixed(2);
+      document.getElementById('valGap').textContent   = (bias >= 0 ? '+' : '') + bias.toFixed(3);
+    }
+    updateBiasBar(b2Short, TRUE_BETAS.beta2);
+
+    // ---- Section 4: slider that re-generates data with a new gamma2 ----
+    // We hand-roll the DGP so we can vary gamma2 (fixing everything else).
+    function generateWithGamma(n, seed, gamma2) {
+      const rng = seededRandom(seed);
+      const U = new Float64Array(n);
+      const X1 = new Float64Array(n);
+      const X2 = new Float64Array(n);
+      const Y  = new Float64Array(n);
+      const sdEta1 = Math.sqrt(0.3);
+      const sdEta2 = 1.0;
+      for (let i = 0; i < n; i++) {
+        const u = randn(rng);
+        const eta1 = randn(rng) * sdEta1;
+        const eta2 = randn(rng) * sdEta2;
+        const eta3 = randn(rng) * 2.0; // keep RNG aligned with shared/dgp.js
+        let x1 = 2 + 0.5 * u + eta1;
+        if (x1 <= 0.05) x1 = 0.05;
+        const x2 = 10 + gamma2 * u + eta2;
+        const epsSd = Math.sqrt(0.5 * Math.abs(x1));
+        const eps = randn(rng) * epsSd;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
+      }
+      return { U, X1, X2, Y };
+    }
+
+    function refreshSlider(gamma2) {
+      const d = generateWithGamma(N, SEED, gamma2);
+      const Xs = Array.from(d.X2, v => [v]);
+      const fit = ols(Array.from(d.Y), Xs);
+      const bShort = fit.coefficients[1];
+
+      // delta_U = Cov(X2, U) / Var(X2)
+      const mX2 = mean(d.X2), mU = mean(d.U);
+      let cov = 0, varX = 0;
+      for (let i = 0; i < N; i++) {
+        cov += (d.X2[i] - mX2) * (d.U[i] - mU);
+        varX += (d.X2[i] - mX2) ** 2;
+      }
+      cov /= N; varX /= N;
+      const deltaU = cov / varX;
+      const bias = bShort - TRUE_BETAS.beta2;
+
+      document.getElementById('gammaVal').textContent = gamma2.toFixed(2);
+      document.getElementById('rdDelta').textContent = deltaU.toFixed(3);
+      document.getElementById('rdShort').textContent = bShort.toFixed(3);
+      document.getElementById('rdBias').textContent = 'bias ' + (bias >= 0 ? '+' : '') + bias.toFixed(3);
+    }
+    const gammaSlider = document.getElementById('gamma');
+    gammaSlider.addEventListener('input', e => refreshSlider(parseFloat(e.target.value)));
+    refreshSlider(0.30);
+
+    // ---- Section 5: R-style regression output ----
+    function fmtReg(fit, labels, title) {
+      const rows = [];
+      rows.push(`<span class="hdr">${title}</span>`);
+      rows.push(`Residual SE: ${fit.residSE.toFixed(3)} on ${fit.df} df    R²: ${fit.r2.toFixed(4)}`);
+      rows.push('');
+      rows.push('              Estimate   Std.Err   t value   Pr(>|t|)');
+      for (let i = 0; i < fit.coefficients.length; i++) {
+        const b = fit.coefficients[i];
+        const se = fit.se[i];
+        const t = fit.tStats[i];
+        const p = fit.pValues[i];
+        const stars = p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : p < 0.1 ? '.' : '';
+        const line = `${labels[i].padEnd(12)}  ${b.toFixed(4).padStart(8)}  ${se.toFixed(4).padStart(8)}  ${t.toFixed(3).padStart(8)}   ${p.toExponential(2).padStart(9)} <span class="sig">${stars}</span>`;
+        rows.push(line);
+      }
+      return rows.join('\n');
+    }
+
+    document.getElementById('regoutShort').innerHTML = fmtReg(
+      fitShort,
+      ['(Intercept)', 'X2'],
+      "Dr. Gauss's short regression:  lm(Y ~ X2)"
+    ) + '\n\n<span class="comment"># β̂₂ is inflated by β_U · δ_U — the ghost of U.</span>';
+
+    document.getElementById('regoutFull').innerHTML = fmtReg(
+      fitFull,
+      ['(Intercept)', 'log(X1)', 'X2', 'U'],
+      'Full regression:  lm(Y ~ log(X1) + X2 + U)'
+    ) + '\n\n<span class="comment"># β̂₂ now lands on the truth (≈ 3.00). The ghost is exorcised.</span>';
+  </script>
+</body>
+</html>
