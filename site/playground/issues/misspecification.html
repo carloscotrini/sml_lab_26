@@ -159,6 +159,23 @@
       font-family: 'Inter', sans-serif; font-size: 14px;
       color: var(--c-ink-muted);
     }
+    .teaser-next {
+      margin: 36px 0 0;
+      padding: 20px 22px;
+      background: linear-gradient(180deg, #fbf4e4 0%, #f7ecd2 100%);
+      border: 1px solid #e5d2a2;
+      border-radius: 6px;
+    }
+    .teaser-next .next-link {
+      display: inline-block;
+      padding: 8px 14px;
+      background: var(--truthgold, #D4A017);
+      color: #fff;
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .teaser-next .next-link:hover { filter: brightness(0.92); }
   </style>
 </head>
 <body>
@@ -314,8 +331,14 @@
 
   <ul>
     <li><b>Misspecification is not OVB.</b> OVB is a <i>missing variable</i> (the ghost <i>U</i>); misspecification is a <i>wrong shape</i>. Either one can make your coefficients lie. You can also have both at once.</li>
-    <li><b>The fix isn't "always use a bigger model."</b> More flexibility without more data is how you get the wild curves at <i>d</i> = 9. The proper tools — cross-validation, regularization, held-out test sets — come next.</li>
+    <li><b>The fix isn't "always use a bigger model."</b> More flexibility without more data is how you get the wild curves at <i>d</i> = 9. The proper tools — cross-validation, regularization, held-out test sets — are waiting for you on the next card.</li>
   </ul>
+
+  <div class="teaser-next">
+    <h3 style="font-family:'Fraunces',serif; font-weight:500; margin:0 0 6px;">Where does Dr. Bishop go next?</h3>
+    <p style="margin:0 0 10px; color:var(--c-ink-muted); font-size:14px;">What you just watched at <i>d</i> = 9 has a name: <b>overfitting</b>. The same pattern — training error falling to zero while test error explodes — is one face of the <b>bias–variance tradeoff</b>. The next issue unpacks that tradeoff with twenty overlaid fits, the U-curve of expected test error, and the "right model family beats right complexity" lesson.</p>
+    <a href="../topics/overfitting.html" class="next-link">The Wild Curves: overfitting &amp; bias–variance →</a>
+  </div>
 
   <div class="footer">
     <a href="../hub.html">← Back to the hub</a>
