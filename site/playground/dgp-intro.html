@@ -432,8 +432,10 @@
       gamma2: 0.3,
       aliceU: 0.85,
       bobU: -0.85,
-      sample: null
+      sample: null,
+      view: { azimuth: Math.PI / 6, elevation: Math.PI / 6 }
     };
+    const DEFAULT_VIEW = { azimuth: Math.PI / 6, elevation: Math.PI / 6 };
 
     // Noise parameters (tightened + louder):
     //   Var(η₁) = 0.5  (SD ≈ 0.71)
@@ -770,22 +772,23 @@
       const nX2 = d => (d - x2Domain[0]) / (x2Domain[1] - x2Domain[0]);
       const nY  = d => (d - yDomain[0])  / (yDomain[1]  - yDomain[0]);
       const pad = 40;
-      const view = { azimuth: Math.PI / 6, elevation: Math.PI / 6 };
+      // Read rotation from shared state so drag handlers can update it live.
       const project = function(x1, x2, y) {
         const u1 = nX1(x1) - 0.5;
         const u2 = nX2(x2) - 0.5;
         const uy = nY(y)  - 0.5;
-        const ca = Math.cos(view.azimuth), sa = Math.sin(view.azimuth);
+        const ca = Math.cos(state.view.azimuth), sa = Math.sin(state.view.azimuth);
         const x1r = u1 * ca - u2 * sa;
         const zr  = u1 * sa + u2 * ca;
-        const ce = Math.cos(view.elevation), se = Math.sin(view.elevation);
+        const ce = Math.cos(state.view.elevation), se = Math.sin(state.view.elevation);
         const yr = uy * ce - zr * se;
         const scale = Math.min(viewW - 2 * pad, viewH - 2 * pad);
         return [viewW / 2 + x1r * scale, viewH / 2 - yr * scale];
       };
-      project.view = view;
       return project;
     }
+
+    function is3DStage(n) { return n === 4; }
 
     let currentProject = null;
 
@@ -1081,6 +1084,53 @@
       }
     }, { threshold: Array.from({length: 21}, (_, i) => i / 20) });
     sections.forEach(s => io.observe(s));
+
+    // ---------- 3D drag-to-rotate ----------
+    function renderCurrentStage() {
+      renderStage(state.activeStage);
+    }
+    let dragState = null;
+    svg.on('mousedown', function(ev) {
+      if (!is3DStage(state.activeStage)) return;
+      dragState = { x: ev.clientX, y: ev.clientY, az: state.view.azimuth, el: state.view.elevation };
+      svg.style('cursor', 'grabbing');
+      ev.preventDefault();
+    });
+    svg.on('mousemove', function() {
+      if (!is3DStage(state.activeStage)) return;
+      if (!dragState) svg.style('cursor', 'grab');
+    });
+    svg.on('mouseleave', function() { if (!dragState) svg.style('cursor', null); });
+    window.addEventListener('mousemove', ev => {
+      if (!dragState) return;
+      const dx = ev.clientX - dragState.x;
+      const dy = ev.clientY - dragState.y;
+      state.view.azimuth = dragState.az + dx * 0.008;
+      state.view.elevation = Math.max(-Math.PI/2 + 0.05,
+        Math.min(Math.PI/2 - 0.05, dragState.el + dy * 0.008));
+      renderCurrentStage();
+    });
+    window.addEventListener('mouseup', () => {
+      if (dragState) { dragState = null; svg.style('cursor', null); }
+    });
+    // Touch
+    svg.on('touchstart', function(ev) {
+      if (!is3DStage(state.activeStage)) return;
+      const t = ev.touches[0];
+      dragState = { x: t.clientX, y: t.clientY, az: state.view.azimuth, el: state.view.elevation };
+      ev.preventDefault();
+    });
+    window.addEventListener('touchmove', ev => {
+      if (!dragState) return;
+      const t = ev.touches[0];
+      const dx = t.clientX - dragState.x, dy = t.clientY - dragState.y;
+      state.view.azimuth = dragState.az + dx * 0.008;
+      state.view.elevation = Math.max(-Math.PI/2 + 0.05,
+        Math.min(Math.PI/2 - 0.05, dragState.el + dy * 0.008));
+      renderCurrentStage();
+      ev.preventDefault();
+    });
+    window.addEventListener('touchend', () => { dragState = null; });
 
     // ---------- control wiring ----------
     document.getElementById('sldU').addEventListener('input', e => {
