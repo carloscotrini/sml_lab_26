@@ -752,7 +752,12 @@
       let covC = 0, covR = 0;
       for (let r = 0; r < R; r++) {
         const d = generateDataH(n, (seedBase + r) | 0, h);
-        const rows = Array.from(d.Y, (_, i) => [Math.log(d.X1[i]), d.X2[i]]);
+        // Include U as a regressor so β̂_log(X1) is unbiased for the true 8.
+        // Without U, omitted-variable bias would push β̂ to ~10.5 and EVERY
+        // confidence interval would miss the truth — we'd be measuring OVB,
+        // not heteroscedasticity. This page is about CIs, so we control for
+        // U to isolate the variance-formula question.
+        const rows = Array.from(d.Y, (_, i) => [Math.log(d.X1[i]), d.X2[i], d.U[i]]);
         let fit, seR;
         try {
           fit = ols(Array.from(d.Y), rows);

@@ -1196,7 +1196,7 @@
     }
 
     // ---------- 3D affordances & rotation ----------
-    function is3DStage(n) { return n === 4; }
+    function is3DStage(n) { return n === 4 || n === 5 || n === 6; }
     function draw3DAffordances() {
       gOverlay.append('text')
         .attr('x', 10).attr('y', ih - 8)

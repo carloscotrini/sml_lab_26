@@ -137,8 +137,9 @@
       <p>
         The data-generating process we use throughout the playground is
         \( Y = 50 + 8\log(X_1) + 3X_2 + 6U + \varepsilon \). Below we ignore
-        \(X_2\) and \(U\) and fit polynomials in \(X_1\) of increasing degree,
-        splitting the sample 80/20 into training and test.
+        \(X_2\) and \(U\) and fit polynomials in \(X_1\) of increasing degree.
+        We train on a small cohort of 15 students and evaluate on a fresh
+        cloud of 400 held-out students drawn from the same DGP.
       </p>
     </section>
 
@@ -163,8 +164,8 @@
         <h2>Y vs X₁ — train (blue), test (gold), fit (red)</h2>
         <div id="main-scatter"></div>
         <div class="of-legend">
-          <span class="chip"><span class="swatch train"></span>Training (80%)</span>
-          <span class="chip"><span class="swatch test"></span>Test (20%)</span>
+          <span class="chip"><span class="swatch train"></span>Training (15 students)</span>
+          <span class="chip"><span class="swatch test"></span>Test (400 students)</span>
           <span class="chip"><span class="swatch fit"></span>Fitted polynomial</span>
           <span class="chip"><span class="swatch truth"></span>True curve</span>
         </div>
@@ -487,22 +488,23 @@
       .attr('x', -innerH / 2).attr('y', -38).attr('text-anchor', 'middle')
       .text('Y');
 
-    // Draw points
+    // Test points first — faint gold "truth cloud" drawn behind the training dots.
+    mainG.append('g').selectAll('circle.test')
+      .data(testIdx).enter()
+      .append('circle').attr('class', 'test')
+        .attr('cx', i => xScale(dataTest.X1[i]))
+        .attr('cy', i => yScale(dataTest.Y[i]))
+        .attr('r', 2).attr('opacity', 0.22)
+        .attr('fill', PALETTE.truthgold);
+    // Training points on top, in bold blue, so the small cohort is unmistakable.
     mainG.append('g').selectAll('circle.train')
       .data(trainIdx).enter()
       .append('circle').attr('class', 'train')
         .attr('cx', i => xScale(data.X1[i]))
         .attr('cy', i => yScale(data.Y[i]))
-        .attr('r', 3).attr('opacity', 0.6)
-        .attr('fill', PALETTE.olsblue);
-    mainG.append('g').selectAll('circle.test')
-      .data(testIdx).enter()
-      .append('circle').attr('class', 'test')
-        .attr('cx', i => xScale(data.X1[i]))
-        .attr('cy', i => yScale(data.Y[i]))
-        .attr('r', 3.5).attr('opacity', 0.9)
-        .attr('fill', PALETTE.truthgold)
-        .attr('stroke', '#7a5c0a').attr('stroke-width', 0.5);
+        .attr('r', 4.5).attr('opacity', 0.95)
+        .attr('fill', PALETTE.olsblue)
+        .attr('stroke', '#0b2e5c').attr('stroke-width', 0.8);
 
     // True curve (using marginal means of X2, U)
     const X2bar = d3.mean(data.X2), Ubar = d3.mean(data.U);
@@ -732,6 +734,7 @@
     const bootBtn = document.getElementById('boot-run');
     bootSlider.addEventListener('input', () => {
       bootValue.textContent = bootSlider.value;
+      runBootstrap(+bootSlider.value);
     });
     bootBtn.addEventListener('click', () => runBootstrap(+bootSlider.value));
     // Initial run.
