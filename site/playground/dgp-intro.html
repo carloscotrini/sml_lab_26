@@ -419,13 +419,25 @@
   <script type="module">
     import { seededRandom, randn } from './shared/dgp.js';
 
-    renderMathInElement(document.body, {
-      delimiters: [
-        { left: '\\(', right: '\\)', display: false },
-        { left: '$$', right: '$$', display: true }
-      ],
-      throwOnError: false
-    });
+    // Render math defensively: never let a KaTeX loading hiccup halt the module.
+    function renderAllMath() {
+      if (typeof renderMathInElement !== 'function') return false;
+      try {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true }
+          ],
+          throwOnError: false
+        });
+        return true;
+      } catch (e) { console.warn('KaTeX render failed:', e); return false; }
+    }
+    if (!renderAllMath()) {
+      // Retry once the window has fully loaded (scripts guaranteed to be ready).
+      window.addEventListener('load', renderAllMath);
+    }
 
     const state = {
       activeStage: 1,

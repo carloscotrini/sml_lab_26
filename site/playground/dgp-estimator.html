@@ -636,13 +636,24 @@
     import { seededRandom, randn } from './shared/dgp.js';
     import { ols } from './shared/regression.js';
 
-    renderMathInElement(document.body, {
-      delimiters: [
-        { left: '\\(', right: '\\)', display: false },
-        { left: '$$', right: '$$', display: true }
-      ],
-      throwOnError: false
-    });
+    // Render math defensively: never let a KaTeX loading hiccup halt the module.
+    function renderAllMath() {
+      if (typeof renderMathInElement !== 'function') return false;
+      try {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true }
+          ],
+          throwOnError: false
+        });
+        return true;
+      } catch (e) { console.warn('KaTeX render failed:', e); return false; }
+    }
+    if (!renderAllMath()) {
+      window.addEventListener('load', renderAllMath);
+    }
 
     // ---------- state ----------
     const state = {
