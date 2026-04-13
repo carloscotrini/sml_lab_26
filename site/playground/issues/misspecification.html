@@ -212,7 +212,7 @@
   <ol>
     <li><b>X₂'s noise is homoscedastic.</b> In this DGP the noise term ε has variance proportional to |<i>X</i>₁|, not to <i>X</i>₂. Looking at <i>Y</i> as a function of <i>X</i>₂, the scatter around the true curve has roughly the same spread everywhere — a much cleaner setting to see the shape of a fitted curve.</li>
     <li><b>Polynomials are universal approximators.</b> The Stone–Weierstrass theorem says, informally: <i>any continuous function on a bounded interval can be approximated arbitrarily well by a polynomial of high enough degree.</i> So polynomials are a very expressive tool — in principle, they can recover any smooth shape.</li>
-    <li><b>Small, clean dataset.</b> Bishop deliberately uses only <b>10 students</b>. With a handful of points the underfit / good-fit / overfit regimes are easy to see — this is the same pedagogical setup Christopher Bishop uses in PRML Figure 1.4.</li>
+    <li><b>Small, clean dataset.</b> Bishop deliberately uses only <b>10 students</b>. With a handful of points the underfit, good-fit, and overfit regimes are easy to see.</li>
   </ol>
 
   <div class="note-box">
@@ -254,7 +254,7 @@
   <!-- ============ SECTION 5: The degree slider ============ -->
   <h2><span class="num">Section 5</span>The degree slider</h2>
 
-  <p>Now the experiment. Move the slider to change the polynomial degree \(d\). Watch the curve reshape, and watch the two error bars at the bottom — <span style="color:var(--olsblue); font-weight:600;">training error</span> on the 10 points, and <span style="color:var(--biasred); font-weight:600;">test error</span> on a large fresh sample from the same DGP.</p>
+  <p>Now the experiment. Move the slider to change the polynomial degree \(d\). Watch the curve reshape, and watch the two \(R^2\) bars at the bottom — <span style="color:var(--olsblue); font-weight:600;">training \(R^2\)</span> on the 10 visible blue points, and <span style="color:var(--biasred); font-weight:600;">test \(R^2\)</span> on 400 fresh students from the same DGP (shown as faint grey dots in the background).</p>
 
   <div class="playground">
     <div class="controls">
@@ -268,27 +268,25 @@
 
     <div class="err-bars">
       <div class="bar-row train">
-        <span class="lbl">Train MSE</span>
+        <span class="lbl">Training \(R^2\)</span>
         <div class="bar-track"><div class="bar-fill" id="barTrain" style="width:0"></div></div>
         <span class="num" id="trainNum">—</span>
       </div>
       <div class="bar-row test">
-        <span class="lbl">Test MSE</span>
+        <span class="lbl">Test \(R^2\)</span>
         <div class="bar-track"><div class="bar-fill" id="barTest" style="width:0"></div></div>
         <span class="num" id="testNum">—</span>
       </div>
     </div>
 
     <div class="metrics">
-      <div class="metric train"><div class="lbl">Training R²</div><div class="val" id="r2">—</div></div>
-      <div class="metric test"><div class="lbl">Coefficients fit</div><div class="val" id="coefCount">—</div></div>
+      <div class="metric train"><div class="lbl">Coefficients fit</div><div class="val" id="coefCount">—</div></div>
     </div>
 
     <div class="btn-row">
-      <button class="btn" id="toggleTest">Show fresh test data</button>
       <button class="btn secondary" id="resetDeg">Reset to d = 3</button>
     </div>
-    <p class="muted" style="font-size:13px; color:var(--c-ink-muted); margin:12px 0 0;">Test data: 400 fresh students drawn from the same DGP. The test MSE shown uses these out-of-sample points.</p>
+    <p class="muted" style="font-size:13px; color:var(--c-ink-muted); margin:12px 0 0;">The faint grey dots are the test set: 400 fresh students from the same DGP. The test \(R^2\) is computed on these out-of-sample points. When the polynomial wiggles to pass through the blue training dots but misses the grey cloud, that's overfitting made visible.</p>
   </div>
 
   <!-- ============ SECTION 6: Bishop diagram lesson ============ -->
@@ -353,22 +351,31 @@
   const testX  = Array.from(TEST.X2);
   const testY  = Array.from(TEST.Y);
 
-  // Build polynomial design matrix (rows of [x, x^2, ..., x^d]) without intercept —
-  // ols() prepends the intercept column itself.
-  function polyDesign(x, d) {
-    return x.map(v => {
+  // Build polynomial design matrix (rows of [u, u^2, ..., u^d]) without intercept —
+  // ols() prepends the intercept column itself. We work in a *scaled* u = (x - xMid) / xHalf
+  // so that u is in roughly [-1, 1]. Without this rescaling, x^9 for x≈14 is about 2×10^10,
+  // which makes X'X catastrophically ill-conditioned and breaks the d = 9 interpolation.
+  const xLo = Math.min(...trainX), xHi = Math.max(...trainX);
+  const xMid = (xLo + xHi) / 2;
+  const xHalf = (xHi - xLo) / 2;
+  const xScaleNorm = v => (v - xMid) / xHalf;
+
+  function polyDesign(xs, d) {
+    return xs.map(v => {
+      const u = xScaleNorm(v);
       const row = new Array(d);
-      let p = v;
-      for (let k = 0; k < d; k++) { row[k] = p; p *= v; }
+      let p = u;
+      for (let k = 0; k < d; k++) { row[k] = p; p *= u; }
       return row;
     });
   }
 
+  // Evaluate polynomial in the scaled variable u. x is in the original units.
   function polyEval(coefs, x) {
-    // coefs = [a0, a1, ..., ad]
+    const u = xScaleNorm(x);
     let y = coefs[0];
-    let p = x;
-    for (let k = 1; k < coefs.length; k++) { y += coefs[k] * p; p *= x; }
+    let p = u;
+    for (let k = 1; k < coefs.length; k++) { y += coefs[k] * p; p *= u; }
     return y;
   }
 
@@ -455,11 +462,12 @@
 
   const plotG = svg.append('g').attr('clip-path', 'url(#plotClip)');
 
-  // test points group (hidden by default)
-  const testG = plotG.append('g').style('opacity', 0);
+  // test points group — always visible as faint grey background so overfit is visible
+  const testG = plotG.append('g');
   testG.selectAll('.test-pt').data(testX).enter().append('circle')
-    .attr('class','test-pt').attr('r',3)
-    .attr('cx', d => xs(d)).attr('cy', (d,i) => ys(testY[i]));
+    .attr('class','test-pt').attr('r', 2.5)
+    .attr('cx', d => xs(d)).attr('cy', (d,i) => ys(testY[i]))
+    .attr('fill', '#b0aea6').attr('opacity', 0.35);
 
   // training points on top
   const trainG = plotG.append('g');
@@ -492,9 +500,6 @@
 
   const line = d3.line().x(d => xs(d[0])).y(d => ys(d[1]));
 
-  // reasonable MSE reference for bar scaling (updated as we see values)
-  const REF_MSE = 50; // full-bar reference; bars clip above
-
   function verdictFor(d) {
     if (d === 0)            return 'Degree 0 — a horizontal line. Too rigid to capture anything.';
     if (d === 1)            return 'Degree 1 — Dr. Gauss\'s straight line. Not bad.';
@@ -502,7 +507,29 @@
     if (d <= 5)             return `Degree ${d} — starting to wiggle.`;
     if (d <= 7)             return `Degree ${d} — chasing individual points.`;
     if (d === 8)            return 'Degree 8 — the curve is memorizing, not learning.';
-    return 'Degree 9 — zero training error, but look between the points. This is overfitting.';
+    return 'Degree 9 — 10 coefficients, 10 training points: the curve interpolates every blue dot exactly. Training R² = 1. But look how far it strays from the grey test cloud.';
+  }
+
+  // R² = 1 − SS_res / SS_tot, where SS_tot uses the mean of the *same* set
+  // we're evaluating on. Values ≤ 0 are possible on test (model worse than
+  // predicting the mean); we clip to [-1, 1] for the bar visual but display
+  // the real number.
+  function rSquared(yHat, y) {
+    const ybar = y.reduce((a, b) => a + b, 0) / y.length;
+    let rss = 0, tss = 0;
+    for (let i = 0; i < y.length; i++) {
+      const r = y[i] - yHat[i]; rss += r * r;
+      const e = y[i] - ybar;    tss += e * e;
+    }
+    return tss > 0 ? 1 - rss / tss : 1;
+  }
+
+  // Map an R² value (potentially negative for bad test fit) to a bar width
+  // in [0, 100]%. Positive R² fills proportionally; negative R² is shown as
+  // a small empty bar with a caption.
+  function r2BarWidth(r2) {
+    if (!isFinite(r2)) return 0;
+    return Math.max(0, Math.min(100, r2 * 100));
   }
 
   function update(d) {
@@ -510,35 +537,20 @@
     const curve = sampleCurve(coefs);
     fitPath.attr('d', line(curve));
 
-    // training predictions & MSE
     const trainHat = trainX.map(x => polyEval(coefs, x));
     const testHat  = testX.map(x => polyEval(coefs, x));
-    const trMSE = mse(trainHat, trainY);
-    const teMSE = mse(testHat,  testY);
-
-    // R² on train
-    const ybar = trainY.reduce((a,b)=>a+b,0) / trainY.length;
-    let tss = 0; for (const y of trainY) { const e = y - ybar; tss += e*e; }
-    const rss = trMSE * trainY.length;
-    const r2 = tss > 0 ? 1 - rss/tss : 0;
+    const r2Train = rSquared(trainHat, trainY);
+    const r2Test  = rSquared(testHat,  testY);
 
     document.getElementById('degVal').textContent = d;
-    document.getElementById('trainNum').textContent = trMSE.toFixed(2);
-    document.getElementById('testNum').textContent  = teMSE < 1e4 ? teMSE.toFixed(2) : teMSE.toExponential(2);
-    document.getElementById('r2').textContent = r2.toFixed(3);
+    document.getElementById('trainNum').textContent = r2Train.toFixed(3);
+    document.getElementById('testNum').textContent  = isFinite(r2Test) ? r2Test.toFixed(3) : '—';
     document.getElementById('coefCount').textContent = `${coefs.length} (d+1)`;
     document.getElementById('verdict').textContent = verdictFor(d);
 
-    // bar widths — clip at REF_MSE for the blue/red visual; use log-ish cap for red
-    const tw = Math.max(0, Math.min(100, (trMSE / REF_MSE) * 100));
-    // test MSE can blow up: use soft cap via log scale when huge.
-    let teVis = teMSE;
-    const teCap = REF_MSE * 4;
-    const teDisplay = Math.min(100, (Math.min(teVis, teCap) / teCap) * 100);
-    document.getElementById('barTrain').style.width = tw + '%';
-    document.getElementById('barTest').style.width  = teDisplay + '%';
+    document.getElementById('barTrain').style.width = r2BarWidth(r2Train) + '%';
+    document.getElementById('barTest').style.width  = r2BarWidth(r2Test)  + '%';
 
-    // title
     let label = 'Good fit';
     if (d === 0) label = 'Underfit';
     else if (d === 1) label = 'Linear (Dr. Gauss)';
@@ -552,15 +564,6 @@
   degIn.addEventListener('input', e => update(+e.target.value));
   document.getElementById('resetDeg').addEventListener('click', () => {
     degIn.value = 3; update(3);
-  });
-
-  const toggleBtn = document.getElementById('toggleTest');
-  let testVisible = false;
-  toggleBtn.addEventListener('click', () => {
-    testVisible = !testVisible;
-    testG.transition().duration(300).style('opacity', testVisible ? 1 : 0);
-    toggleBtn.textContent = testVisible ? 'Hide fresh test data' : 'Show fresh test data';
-    toggleBtn.classList.toggle('active', testVisible);
   });
 
   update(3);
