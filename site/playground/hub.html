@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seven ways Dr. Gauss could be wrong — SML playground</title>
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-border: #e4dfd5;
+      --olsblue: #2E5EA8;
+      --truthgold: #D4A017;
+      --biasred: #C0392B;
+      --repairgreen: #27AE60;
+      --neutral: #7F8C8D;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+      --mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    a { color: var(--olsblue); }
+
+    .pg-nav {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pg-nav a { color: var(--c-ink-muted); text-decoration: none; }
+    .pg-nav a:hover { text-decoration: underline; color: var(--olsblue); }
+
+    .hero {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 64px 24px 32px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 44px;
+      line-height: 1.15;
+      margin: 0 0 16px;
+      letter-spacing: -0.01em;
+    }
+    .hero .subtitle {
+      font-family: var(--serif);
+      font-size: 20px;
+      color: var(--c-ink-muted);
+      font-style: italic;
+      margin: 0 0 32px;
+      line-height: 1.45;
+    }
+    .hero .lede {
+      font-size: 15px;
+      color: var(--c-ink-muted);
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    .grid {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 24px 48px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      padding: 22px 22px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--card-accent, var(--olsblue));
+      opacity: 0.6;
+      transition: opacity .18s ease, width .18s ease;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 22px rgba(46, 94, 168, 0.08);
+      border-color: var(--card-accent, var(--olsblue));
+    }
+    .card:hover::before {
+      opacity: 1;
+      width: 5px;
+    }
+
+    .card .icon {
+      font-size: 30px;
+      line-height: 1;
+      color: var(--card-accent, var(--olsblue));
+      font-family: var(--serif);
+    }
+    .card h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      margin: 0;
+      color: var(--c-ink);
+      letter-spacing: -0.005em;
+    }
+    .card .num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--neutral);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .card p {
+      margin: 0;
+      font-size: 14.5px;
+      color: var(--c-ink-muted);
+      line-height: 1.5;
+    }
+    .card .cta {
+      margin-top: auto;
+      padding-top: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--card-accent, var(--olsblue));
+      letter-spacing: 0.04em;
+    }
+
+    .card.ghost       { --card-accent: var(--biasred); }
+    .card.signflip    { --card-accent: var(--biasred); }
+    .card.shape       { --card-accent: var(--truthgold); }
+    .card.fame        { --card-accent: var(--biasred); }
+    .card.seat        { --card-accent: var(--neutral); }
+    .card.funnel      { --card-accent: var(--repairgreen); }
+    .card.chicken     { --card-accent: var(--olsblue); }
+
+    footer {
+      border-top: 1px solid var(--c-border);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--c-ink-muted);
+    }
+    footer a { color: var(--olsblue); }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 620px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 34px; }
+      .hero .subtitle { font-size: 17px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="pg-nav">
+    <a href="dgp-estimator.html">← Back to Dr. Gauss's OLS</a>
+    <a href="../index.html">Playground home →</a>
+  </nav>
+
+  <section class="hero">
+    <h1>Seven ways Dr. Gauss could be wrong</h1>
+    <p class="subtitle">Dr. Gauss ran his regression. R² is 0.97. Everything looks fine. But the model could be lying to him in at least seven ways. Pick one to investigate.</p>
+    <p class="lede">This isn't a sequential course. Each card below opens a self-contained story about one way OLS can go wrong — or one tool that saves it. Follow whichever catches your eye; come back and try another later.</p>
+  </section>
+
+  <section class="grid">
+
+    <a class="card ghost" href="issues/ovb.html">
+      <div class="num">Issue 01</div>
+      <div class="icon">👻</div>
+      <h3>The Ghost</h3>
+      <p>Dr. Gauss's coefficient on X₂ is wrong because he can't see U.</p>
+      <div class="cta">Omitted-variable bias →</div>
+    </a>
+
+    <a class="card signflip" href="issues/simpson.html">
+      <div class="num">Issue 02</div>
+      <div class="icon">⇄</div>
+      <h3>The Sign Flip</h3>
+      <p>A hospital administrator thinks nursing hurts patients. The DGP says the opposite. One omitted variable flipped the sign.</p>
+      <div class="cta">Simpson's paradox →</div>
+    </a>
+
+    <a class="card shape" href="issues/misspecification.html">
+      <div class="num">Issue 03</div>
+      <div class="icon">∿</div>
+      <h3>The Wrong Shape</h3>
+      <p>What if the true relationship isn't a straight line? Meet polynomial regression and the overfitting abyss.</p>
+      <div class="cta">Model misspecification →</div>
+    </a>
+
+    <a class="card fame" href="topics/collider.html">
+      <div class="num">Issue 04</div>
+      <div class="icon">⊙</div>
+      <h3>The Fame Filter</h3>
+      <p>Hot guys really ARE jerks? Not if you look at the whole population. How conditioning on a collider manufactures fake correlations.</p>
+      <div class="cta">Collider bias →</div>
+    </a>
+
+    <a class="card seat" href="topics/significance.html">
+      <div class="num">Issue 05</div>
+      <div class="icon">🪑</div>
+      <h3>The Seat Number</h3>
+      <p>With n = 50,000 everything is "statistically significant." Even seat number. Learn when to ignore p-values.</p>
+      <div class="cta">Significance vs. effect size →</div>
+    </a>
+
+    <a class="card funnel" href="issues/heteroscedasticity.html">
+      <div class="num">Issue 06</div>
+      <div class="icon">▽</div>
+      <h3>The Funnel</h3>
+      <p>Exam scores fan out when students study a lot. Classical standard errors get fooled. Meet robust SEs.</p>
+      <div class="cta">Heteroscedasticity →</div>
+    </a>
+
+    <a class="card chicken" href="topics/causation.html">
+      <div class="num">Issue 07</div>
+      <div class="icon">⟲</div>
+      <h3>The Chicken or the Egg</h3>
+      <p>Does studying cause high scores, or do disciplined students both study and score high? Instrumental variables can disentangle.</p>
+      <div class="cta">Causation &amp; IVs →</div>
+    </a>
+
+  </section>
+
+  <footer>
+    <p>SML FS26 · Dr. Gauss's playground · <a href="../../lecture_notes.pdf">Lecture notes (PDF)</a></p>
+  </footer>
+
+</body>
+</html>
