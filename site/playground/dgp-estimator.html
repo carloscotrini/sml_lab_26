@@ -710,6 +710,10 @@
       gFit.selectAll('*').remove();
       gResid.selectAll('*').remove();
       gOverlay.selectAll('*').remove();
+      // Remove any stray panes or ad-hoc groups that stages appended directly to root.
+      root.selectAll('.pane-l, .pane-r, .stage-ad-hoc').remove();
+      // Remove any foreignObject (stage 5/6 histograms & tables render via xhtml).
+      svg.selectAll('foreignObject').remove();
     }
 
     let xScale = d3.scaleLinear().domain([5, 15]).range([0, iw]);
