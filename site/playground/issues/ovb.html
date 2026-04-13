@@ -329,6 +329,37 @@
       font-weight: 600;
     }
 
+    .going-deeper {
+      margin-top: 60px;
+      padding-top: 36px;
+      border-top: 1px solid var(--c-border);
+    }
+    .going-deeper > .gd-prelude {
+      color: var(--c-ink-muted);
+      font-size: 14px;
+      max-width: 720px;
+      margin-bottom: 28px;
+    }
+    .going-deeper > h2.gd-head {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 24px;
+      color: var(--c-ink-muted);
+      margin: 0 0 10px;
+      letter-spacing: -0.01em;
+    }
+    .going-deeper section {
+      margin-bottom: 44px;
+      font-size: 15px;
+    }
+    .going-deeper section h2 {
+      font-size: 22px;
+      color: var(--c-ink-muted);
+    }
+    .going-deeper section h3.sub-head {
+      font-size: 18px;
+    }
+
     @media (max-width: 720px) {
       .compare { grid-template-columns: 1fr; }
       .bias-bar-holder .row { grid-template-columns: 1fr; }
@@ -358,105 +389,33 @@
     </section>
 
     <section id="formula">
-      <div class="kicker">The OVB formula</div>
+      <div class="kicker">The intuition</div>
       <h2>Where the ghost enters</h2>
-      <p>The true DGP for exam scores is</p>
-      <div class="eq-box">
-        $$ Y \;=\; 50 \;+\; 8\,\log X_1 \;+\; 3\,X_2 \;+\; 6\,U \;+\; \varepsilon, $$
-      </div>
-      <p>and both \(X_2\) (lectures attended) and \(U\) (self-discipline) are positively correlated, because disciplined students attend more lectures (\(X_2 = 10 + 1.5\,U + \eta_2\)). When you regress \(Y\) on \(X_2\) alone, your estimator converges not to \(\beta_2\) but to</p>
-      <div class="eq-box">
-        \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;=\; \beta_2 \;+\; \beta_U \cdot \delta_U, \qquad \delta_U \;=\; \frac{\operatorname{Cov}(X_2,\, U)}{\operatorname{Var}(X_2)}. \]
-      </div>
-      <p>The bias is \(\beta_U \cdot \delta_U\). In Dr. Gauss's DGP, \(\beta_U = 6\) and \(\gamma_2 = 1.5\), so</p>
-      <div class="eq-box">
-        \[ \delta_U \;=\; \frac{\gamma_2 \cdot \operatorname{Var}(U)}{\gamma_2^2 \cdot \operatorname{Var}(U) + \operatorname{Var}(\eta_2)} \;=\; \frac{1.5}{1.5^2 + 2} \;\approx\; 0.353, \]
-        \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;\approx\; 3 \;+\; 6 \cdot 0.353 \;\approx\; 5.1. \]
-      </div>
-      <p>(In the actual simulated samples below, the short-regression estimate lands even higher — around 5.8 on seed 7, and around 6.0 averaged across 500 Monte-Carlo draws — because \(\log X_1\) is also quietly correlated with \(X_2\) through \(U\), so a slice of \(\beta_1 \log X_1\) gets absorbed into \(\hat\beta_2\) too. Either way: the bias is positive, large, and <em>systematic</em>. It does not shrink with sample size.)</p>
+      <p>Here is the whole story in one sentence. Disciplined students attend more lectures, and discipline also boosts exam scores on its own — so attendance and discipline move together, and discipline silently lifts scores. When Dr. Gauss regresses \(Y\) on \(X_2\) alone, the coefficient he reads off doesn't just capture attendance's effect: it also absorbs a slice of discipline's effect, because discipline is riding along inside \(X_2\). That's why \(\hat\beta_2\) lands too high.</p>
+      <p>In other words: both \(X_2\) (lectures) and \(U\) (discipline) are positively correlated, and both push \(Y\) up. The short regression cannot tell them apart, so it blames \(X_2\) for the work that \(U\) is really doing.</p>
       <div class="callout warn">
-        <strong>Key point.</strong> The magnitude of OVB depends on two knobs: how strongly \(U\) drives \(X_2\) (the slope \(\gamma_2\)) and how strongly \(U\) drives \(Y\) (the coefficient \(\beta_U\)). Zero out either factor and the bias vanishes. Crank either up and the bias explodes. Dr. Gauss's studying DGP has both dialed up — disciplined students <em>really do</em> attend more lectures, and discipline <em>really does</em> contribute points to the exam through channels independent of hours and attendance — so the ghost is loud.
+        <strong>Key point.</strong> The size of OVB depends on two things: how strongly discipline drives attendance, and how strongly discipline drives the exam score. If either of these is zero, the bias vanishes. If both are large, the bias is large. In Dr. Gauss's world both are dialed up — disciplined students really do attend more lectures, and discipline really does contribute points on its own — so the ghost is loud.
       </div>
-    </section>
-
-    <section id="compare">
-      <div class="kicker">Interactive — studying DGP</div>
-      <h2>The biased fit vs. the honest fit (studying data)</h2>
-      <p>Same 150 students, same data (seed 7, just like Page 2). Left: what Dr. Gauss saw when he regressed \(Y\) on \(X_2\) alone. Right: the residual-on-residual (partialled-out) picture once we include \(X_1\) and \(U\) in the model.</p>
-
-      <div class="callout insight">
-        <strong>How the right-hand plot is computed — the Frisch–Waugh–Lovell construction.</strong>
-        The right-hand scatter is <em>not</em> a raw \(Y\) vs \(X_2\) plot. It is built in three steps, which together isolate the part of \(X_2\)'s effect on \(Y\) that is <em>not</em> already explained by \(\log X_1\) and \(U\):
-        <ol style="margin: 8px 0 4px 0;">
-          <li><strong>Step 1.</strong> Regress \(Y\) on \((\log X_1,\, U)\); keep the residuals \(r_Y\). These are "the part of \(Y\) not explained by \(X_1\) and \(U\)."</li>
-          <li><strong>Step 2.</strong> Regress \(X_2\) on \((\log X_1,\, U)\); keep the residuals \(r_{X_2}\). These are "the part of \(X_2\) not explained by \(X_1\) and \(U\)."</li>
-          <li><strong>Step 3.</strong> Scatter \(r_Y\) against \(r_{X_2}\). Each dot is one student's pair \((r_{X_2,i},\, r_{Y,i})\). Fit a line through this cloud.</li>
-        </ol>
-        The <strong>slope of that line equals \(\hat\beta_2\)</strong> from the full multivariate regression \(Y \sim \log(X_1) + X_2 + U\) — exactly. This is the <em>Frisch–Waugh–Lovell theorem</em> (same procedure derived in the FWL section of the lecture notes): running a multivariate regression is equivalent to partialling out the other covariates from both sides and then running a single simple regression on the residuals.
-      </div>
-
-      <div class="compare">
-        <div class="plot-card biased">
-          <h3>Dr. Gauss (biased)</h3>
-          <div class="sub">\(Y\) regressed on \(X_2\) only.</div>
-          <svg id="plotBiased" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-        <div class="plot-card repair">
-          <h3>With all variables (FWL view)</h3>
-          <div class="sub">\(r_Y\) vs \(r_{X_2}\) after partialling out \(\log X_1,\, U\).</div>
-          <svg id="plotRepair" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-      </div>
-
-      <div class="bias-bar-holder" id="biasBarHolder">
-        <div class="row">
-          <span class="lbl">\(\hat\beta_2^{\text{short}}\) (Dr. Gauss)</span>
-          <div class="bar-track"><div class="bar-fill" id="barShort"></div></div>
-          <span class="val" id="valShort">—</span>
-        </div>
-        <div class="row">
-          <span class="lbl">\(\beta_2^{\text{true}} = 3.00\)</span>
-          <div class="bar-track"><div class="bar-fill true" id="barTrue"></div></div>
-          <span class="val" id="valTrue">3.00</span>
-        </div>
-        <div class="row">
-          <span class="lbl">bias \(= \hat\beta - \beta\)</span>
-          <div class="bar-track"><div class="bar-fill gap" id="barGap"></div></div>
-          <span class="val" id="valGap">—</span>
-        </div>
-      </div>
-      <p style="margin-top: 10px; font-size: 13px; color: var(--c-ink-muted);">On this single seed the short-regression slope is visibly inflated. Is it inflated <em>systematically</em>, or just by luck on this sample? Five hundred fresh draws will answer that — see the Monte Carlo panel below.</p>
-    </section>
-
-    <section id="slider">
-      <div class="kicker">Slider — strength of the confounder</div>
-      <h2>Dial the ghost up or down</h2>
-      <p>In the true DGP, \(X_2 = 10 + \gamma_2 \cdot U + \eta_2\). The baseline value is \(\gamma_2 = 1.5\) — discipline is a strong driver of attendance. Watch what happens when we crank \(\gamma_2\) up further, or push it to zero (discipline no longer drives attendance at all).</p>
-
-      <div class="controls" id="ctrl">
-        <div class="slider-row">
-          <label class="lbl" for="gamma">\(\gamma_2\)</label>
-          <input type="range" id="gamma" min="-0.5" max="3.0" step="0.02" value="1.5" />
-          <span class="val" id="gammaVal">1.50</span>
-        </div>
-        <div class="readout">
-          <div class="cell">
-            <div class="k">\(\delta_U\)</div>
-            <div class="v" id="rdDelta">—</div>
+      <p style="margin-top: 14px; font-size: 13.5px; color: var(--c-ink-muted);">The formal OVB formula is below, collapsible. You don't need it to grasp what follows — the intuition above already captures the whole story.</p>
+      <details style="margin: 10px 0 0; padding: 4px 0;">
+        <summary style="cursor: pointer; font-family: var(--sans); font-size: 14px; color: var(--c-ink-muted);">Show the formal derivation (optional — the intuition above is enough)</summary>
+        <div style="margin-top: 14px;">
+          <p>The true DGP for exam scores is</p>
+          <div class="eq-box">
+            $$ Y \;=\; 50 \;+\; 8\,\log X_1 \;+\; 3\,X_2 \;+\; 6\,U \;+\; \varepsilon, $$
           </div>
-          <div class="cell biased">
-            <div class="k">Dr. Gauss: \(\hat\beta_2^{\text{short}}\)</div>
-            <div class="v" id="rdShort">—</div>
+          <p>and both \(X_2\) (lectures attended) and \(U\) (self-discipline) are positively correlated, because disciplined students attend more lectures (\(X_2 = 10 + 1.5\,U + \eta_2\)). When you regress \(Y\) on \(X_2\) alone, your estimator converges not to \(\beta_2\) but to</p>
+          <div class="eq-box">
+            \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;=\; \beta_2 \;+\; \beta_U \cdot \delta_U, \qquad \delta_U \;=\; \frac{\operatorname{Cov}(X_2,\, U)}{\operatorname{Var}(X_2)}. \]
           </div>
-          <div class="cell truth">
-            <div class="k">Truth: \(\beta_2 = 3.00\)</div>
-            <div class="v" id="rdBias">bias —</div>
+          <p>The bias is \(\beta_U \cdot \delta_U\). In Dr. Gauss's DGP, \(\beta_U = 6\) and \(\gamma_2 = 1.5\), so</p>
+          <div class="eq-box">
+            \[ \delta_U \;=\; \frac{\gamma_2 \cdot \operatorname{Var}(U)}{\gamma_2^2 \cdot \operatorname{Var}(U) + \operatorname{Var}(\eta_2)} \;=\; \frac{1.5}{1.5^2 + 2} \;\approx\; 0.353, \]
+            \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;\approx\; 3 \;+\; 6 \cdot 0.353 \;\approx\; 5.1. \]
           </div>
+          <p>(In the actual simulated samples below, the short-regression estimate lands even higher — around 5.8 on seed 7, and around 6.0 averaged across 500 Monte-Carlo draws — because \(\log X_1\) is also quietly correlated with \(X_2\) through \(U\), so a slice of \(\beta_1 \log X_1\) gets absorbed into \(\hat\beta_2\) too. Either way: the bias is positive, large, and <em>systematic</em>. It does not shrink with sample size.)</p>
         </div>
-        <p style="margin-top:14px;margin-bottom:0;font-size:13px;color:var(--c-ink-muted);">
-          When \(\gamma_2 = 0\), \(X_2\) and \(U\) become uncorrelated, \(\delta_U\) collapses to zero, and the bias vanishes — the short regression is only safe when the confounder doesn't actually confound. Push the slider to 3.0 and watch the short estimate drift even further above the truth.
-        </p>
-      </div>
+      </details>
     </section>
 
     <section id="dramatic">
@@ -487,85 +446,6 @@
       <div class="regout" id="regoutShort">Loading…</div>
       <p>In the short fit, the coefficient on \(X_2\) absorbs \(\beta_U \cdot \delta_U\). In the full fit — once \(\log(X_1)\) captures the nonlinear education term and \(U\) is an explicit column in the design matrix — there is nothing left for \(X_2\) to steal. The estimate lands on 3.</p>
       <blockquote>But this repair only works because we can observe \(U\). In real life, self-discipline is hidden, baseline fitness is unrecorded, genetic predisposition is invisible. So a natural question follows — and it is the question your instructor asked: <strong>can we even <em>detect</em> that our regression is suffering from OVB, when the confounder is unobservable?</strong></blockquote>
-
-      <div class="callout insight">
-        <strong>Another way out: instrumental variables.</strong>
-        If you cannot observe \(U\) but can find a variable \(Z\) that (a) correlates with \(X_2\), (b) affects \(Y\) only through \(X_2\), and (c) is unrelated to \(U\), then the IV estimator
-        \[ \hat\beta_2^{\text{IV}} \;=\; \frac{\operatorname{Cov}(Z,\, Y)}{\operatorname{Cov}(Z,\, X_2)} \]
-        is consistent for \(\beta_2\) even when \(U\) is unobservable. We explore this in detail on the <a href="../topics/causation.html">Causation page</a> — see "The Chicken or the Egg" from the hub.
-      </div>
-    </section>
-
-    <section id="detect">
-      <div class="kicker">The honest question</div>
-      <h2>How do you detect OVB in practice?</h2>
-      <p>Your instinct — run a statistical test — is right, but the answer is painful. Let's start with the hard truth.</p>
-      <div class="callout warn">
-        <strong>No direct test exists.</strong> There is no goodness-of-fit statistic, no \(p\)-value, and no residual diagnostic that can tell you "this single observational regression is omitting a confounder." The entire <em>definition</em> of OVB is that the confounder is unobserved — you cannot regress against a variable you don't have. Anyone who sells you a one-click OVB test is selling snake oil.
-      </div>
-      <p>What we <em>do</em> have is a portfolio of <em>heuristics</em>, <em>bounding arguments</em>, and <em>design-based workarounds</em>. None is a silver bullet, but together they let a careful analyst shrink uncertainty about whether their coefficient is contaminated. Here are the five most useful.</p>
-
-      <ol class="method-list">
-        <li>
-          <h4>Coefficient stability across specifications</h4>
-          <p>Fit \(Y\) on \(X\) with no controls. Add one observed control. Add another. If \(\hat\beta\) keeps drifting as you pile on controls, you probably <em>still</em> have unmeasured confounding. If it settles and stops moving, you've plausibly captured the important confounders.</p>
-          <p class="limit">Limit: stability is necessary but not sufficient. Two unobserved confounders pulling in opposite directions can leave \(\hat\beta\) artificially stable.</p>
-        </li>
-        <li>
-          <h4>Sensitivity analysis (Cinelli–Hazlett "robustness value")</h4>
-          <p>Ask: <em>how strong</em> would a hypothetical unobserved confounder need to be — measured by the partial \(R^2\) it shares with \(X\) and with \(Y\) — to fully explain away your result? This produces a single number, the <strong>robustness value (RV)</strong>. A small RV (e.g. 1%) means a weak ghost can sink you; a large RV (e.g. 40%) means an unobserved confounder would have to be implausibly strong.</p>
-          <p class="limit">Limit: you still need to argue <em>in words</em> that no such strong confounder plausibly exists. The math bounds; it doesn't prove.</p>
-        </li>
-        <li>
-          <h4>Proxy variables</h4>
-          <p>If you suspect a specific confounder \(U\), find anything observable that correlates with it. For Dr. Gauss's studying study: GPA, library-hours, or a study-habits survey as proxies for discipline. Include the proxy; any reduction in \(|\hat\beta_2|\) is circumstantial evidence that a real confounder was lurking.</p>
-          <p class="limit">Limit: an imperfect proxy only partially absorbs the bias. You've reduced OVB, not eliminated it.</p>
-        </li>
-        <li>
-          <h4>Instrumental variables (IV)</h4>
-          <p>Find an instrument \(Z\) that (a) shifts \(X\), (b) affects \(Y\) <em>only</em> through \(X\), and (c) is unrelated to \(U\). Two-stage least squares then gives a consistent estimate even with OVB. You compare \(\hat\beta^{\text{OLS}}\) to \(\hat\beta^{\text{IV}}\) — a large gap is strong evidence of OVB (this comparison is the <em>Hausman test</em>).</p>
-          <p class="limit">Limit: finding a valid instrument is often harder than the original problem. Weak instruments produce huge variance. Invalid ones replace one bias with another.</p>
-        </li>
-        <li>
-          <h4>Natural or designed experiments (randomization, RDD, DiD)</h4>
-          <p>The gold standard. Randomly assign \(X\) — e.g. randomly force half the students to attend all 12 lectures and the other half to attend only 6 — and by construction \(U\) cannot correlate with \(X\). OVB is eliminated <em>by design</em>, not by statistical correction. Observational methods (IV, regression discontinuity, difference-in-differences) try to <em>approximate</em> this; real experiments <em>deliver</em> it.</p>
-          <p class="limit">Limit: randomization is often infeasible (you cannot randomize smoking, parental income, or war) or unethical. Quasi-experiments require their own identifying assumptions.</p>
-        </li>
-      </ol>
-
-      <h3 class="sub-head">A small interactive demo: stability across specifications</h3>
-      <p>Below is a fresh draw from Dr. Gauss's DGP, extended with five observed covariates that each partially proxy for self-discipline \(U\) (imagine them as GPA, library-hours, a study-habits survey, a focus-test score, a homework-completion rate). Slide "controls included" from 0 to 5. Each added covariate absorbs a bit more of \(U\)'s information. Watch \(\hat\beta_2\) on lectures drop toward the truth.</p>
-
-      <div class="controls">
-        <div class="slider-row">
-          <label class="lbl" for="nctrl">Controls included</label>
-          <input type="range" id="nctrl" min="0" max="5" step="1" value="0" />
-          <span class="val" id="nctrlVal">0</span>
-        </div>
-        <div class="readout">
-          <div class="cell biased">
-            <div class="k">\(\hat\beta_2\) on lectures</div>
-            <div class="v" id="stabBeta">—</div>
-          </div>
-          <div class="cell">
-            <div class="k">Bias vs. truth (3.00)</div>
-            <div class="v" id="stabBias">—</div>
-          </div>
-          <div class="cell truth">
-            <div class="k">Truth</div>
-            <div class="v">3.00</div>
-          </div>
-        </div>
-        <p style="margin-top:14px;margin-bottom:0;font-size:13px;color:var(--c-ink-muted);" id="stabNote">
-          With 0 proxies: the fit is \(Y \sim \log X_1 + X_2\) — Dr. Gauss's multivariate regression — so \(\hat\beta_2\) starts around 4.7, well above the truth of 3.
-        </p>
-      </div>
-      <div class="callout insight">
-        <strong>What you should see.</strong> As you add controls 1 → 5, \(\hat\beta\) drops and (eventually) settles near 3. That settling is the <em>signal</em> of stability. In real studies you never have the luxury of knowing when \(\hat\beta\) has "arrived" at the truth — you only get to see that it <em>stopped moving</em>. If it <em>keeps</em> moving as you add more controls, you still have unmeasured confounding. If it stabilizes, you have <em>circumstantial</em> evidence (never proof) that the ghosts have been captured.
-      </div>
-      <div class="callout">
-        <strong>The meta-lesson.</strong> OVB cannot be tested away; it has to be <em>designed</em> away (experiment), <em>identified</em> away (valid instrument), or <em>bounded</em> away (sensitivity analysis + domain argument). Good empirical work doesn't prove OVB is absent; it convinces a skeptical reader that the remaining OVB is too small to matter.
-      </div>
     </section>
 
     <section id="teaser">
@@ -575,6 +455,114 @@
       </div>
     </section>
 
+    <div class="going-deeper">
+      <h2 class="gd-head">Going deeper (optional)</h2>
+      <p class="gd-prelude">Everything below is optional. It deepens the formal picture — a side-by-side comparison of the biased and honest fits built from residualisation, an alternative to observing \(U\) (instrumental variables), and a survey of how analysts try to detect OVB when they can't see the confounder. None of this is required to follow later pages.</p>
+
+      <section id="compare">
+        <div class="kicker">Optional — FWL view</div>
+        <h2>The biased fit vs. the honest fit (studying data)</h2>
+        <p>Same 150 students, same data (seed 7, just like Page 2). Left: what Dr. Gauss saw when he regressed \(Y\) on \(X_2\) alone. Right: the residual-on-residual (partialled-out) picture once we include \(X_1\) and \(U\) in the model.</p>
+
+        <div class="callout insight">
+          <strong>How the right-hand plot is computed — the Frisch–Waugh–Lovell construction.</strong>
+          The right-hand scatter is <em>not</em> a raw \(Y\) vs \(X_2\) plot. It is built in three steps, which together isolate the part of \(X_2\)'s effect on \(Y\) that is <em>not</em> already explained by \(\log X_1\) and \(U\):
+          <ol style="margin: 8px 0 4px 0;">
+            <li><strong>Step 1.</strong> Regress \(Y\) on \((\log X_1,\, U)\); keep the residuals \(r_Y\). These are "the part of \(Y\) not explained by \(X_1\) and \(U\)."</li>
+            <li><strong>Step 2.</strong> Regress \(X_2\) on \((\log X_1,\, U)\); keep the residuals \(r_{X_2}\). These are "the part of \(X_2\) not explained by \(X_1\) and \(U\)."</li>
+            <li><strong>Step 3.</strong> Scatter \(r_Y\) against \(r_{X_2}\). Each dot is one student's pair \((r_{X_2,i},\, r_{Y,i})\). Fit a line through this cloud.</li>
+          </ol>
+          The <strong>slope of that line equals \(\hat\beta_2\)</strong> from the full multivariate regression \(Y \sim \log(X_1) + X_2 + U\) — exactly. This is the <em>Frisch–Waugh–Lovell theorem</em> (same procedure derived in the FWL section of the lecture notes): running a multivariate regression is equivalent to partialling out the other covariates from both sides and then running a single simple regression on the residuals.
+        </div>
+
+        <div class="compare">
+          <div class="plot-card biased">
+            <h3>Dr. Gauss (biased)</h3>
+            <div class="sub">\(Y\) regressed on \(X_2\) only.</div>
+            <svg id="plotBiased" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="plot-card repair">
+            <h3>With all variables (FWL view)</h3>
+            <div class="sub">\(r_Y\) vs \(r_{X_2}\) after partialling out \(\log X_1,\, U\).</div>
+            <svg id="plotRepair" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+
+        <div class="bias-bar-holder" id="biasBarHolder">
+          <div class="row">
+            <span class="lbl">\(\hat\beta_2^{\text{short}}\) (Dr. Gauss)</span>
+            <div class="bar-track"><div class="bar-fill" id="barShort"></div></div>
+            <span class="val" id="valShort">—</span>
+          </div>
+          <div class="row">
+            <span class="lbl">\(\beta_2^{\text{true}} = 3.00\)</span>
+            <div class="bar-track"><div class="bar-fill true" id="barTrue"></div></div>
+            <span class="val" id="valTrue">3.00</span>
+          </div>
+          <div class="row">
+            <span class="lbl">bias \(= \hat\beta - \beta\)</span>
+            <div class="bar-track"><div class="bar-fill gap" id="barGap"></div></div>
+            <span class="val" id="valGap">—</span>
+          </div>
+        </div>
+        <p style="margin-top: 10px; font-size: 13px; color: var(--c-ink-muted);">On this single seed the short-regression slope is visibly inflated. The Monte Carlo panel above confirmed that this inflation is systematic, not a lucky draw.</p>
+      </section>
+
+      <section id="iv">
+        <div class="kicker">Optional — another way out</div>
+        <h2>Instrumental variables</h2>
+        <p>When the repair of "just include \(U\)" is unavailable because \(U\) is unobservable, instrumental variables offer an alternative.</p>
+        <div class="callout insight">
+          <strong>Another way out: instrumental variables.</strong>
+          If you cannot observe \(U\) but can find a variable \(Z\) that (a) correlates with \(X_2\), (b) affects \(Y\) only through \(X_2\), and (c) is unrelated to \(U\), then the IV estimator
+          \[ \hat\beta_2^{\text{IV}} \;=\; \frac{\operatorname{Cov}(Z,\, Y)}{\operatorname{Cov}(Z,\, X_2)} \]
+          is consistent for \(\beta_2\) even when \(U\) is unobservable. We explore this in detail on the <a href="../topics/causation.html">Causation page</a> — see "The Chicken or the Egg" from the hub.
+        </div>
+      </section>
+
+      <section id="detect">
+        <div class="kicker">Optional — the honest question</div>
+        <h2>How do you detect OVB in practice?</h2>
+        <p>Your instinct — run a statistical test — is right, but the answer is painful. Let's start with the hard truth.</p>
+        <div class="callout warn">
+          <strong>No direct test exists.</strong> There is no goodness-of-fit statistic, no \(p\)-value, and no residual diagnostic that can tell you "this single observational regression is omitting a confounder." The entire <em>definition</em> of OVB is that the confounder is unobserved — you cannot regress against a variable you don't have. Anyone who sells you a one-click OVB test is selling snake oil.
+        </div>
+        <p>What we <em>do</em> have is a portfolio of <em>heuristics</em>, <em>bounding arguments</em>, and <em>design-based workarounds</em>. None is a silver bullet, but together they let a careful analyst shrink uncertainty about whether their coefficient is contaminated. Here are the five most useful.</p>
+
+        <ol class="method-list">
+          <li>
+            <h4>Coefficient stability across specifications</h4>
+            <p>Fit \(Y\) on \(X\) with no controls. Add one observed control. Add another. If \(\hat\beta\) keeps drifting as you pile on controls, you probably <em>still</em> have unmeasured confounding. If it settles and stops moving, you've plausibly captured the important confounders.</p>
+            <p class="limit">Limit: stability is necessary but not sufficient. Two unobserved confounders pulling in opposite directions can leave \(\hat\beta\) artificially stable.</p>
+          </li>
+          <li>
+            <h4>Sensitivity analysis (Cinelli–Hazlett "robustness value")</h4>
+            <p>Ask: <em>how strong</em> would a hypothetical unobserved confounder need to be — measured by the partial \(R^2\) it shares with \(X\) and with \(Y\) — to fully explain away your result? This produces a single number, the <strong>robustness value (RV)</strong>. A small RV (e.g. 1%) means a weak ghost can sink you; a large RV (e.g. 40%) means an unobserved confounder would have to be implausibly strong.</p>
+            <p class="limit">Limit: you still need to argue <em>in words</em> that no such strong confounder plausibly exists. The math bounds; it doesn't prove.</p>
+          </li>
+          <li>
+            <h4>Proxy variables</h4>
+            <p>If you suspect a specific confounder \(U\), find anything observable that correlates with it. For Dr. Gauss's studying study: GPA, library-hours, or a study-habits survey as proxies for discipline. Include the proxy; any reduction in \(|\hat\beta_2|\) is circumstantial evidence that a real confounder was lurking.</p>
+            <p class="limit">Limit: an imperfect proxy only partially absorbs the bias. You've reduced OVB, not eliminated it.</p>
+          </li>
+          <li>
+            <h4>Instrumental variables (IV)</h4>
+            <p>Find an instrument \(Z\) that (a) shifts \(X\), (b) affects \(Y\) <em>only</em> through \(X\), and (c) is unrelated to \(U\). Two-stage least squares then gives a consistent estimate even with OVB. You compare \(\hat\beta^{\text{OLS}}\) to \(\hat\beta^{\text{IV}}\) — a large gap is strong evidence of OVB (this comparison is the <em>Hausman test</em>).</p>
+            <p class="limit">Limit: finding a valid instrument is often harder than the original problem. Weak instruments produce huge variance. Invalid ones replace one bias with another.</p>
+          </li>
+          <li>
+            <h4>Natural or designed experiments (randomization, RDD, DiD)</h4>
+            <p>The gold standard. Randomly assign \(X\) — e.g. randomly force half the students to attend all 12 lectures and the other half to attend only 6 — and by construction \(U\) cannot correlate with \(X\). OVB is eliminated <em>by design</em>, not by statistical correction. Observational methods (IV, regression discontinuity, difference-in-differences) try to <em>approximate</em> this; real experiments <em>deliver</em> it.</p>
+            <p class="limit">Limit: randomization is often infeasible (you cannot randomize smoking, parental income, or war) or unethical. Quasi-experiments require their own identifying assumptions.</p>
+          </li>
+        </ol>
+
+        <div class="callout">
+          <strong>The meta-lesson.</strong> OVB cannot be tested away; it has to be <em>designed</em> away (experiment), <em>identified</em> away (valid instrument), or <em>bounded</em> away (sensitivity analysis + domain argument). Good empirical work doesn't prove OVB is absent; it convinces a skeptical reader that the remaining OVB is too small to matter.
+        </div>
+      </section>
+    </div>
+
   </main>
 
   <footer>
@@ -582,9 +570,8 @@
   </footer>
 
   <script type="module">
-    import { generateData, TRUE_BETAS, mean } from '../shared/dgp.js';
+    import { generateData, TRUE_BETAS } from '../shared/dgp.js';
     import { ols } from '../shared/regression.js';
-    import { seededRandom, randn } from '../shared/dgp.js';
 
     // ---- Section 3: baseline data (seed 7, n=150) ----
     const N = 150;
@@ -684,57 +671,6 @@
       document.getElementById('valGap').textContent   = (bias >= 0 ? '+' : '') + bias.toFixed(3);
     }
     updateBiasBar(b2Short, TRUE_BETAS.beta2);
-
-    // ---- Section 4: gamma2 slider ----
-    function generateWithGamma(n, seed, gamma2) {
-      // Mirror the shared studying DGP (beta_U = 6, variances matched to dgp.js)
-      // but let the slider override gamma_2 to show the ghost dialing up/down.
-      const rng = seededRandom(seed);
-      const U = new Float64Array(n);
-      const X1 = new Float64Array(n);
-      const X2 = new Float64Array(n);
-      const Y  = new Float64Array(n);
-      const sdEta1 = Math.sqrt(0.5);
-      const sdEta2 = Math.sqrt(2.0);
-      for (let i = 0; i < n; i++) {
-        const u = randn(rng);
-        const eta1 = randn(rng) * sdEta1;
-        const eta2 = randn(rng) * sdEta2;
-        let x1 = 2 + 0.5 * u + eta1;
-        if (x1 <= 0.05) x1 = 0.05;
-        const x2 = 10 + gamma2 * u + eta2;
-        const epsSd = Math.sqrt(2.0 * Math.abs(x1));
-        const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
-        U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
-      }
-      return { U, X1, X2, Y };
-    }
-
-    function refreshSlider(gamma2) {
-      const d = generateWithGamma(N, SEED, gamma2);
-      const Xs = Array.from(d.X2, v => [v]);
-      const fit = ols(Array.from(d.Y), Xs);
-      const bShort = fit.coefficients[1];
-
-      const mX2 = mean(d.X2), mU = mean(d.U);
-      let cov = 0, varX = 0;
-      for (let i = 0; i < N; i++) {
-        cov += (d.X2[i] - mX2) * (d.U[i] - mU);
-        varX += (d.X2[i] - mX2) ** 2;
-      }
-      cov /= N; varX /= N;
-      const deltaU = cov / varX;
-      const bias = bShort - TRUE_BETAS.beta2;
-
-      document.getElementById('gammaVal').textContent = gamma2.toFixed(2);
-      document.getElementById('rdDelta').textContent = deltaU.toFixed(3);
-      document.getElementById('rdShort').textContent = bShort.toFixed(3);
-      document.getElementById('rdBias').textContent = 'bias ' + (bias >= 0 ? '+' : '') + bias.toFixed(3);
-    }
-    const gammaSlider = document.getElementById('gamma');
-    gammaSlider.addEventListener('input', e => refreshSlider(parseFloat(e.target.value)));
-    refreshSlider(1.50);
 
     // ---- Section 5 (old): regression output tables ----
     function fmtReg(fit, labels, title) {
@@ -848,96 +784,6 @@
     // red "plim" line is drawn at the actual Monte Carlo mean.
     drawHistogram('plotMC', mcEstimates, 3.00, mcMean);
 
-    // ================================================================
-    //  Stability-across-specifications interactive — studying DGP
-    //
-    //  Start from Dr. Gauss's studying DGP (N=400 for less resampling noise)
-    //  and add 5 observed proxies C1..C5 for the hidden U. The fit is always
-    //  Y ~ log(X1) + X2 + (C1, ..., Ck). As k grows, the slope on X2 is freed
-    //  of more and more of U's confounding and approaches the truth beta2=3.
-    // ================================================================
-    const NS = 400;
-    function generateStability(n, seed) {
-      const rng = seededRandom(seed);
-      const U  = new Float64Array(n);
-      const X1 = new Float64Array(n);
-      const X2 = new Float64Array(n);
-      const Y  = new Float64Array(n);
-      const C1 = new Float64Array(n);
-      const C2 = new Float64Array(n);
-      const C3 = new Float64Array(n);
-      const C4 = new Float64Array(n);
-      const C5 = new Float64Array(n);
-      const sdEta1 = Math.sqrt(0.5);
-      const sdEta2 = Math.sqrt(2.0);
-      for (let i = 0; i < n; i++) {
-        const u = randn(rng);
-        const eta1 = randn(rng) * sdEta1;
-        const eta2 = randn(rng) * sdEta2;
-        let x1 = 2 + 0.5 * u + eta1;
-        if (x1 <= 0.05) x1 = 0.05;
-        const x2 = 10 + 1.5 * u + eta2;
-        const eps = randn(rng) * Math.sqrt(2.0 * Math.abs(x1));
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
-        // Proxies for U of varying quality (higher noise = weaker proxy).
-        const c1 = u + randn(rng) * 1.2;   // weak
-        const c2 = u + randn(rng) * 0.9;
-        const c3 = u + randn(rng) * 0.7;
-        const c4 = u + randn(rng) * 0.5;
-        const c5 = u + randn(rng) * 0.3;   // strongest
-        U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
-        C1[i] = c1; C2[i] = c2; C3[i] = c3; C4[i] = c4; C5[i] = c5;
-      }
-      return { U, X1, X2, Y, C1, C2, C3, C4, C5 };
-    }
-    const stab = generateStability(NS, 99);
-
-    function runStability(k) {
-      // Design: [log(X1), X2, C1, ..., Ck]. The slope on X2 is coefficient [2].
-      const rows = [];
-      for (let i = 0; i < NS; i++) {
-        const row = [Math.log(stab.X1[i]), stab.X2[i]];
-        if (k >= 1) row.push(stab.C1[i]);
-        if (k >= 2) row.push(stab.C2[i]);
-        if (k >= 3) row.push(stab.C3[i]);
-        if (k >= 4) row.push(stab.C4[i]);
-        if (k >= 5) row.push(stab.C5[i]);
-        rows.push(row);
-      }
-      const fit = ols(Array.from(stab.Y), rows);
-      return fit.coefficients[2]; // slope on X2
-    }
-
-    const notes = [
-      "With 0 proxies: the fit is \\(Y \\sim \\log X_1 + X_2\\) — Dr. Gauss's multivariate regression. \\(\\hat\\beta_2\\) lands near 4.7, well above the truth of 3, because \\(U\\) is still unobserved and loading onto \\(X_2\\).",
-      "With 1 weak proxy: a little of \\(U\\)'s information leaks into the design. \\(\\hat\\beta_2\\) drops a bit, but is still biased.",
-      "With 2 proxies: the combined signal tracks \\(U\\) better. \\(\\hat\\beta_2\\) keeps drifting toward 3.",
-      "With 3 proxies: \\(\\hat\\beta_2\\) continues to settle. The fact that it's still moving tells us we haven't captured \\(U\\) yet.",
-      "With 4 proxies: \\(\\hat\\beta_2\\) is close to the truth, but still a little off.",
-      "With 5 proxies: \\(\\hat\\beta_2\\) has (essentially) stopped moving and landed near 3. In practice, this settling is the only signal we get."
-    ];
-
-    function refreshStab(k) {
-      const b = runStability(k);
-      document.getElementById('nctrlVal').textContent = k.toString();
-      document.getElementById('stabBeta').textContent = b.toFixed(3);
-      const bias = b - 3.0;
-      document.getElementById('stabBias').textContent = (bias >= 0 ? '+' : '') + bias.toFixed(3);
-      const noteEl = document.getElementById('stabNote');
-      noteEl.innerHTML = notes[k];
-      if (typeof renderMathInElement === 'function') {
-        renderMathInElement(noteEl, {
-          delimiters: [
-            { left: '$$', right: '$$', display: true },
-            { left: '$', right: '$', display: false },
-            { left: '\\(', right: '\\)', display: false },
-            { left: '\\[', right: '\\]', display: true }
-          ]
-        });
-      }
-    }
-    document.getElementById('nctrl').addEventListener('input', e => refreshStab(parseInt(e.target.value, 10)));
-    refreshStab(0);
   </script>
 </body>
 </html>
