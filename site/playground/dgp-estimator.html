@@ -586,8 +586,15 @@
           <li><strong>Std. Error</strong> = the spread you just watched across resamples.</li>
           <li><strong>t-value</strong> = Estimate ÷ SE — how many SEs is the estimate from zero?</li>
           <li><strong>Pr(&gt;|t|)</strong> = the p-value under "this coefficient is really 0".</li>
-          <li><strong>R²</strong> = fraction of Y's variance the model explains.</li>
+          <li><strong>R²</strong> = fraction of Y's variance the model explains (see the box below for the formula).</li>
         </ul>
+
+        <div style="background:#fbf7ee;border-left:3px solid var(--c-truth);padding:12px 16px;margin:12px 0;border-radius:3px;">
+          <div style="font-weight:600;margin-bottom:6px;">What is R²?</div>
+          <p style="margin:0 0 8px 0;font-size:14px;">R² (the coefficient of determination) is defined as</p>
+          <p style="text-align:center;margin:6px 0;">\( R^2 \;=\; 1 \;-\; \dfrac{\mathrm{SS}_{\text{res}}}{\mathrm{SS}_{\text{tot}}} \;=\; 1 \;-\; \dfrac{\sum_i (y_i - \hat y_i)^2}{\sum_i (y_i - \bar y)^2} \)</p>
+          <p style="margin:8px 0 0 0;font-size:14px;">where \( \mathrm{SS}_{\text{res}} \) is the sum of squared residuals (what the model leaves unexplained) and \( \mathrm{SS}_{\text{tot}} \) is the total variation around the mean \( \bar y \). An \( R^2 \) of 1 means the model explains everything, 0 means it explains no more than a horizontal line at \( \bar y \), negative values are possible on held-out data when the model does worse than the mean. <strong>Adjusted R²</strong> penalises R² for each extra predictor, so it doesn't reward you for throwing more variables at the model.</p>
+        </div>
 
         <div class="gauss-card">
           <svg class="gauss-avatar" viewBox="0 0 44 44">
