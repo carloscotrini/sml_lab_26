@@ -153,7 +153,7 @@
     <div class="pg-controls">
       <div class="control-row">
         <label for="degree-slider">Polynomial degree</label>
-        <input type="range" id="degree-slider" min="1" max="15" step="1" value="4" />
+        <input type="range" id="degree-slider" min="1" max="8" step="1" value="3" />
         <span class="value-tag" id="degree-value">4</span>
       </div>
     </div>
@@ -201,7 +201,7 @@
     <div class="pg-controls">
       <div class="control-row">
         <label for="boot-degree">Degree</label>
-        <input type="range" id="boot-degree" min="1" max="15" step="1" value="2" />
+        <input type="range" id="boot-degree" min="1" max="8" step="1" value="2" />
         <span class="value-tag" id="boot-degree-value">2</span>
         <button class="pg-btn" id="boot-run">Generate 20 samples</button>
       </div>
@@ -214,9 +214,20 @@
 
     <h2 class="section-sub">3. Right model family beats right complexity</h2>
     <p class="muted" style="font-family: var(--sans); font-size: 14px;">
-      The true relationship is logarithmic. A polynomial can only approximate
-      a log — and it pays for each extra bend with extra variance. Fitting
-      \(Y = a + b\log X_1\) directly uses the correct functional form.
+      The polynomials in the previous two panels could even <em>compete</em>
+      with the truth only because of the <strong>universal approximation
+      theorem</strong> (Stone–Weierstrass): on a bounded interval, any
+      continuous function — including \(\log\) — can be matched to any
+      desired accuracy by a polynomial of sufficient degree. That's why
+      pushing the slider right gives an arbitrarily flexible fit on the
+      training data.
+      <br><br>
+      But universal approximation comes at a price in <em>data</em>. The
+      higher the degree, the more parameters you need to pin down, and the
+      more variance every noisy training point injects into the coefficient
+      estimates. Fitting \(Y = a + b\log X_1\) directly uses the correct
+      functional form — <strong>two</strong> parameters instead of nine,
+      zero extra variance paid for chasing the shape.
     </p>
 
     <section class="pg-panel">
@@ -236,19 +247,39 @@
 
     <h2 class="section-sub">4. The search-breadth trap</h2>
     <p class="muted" style="font-family: var(--sans); font-size: 14px;">
-      Cross-validation is supposed to protect us — pick the model that wins on
-      held-out folds. But if you try enough specifications, one of them wins
-      by luck. Below, we draw a single dataset, run 5-fold CV on the first
-      \(k\) randomly generated specifications, and report the best CV R² and
-      its honest test R² on a fresh hold-out. As \(k\) grows, the CV R²
-      inflates while the test R² stagnates or drops.
+      Cross-validation is supposed to protect us — pick the model whose
+      predictions hold up on held-out folds. But if you try enough
+      specifications, one of them wins by luck. Below we fit many candidate
+      models to a single 210-student dataset and ask: does the best CV R² we
+      can find <em>really</em> reflect the best model, or just the one that
+      got lucky?
+    </p>
+    <p class="muted" style="font-family: var(--sans); font-size: 14px;">
+      <strong>How a "specification" is built.</strong> Each candidate is a
+      small random subset of features drawn from a pool of thirteen: the
+      real signal columns (\(X_1\), \(\log X_1\), \(X_1^2\), \(X_2\),
+      \(X_2^2\), \(X_1 X_2\), \(X_3\)) plus <em>six columns of pure random
+      noise</em> that carry no information about \(Y\) at all. For each
+      candidate we randomly pick 1 to 5 of these thirteen features and
+      regress \(Y\) on them. The pool deliberately mixes signal and noise
+      so that — by chance — a specification can "win" on CV simply because
+      its noise columns happened to correlate with validation-fold fluctuations.
+      That is the <em>luck</em> we want to make visible.
+    </p>
+    <p class="muted" style="font-family: var(--sans); font-size: 14px;">
+      The slider picks how many of these random specifications we try. We
+      report the best CV R² among the first \(k\) we looked at (green) and
+      the <em>honest</em> test R² of that "winning" specification, measured
+      on a fresh hold-out the search never saw (gold). As \(k\) grows the
+      green line creeps up — the winner keeps winning — while the gold line
+      stays flat or drops. That gap is the cost of searching too hard.
     </p>
 
     <div class="pg-controls">
       <div class="control-row">
         <label for="breadth-slider">Specifications tried</label>
-        <input type="range" id="breadth-slider" min="1" max="100" step="1" value="10" />
-        <span class="value-tag" id="breadth-value">10</span>
+        <input type="range" id="breadth-slider" min="1" max="20" step="1" value="5" />
+        <span class="value-tag" id="breadth-value">5</span>
       </div>
     </div>
 
@@ -352,24 +383,24 @@
     // Data and split
     // ------------------------------------------------------------------
 
-    const N = 200;
-    const data = generateData(N, 42);
-    // Deterministic 80/20 split.
-    const splitRng = seededRandom(7);
-    const idx = Array.from({ length: N }, (_, i) => i);
-    // Fisher-Yates with seeded rng.
-    for (let i = idx.length - 1; i > 0; i--) {
-      const j = Math.floor(splitRng() * (i + 1));
-      [idx[i], idx[j]] = [idx[j], idx[i]];
-    }
-    const nTrain = Math.round(N * 0.8);
-    const trainIdx = idx.slice(0, nTrain);
-    const testIdx = idx.slice(nTrain);
+    // Small training set (15 students) — overfit/underfit patterns are visible
+    // with so few points. A rich test set (400 fresh students) gives a stable
+    // ground-truth for the test R² curve.
+    const N_TRAIN = 15;
+    const N_TEST  = 400;
+    const data    = generateData(N_TRAIN, 42);    // training
+    const dataTest = generateData(N_TEST, 999);   // held-out, different seed
 
-    const X1train = trainIdx.map(i => data.X1[i]);
-    const Ytrain = trainIdx.map(i => data.Y[i]);
-    const X1test = testIdx.map(i => data.X1[i]);
-    const Ytest = testIdx.map(i => data.Y[i]);
+    // The "full" data object powers the ghost-points layer and the true curve:
+    // we expose it as the training set (small) and use dataTest separately.
+    const N = N_TRAIN;
+    const trainIdx = Array.from({ length: N_TRAIN }, (_, i) => i);
+    const testIdx  = Array.from({ length: N_TEST }, (_, i) => i);
+
+    const X1train = Array.from(data.X1);
+    const Ytrain  = Array.from(data.Y);
+    const X1test  = Array.from(dataTest.X1);
+    const Ytest   = Array.from(dataTest.Y);
 
     const std = standardizer(X1train);
     const X1trainS = std.apply(X1train);
@@ -394,12 +425,27 @@
     // Precompute R² curve over all degrees (for U-curve and "best poly")
     // ------------------------------------------------------------------
 
-    const MAX_DEG = 15;
+    // With only 15 training points, polynomials above degree ≈ 8 become
+    // numerically explosive on test extrapolation (test R² crashes to -1e6
+    // or worse). We cap the slider and the U-curve at 8; the overfitting
+    // story is crystal clear well before we get there.
+    const MAX_DEG = 8;
     const rcurve = [];
     for (let d = 1; d <= MAX_DEG; d++) {
       const fit = fitPoly(d);
       rcurve.push({ degree: d, trainR2: fit.trainR2, testR2: fit.testR2 });
     }
+    // For display: clip test R² to a visually sensible floor so the U-curve
+    // doesn't become a vertical drop off the chart. We record the raw value
+    // too so the main-plot readout can show the honest number.
+    const R2_FLOOR = -2;  // anything below this is clipped for display only
+    const rcurveDisplay = rcurve.map(d => ({
+      degree: d.degree,
+      trainR2: d.trainR2,
+      testR2: Math.max(R2_FLOOR, d.testR2),
+      testR2Raw: d.testR2,
+      clipped: d.testR2 < R2_FLOOR
+    }));
 
     // ------------------------------------------------------------------
     // Main scatter plot (feature 2)
@@ -519,9 +565,10 @@
     const uG = uSvg.append('g').attr('transform', `translate(${mu.left},${mu.top})`);
 
     const uX = d3.scaleLinear().domain([1, MAX_DEG]).range([0, iWu]);
-    // Clamp R² y-range so deep-overfit test R² dives below 0 are visible.
-    const minTest = Math.min(-0.5, d3.min(rcurve, d => d.testR2) - 0.05);
-    const uY = d3.scaleLinear().domain([minTest, 1]).range([iHu, 0]);
+    // Honest R² range: the best possible test R² is 1; below 0 the model is
+    // worse than predicting the sample mean. With 15 training points the
+    // test R² dives rapidly, so we clip the displayed floor at R2_FLOOR.
+    const uY = d3.scaleLinear().domain([R2_FLOOR, 1]).range([iHu, 0]);
 
     uG.append('g').attr('class', 'axis')
       .attr('transform', `translate(0,${iHu})`)
@@ -543,18 +590,29 @@
 
     const uLine = d3.line().x(d => uX(d.degree));
     uG.append('path')
-      .attr('d', uLine.y(d => uY(d.trainR2))(rcurve))
+      .attr('d', uLine.y(d => uY(d.trainR2))(rcurveDisplay))
       .attr('fill', 'none').attr('stroke', PALETTE.olsblue).attr('stroke-width', 2);
     uG.append('path')
-      .attr('d', uLine.y(d => uY(d.testR2))(rcurve))
+      .attr('d', uLine.y(d => uY(d.testR2))(rcurveDisplay))
       .attr('fill', 'none').attr('stroke', PALETTE.truthgold).attr('stroke-width', 2);
 
-    uG.selectAll('circle.train-pt').data(rcurve).enter().append('circle')
+    uG.selectAll('circle.train-pt').data(rcurveDisplay).enter().append('circle')
       .attr('cx', d => uX(d.degree)).attr('cy', d => uY(d.trainR2))
       .attr('r', 3).attr('fill', PALETTE.olsblue);
-    uG.selectAll('circle.test-pt').data(rcurve).enter().append('circle')
+    // Test-R² dots: hollow if clipped (they would lie below the visible floor).
+    uG.selectAll('circle.test-pt').data(rcurveDisplay).enter().append('circle')
       .attr('cx', d => uX(d.degree)).attr('cy', d => uY(d.testR2))
-      .attr('r', 3).attr('fill', PALETTE.truthgold);
+      .attr('r', 3)
+      .attr('fill', d => d.clipped ? '#fff' : PALETTE.truthgold)
+      .attr('stroke', PALETTE.truthgold).attr('stroke-width', 1.3);
+
+    // Floor annotation: make clipping explicit so students know the line
+    // actually continues below the visible frame.
+    uG.append('text')
+      .attr('x', iWu - 4).attr('y', uY(R2_FLOOR) - 6)
+      .attr('text-anchor', 'end')
+      .attr('font-family', 'var(--sans)').attr('font-size', 11).attr('fill', '#888')
+      .text(`R² clipped at ${R2_FLOOR} (true values dive much lower)`);
 
     const uMarker = uG.append('line')
       .attr('y1', 0).attr('y2', iHu)
@@ -627,6 +685,12 @@
 
     function runBootstrap(degree) {
       const B = 20;
+      // Each of the 20 replicates draws a FRESH 10-student sample from the
+      // underlying DGP (not a bootstrap resample of our training set), so we
+      // are really seeing sampling variability — what a new cohort of 10
+      // students would produce. With only 10 points per fit, the bias vs.
+      // variance tradeoff is dramatic and visible.
+      const BOOT_N = 10;
       curvesG.selectAll('*').remove();
       const yD = bY.domain();
       const [x0, x1] = bX.domain();
@@ -635,13 +699,10 @@
       for (let i = 0; i <= steps; i++) gridX.push(x0 + (x1 - x0) * (i / steps));
 
       for (let b = 0; b < B; b++) {
-        const rng = seededRandom(1000 + b);
-        const n = data.X1.length;
-        const xs = new Array(n), ys = new Array(n);
-        for (let i = 0; i < n; i++) {
-          const j = Math.floor(rng() * n);
-          xs[i] = data.X1[j]; ys[i] = data.Y[j];
-        }
+        // Fresh DGP sample per replicate — new students, same world.
+        const fresh = generateData(BOOT_N, 10000 + b);
+        const xs = Array.from(fresh.X1);
+        const ys = Array.from(fresh.Y);
         const sd = standardizer(xs);
         const xsS = sd.apply(xs);
         const rows = polyRows(xsS, degree);
@@ -816,15 +877,18 @@
       return r2(Yhold, yh);
     }
 
-    const SPECS = buildSpecs(100);
-    // Precompute both metrics for all 100 specs.
+    // We only need 20 specs — the search-breadth pattern is already clear
+    // within that range and the slider tops out at 20.
+    const MAX_SPECS = 20;
+    const SPECS = buildSpecs(MAX_SPECS);
     const cvs = SPECS.map(s => cvR2(s));
     const holds = SPECS.map(s => holdR2(s));
 
-    // For k in [1..100], bestCV = max over first k; honestTest = corresponding hold-out.
+    // For k in [1..MAX_SPECS], bestCV = max over first k specs; honestTest =
+    // hold-out R² of whichever spec won at that step.
     const breadthSeries = [];
     let bestIdx = 0;
-    for (let k = 1; k <= 100; k++) {
+    for (let k = 1; k <= MAX_SPECS; k++) {
       if (k === 1) bestIdx = 0;
       else if (cvs[k - 1] > cvs[bestIdx]) bestIdx = k - 1;
       breadthSeries.push({
@@ -845,7 +909,7 @@
       .attr('preserveAspectRatio', 'xMidYMid meet');
     const brG = brSvg.append('g').attr('transform', `translate(${mbr.left},${mbr.top})`);
 
-    const brX = d3.scaleLinear().domain([1, 100]).range([0, iWbr]);
+    const brX = d3.scaleLinear().domain([1, MAX_SPECS]).range([0, iWbr]);
     const yMin = Math.min(
       d3.min(breadthSeries, d => d.bestCV),
       d3.min(breadthSeries, d => d.honestTest),
