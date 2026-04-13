@@ -692,14 +692,21 @@
     const margin = { top: 30, right: 30, bottom: 50, left: 60 };
     const iw = W - margin.left - margin.right;
     const ih = H - margin.top - margin.bottom;
+    const defs = svg.append('defs');
+    // Clip path: restrict residual sticks and fit lines to the plot area,
+    // so extrapolated geometry is visually truncated instead of clamped
+    // (clamping would bend the line into a chord and misalign the sticks).
+    defs.append('clipPath').attr('id', 'plotClip')
+      .append('rect').attr('width', iw).attr('height', ih);
+
     const root = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     const gRidge = root.append('g').attr('class', 'g-ridge');
     const gAxes = root.append('g').attr('class', 'g-axes');
-    const gCloud = root.append('g').attr('class', 'g-cloud');
-    const gTrueCurve = root.append('g').attr('class', 'g-true');
-    const gFit = root.append('g').attr('class', 'g-fit');
-    const gResid = root.append('g').attr('class', 'g-resid');
+    const gCloud = root.append('g').attr('class', 'g-cloud').attr('clip-path', 'url(#plotClip)');
+    const gTrueCurve = root.append('g').attr('class', 'g-true').attr('clip-path', 'url(#plotClip)');
+    const gFit = root.append('g').attr('class', 'g-fit').attr('clip-path', 'url(#plotClip)');
+    const gResid = root.append('g').attr('class', 'g-resid').attr('clip-path', 'url(#plotClip)');
     const gOverlay = root.append('g').attr('class', 'g-overlay');
 
     function clearAll() {
@@ -803,31 +810,31 @@
           .attr('r', 2.6).attr('fill', '#6a7a8a').attr('opacity', 0.65);
       }
 
-      // residual sticks from each data point to the current manual line
+      // residual sticks from each data point to the current manual line.
+      // No clamping: the gResid group has a clip-path that trims anything
+      // outside the plot area, keeping the geometry honest.
       const { a, b } = state.manual;
       for (let i = 0; i < d.Y.length; i++) {
         const yhat = a + b * d.X2[i];
-        const yhatC = clamp(yhat, 55, 110);
-        const yC = clamp(d.Y[i], 55, 110);
         gResid.append('line')
           .attr('x1', xScale(d.X2[i])).attr('x2', xScale(d.X2[i]))
-          .attr('y1', yScale(yC)).attr('y2', yScale(yhatC))
+          .attr('y1', yScale(d.Y[i])).attr('y2', yScale(yhat))
           .attr('stroke', '#c0392b').attr('stroke-width', 0.8).attr('opacity', 0.4);
       }
 
-      // manual line
+      // manual line (true geometry; clip-path handles visual trimming)
       const xLo = 5, xHi = 15;
       gFit.append('line')
-        .attr('x1', xScale(xLo)).attr('y1', yScale(clamp(a + b * xLo, 55, 110)))
-        .attr('x2', xScale(xHi)).attr('y2', yScale(clamp(a + b * xHi, 55, 110)))
+        .attr('x1', xScale(xLo)).attr('y1', yScale(a + b * xLo))
+        .attr('x2', xScale(xHi)).attr('y2', yScale(a + b * xHi))
         .attr('stroke', '#c0392b').attr('stroke-width', 2.2).attr('opacity', 0.95);
 
       // If revealed, also draw the OLS best-fit line in green
       if (state.revealedBest) {
         const best = olsSimpleX2();
         gFit.append('line')
-          .attr('x1', xScale(xLo)).attr('y1', yScale(clamp(best.a + best.b * xLo, 55, 110)))
-          .attr('x2', xScale(xHi)).attr('y2', yScale(clamp(best.a + best.b * xHi, 55, 110)))
+          .attr('x1', xScale(xLo)).attr('y1', yScale(best.a + best.b * xLo))
+          .attr('x2', xScale(xHi)).attr('y2', yScale(best.a + best.b * xHi))
           .attr('stroke', 'var(--c-est)').attr('stroke-width', 2.4).attr('stroke-dasharray', '5 3').attr('opacity', 0.95);
         gOverlay.append('text').attr('x', iw - 8).attr('y', 18)
           .attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--c-est)').attr('font-weight', 600)
@@ -874,6 +881,12 @@
       function drawPane(pane, a, b, title, color, ssr) {
         pane.append('rect').attr('width', panelW).attr('height', panelH)
           .attr('fill', 'none').attr('stroke', '#e4dfd5');
+        // Per-pane clip path so residuals and fit line are truncated at the
+        // pane boundary but not geometrically clamped.
+        const clipId = `paneClip-${Math.random().toString(36).slice(2, 8)}`;
+        defs.append('clipPath').attr('id', clipId)
+          .append('rect').attr('width', panelW).attr('height', panelH);
+        const gDraw = pane.append('g').attr('clip-path', `url(#${clipId})`);
         // axes
         pane.append('g').attr('transform', `translate(0,${panelH})`)
           .call(d3.axisBottom(xS).ticks(5)).selectAll('text').style('font-size','10px').style('fill','#666');
@@ -882,22 +895,22 @@
         pane.selectAll('path.domain, line').style('stroke','#bfbdb3');
         // dots
         for (let i = 0; i < d.X2.length; i++) {
-          pane.append('circle')
-            .attr('cx', xS(d.X2[i])).attr('cy', yS(clamp(d.Y[i], yLo, yHi)))
+          gDraw.append('circle')
+            .attr('cx', xS(d.X2[i])).attr('cy', yS(d.Y[i]))
             .attr('r', 2).attr('fill', '#6a7a8a').attr('opacity', 0.55);
         }
-        // residual sticks
+        // residual sticks (no clamping; clipped by clip-path)
         for (let i = 0; i < d.Y.length; i++) {
           const yhat = a + b * d.X2[i];
-          pane.append('line')
+          gDraw.append('line')
             .attr('x1', xS(d.X2[i])).attr('x2', xS(d.X2[i]))
-            .attr('y1', yS(clamp(d.Y[i], yLo, yHi))).attr('y2', yS(clamp(yhat, yLo, yHi)))
+            .attr('y1', yS(d.Y[i])).attr('y2', yS(yhat))
             .attr('stroke', color).attr('stroke-width', 0.7).attr('opacity', 0.35);
         }
-        // line
-        pane.append('line')
-          .attr('x1', xS(xLo)).attr('y1', yS(clamp(a + b * xLo, yLo, yHi)))
-          .attr('x2', xS(xHi)).attr('y2', yS(clamp(a + b * xHi, yLo, yHi)))
+        // line (true geometry; clip-path trims outside the pane)
+        gDraw.append('line')
+          .attr('x1', xS(xLo)).attr('y1', yS(a + b * xLo))
+          .attr('x2', xS(xHi)).attr('y2', yS(a + b * xHi))
           .attr('stroke', color).attr('stroke-width', 2.2);
         // title + SSR
         pane.append('text').attr('x', 8).attr('y', 14)
