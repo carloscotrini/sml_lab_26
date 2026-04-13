@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Heteroscedasticity — the funnel of false confidence · SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-alice: #d4722c;
+      --c-bob:  #3c8dbc;
+      --c-gauss: #1b5e8e;
+      --c-noise: #9aa0a6;
+      --c-truth: #7b2cbf;
+      --c-est:  #2d8659;
+      --c-warn: #b5654a;
+      --c-border: #e4dfd5;
+      --c-classical: #2E5EA8;
+      --c-robust:    #27AE60;
+      --c-miss:      #C0392B;
+      --c-truthgold: #D4A017;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+      --mono: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    }
+
+    html, body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    a { color: var(--c-truth); }
+
+    /* ---- Top nav (same spirit as dgp-estimator) ---- */
+    .pg-nav {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--c-border);
+      font-size: 13px;
+      color: var(--c-ink-muted);
+    }
+    .pg-nav a { color: var(--c-ink-muted); text-decoration: none; }
+    .pg-nav a:hover { text-decoration: underline; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: var(--c-bg);
+      border-bottom: 1px solid var(--c-border);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      padding: 10px 24px;
+      gap: 24px;
+      min-height: 56px;
+    }
+    .topbar .title {
+      font-family: var(--serif);
+      font-size: 18px;
+      color: var(--c-gauss);
+      font-weight: 500;
+    }
+    .topbar .badge {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-ink-muted);
+    }
+
+    main.hpage {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    main.hpage > header h1 {
+      font-family: var(--serif);
+      font-size: 38px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 10px;
+    }
+    main.hpage > header p.subtitle {
+      color: var(--c-ink-muted);
+      font-style: italic;
+      margin: 0 0 32px;
+      font-size: 17px;
+    }
+
+    section.h-section {
+      margin: 48px 0;
+      padding-top: 24px;
+      border-top: 1px solid var(--c-border);
+    }
+    section.h-section:first-of-type { border-top: none; padding-top: 0; }
+    section.h-section h2 {
+      font-family: var(--serif);
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 6px;
+    }
+    section.h-section .kicker {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--c-truth);
+      margin-bottom: 6px;
+    }
+    section.h-section p { margin: 10px 0; }
+    section.h-section blockquote {
+      border-left: 3px solid var(--c-truth);
+      padding: 4px 0 4px 14px;
+      margin: 16px 0;
+      font-style: italic;
+      color: var(--c-ink);
+    }
+
+    /* ---- Panels / viz containers ---- */
+    .panel {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      margin-top: 16px;
+    }
+    .panel svg { width: 100%; height: auto; display: block; }
+
+    /* ---- Controls ---- */
+    .controls {
+      display: grid;
+      grid-template-columns: 140px 1fr 72px;
+      gap: 10px 14px;
+      align-items: center;
+      font-size: 14px;
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+    }
+    .controls label { color: var(--c-ink-muted); font-size: 13px; }
+    .controls .val  { font-family: var(--mono); text-align: right; color: var(--c-ink); font-size: 13px; }
+    .controls input[type=range] { width: 100%; }
+
+    .btn {
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 7px 14px;
+      border: 1px solid var(--c-truth);
+      color: var(--c-truth);
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--c-truth); color: #fff; }
+
+    /* ---- Counters row (coverage) ---- */
+    .counters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .counter {
+      flex: 1;
+      min-width: 180px;
+      padding: 10px 14px;
+      border: 1px solid var(--c-border);
+      background: #fff;
+      border-radius: 4px;
+    }
+    .counter .lbl {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-ink-muted);
+      margin-bottom: 4px;
+    }
+    .counter .val {
+      font-family: var(--mono);
+      font-size: 22px;
+      color: var(--c-ink);
+    }
+    .counter .sub {
+      font-size: 11px;
+      color: var(--c-ink-muted);
+      margin-left: 8px;
+    }
+    .counter.classical { border-left: 4px solid var(--c-classical); }
+    .counter.robust    { border-left: 4px solid var(--c-robust); }
+    .counter.bp        { border-left: 4px solid var(--c-warn); }
+
+    .warning {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #fff3e6;
+      border: 1px solid #f0c080;
+      border-left: 4px solid var(--c-miss);
+      border-radius: 3px;
+      font-size: 13.5px;
+      color: #7a4510;
+      display: none;
+    }
+    .warning.visible { display: block; }
+
+    .insight {
+      margin: 18px 0;
+      padding: 14px 16px;
+      background: rgba(212, 160, 23, 0.08);
+      border: 1px solid rgba(212, 160, 23, 0.4);
+      border-left: 4px solid var(--c-truthgold);
+      border-radius: 4px;
+      font-size: 15px;
+    }
+    .insight strong { color: #8a6700; }
+
+    /* ---- Repair formula box ---- */
+    .repair {
+      margin: 18px 0;
+      padding: 18px 20px;
+      background: #f1f9f4;
+      border: 1px solid #b8dcc6;
+      border-left: 4px solid var(--c-robust);
+      border-radius: 4px;
+      font-size: 15px;
+    }
+    .repair .katex-display { margin: 10px 0 4px; }
+
+    /* ---- Two-column layouts ---- */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 14px;
+    }
+    @media (max-width: 780px) { .two-col { grid-template-columns: 1fr; } }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 12.5px;
+      color: var(--c-ink-muted);
+      margin-top: 6px;
+    }
+    .legend .swatch {
+      display: inline-block;
+      width: 12px; height: 10px;
+      margin-right: 6px;
+      vertical-align: middle;
+      border-radius: 2px;
+    }
+
+    footer.hfoot {
+      margin-top: 56px;
+      padding-top: 20px;
+      border-top: 1px solid var(--c-border);
+      font-size: 14px;
+      color: var(--c-ink-muted);
+    }
+    footer.hfoot a { color: var(--c-ink-muted); }
+
+    .katex { font-size: 1em; }
+  </style>
+</head>
+<body>
+  <nav class="pg-nav">
+    <a href="../hub.html">← Back to the hub</a>
+  </nav>
+
+  <div class="topbar">
+    <div class="title">Heteroscedasticity — the funnel of false confidence</div>
+    <div class="badge">Dr. Gauss · issue 4 of 7</div>
+  </div>
+
+  <main class="hpage">
+    <header>
+      <h1>The funnel of false confidence</h1>
+      <p class="subtitle">
+        Dr. Gauss fit a line through hours studied and exam scores. The line is not the problem.
+        The spread around it is.
+      </p>
+    </header>
+
+    <!-- =========================================================
+         SECTION 1 — The funnel
+    ========================================================= -->
+    <section class="h-section" id="s-funnel">
+      <div class="kicker">Section 1</div>
+      <h2>The funnel</h2>
+      <p>
+        Dr. Gauss fit <code>Y ~ X<sub>1</sub></code> — exam score on hours studied — and declared the job done.
+        Look carefully at the residuals. Students who studied a little scatter tightly around the line.
+        Students who studied a lot scatter wildly. The noise is not uniform — it grows with
+        X<sub>1</sub>.
+      </p>
+      <p>
+        This is the shape of <em>drunk darts</em>: sober students throw at the bullseye and cluster tight;
+        students who have studied for ten hours (and are running on caffeine, adrenaline, and
+        wildly different study habits) throw all over the wall. The <em>aim</em> is unbiased. The
+        <em>spread</em> is not constant.
+      </p>
+
+      <div class="panel">
+        <div id="funnel-plot"></div>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--c-gauss);"></span>observed students</span>
+          <span><span class="swatch" style="background: var(--c-warn);"></span>residual (vertical stick)</span>
+          <span><span class="swatch" style="background: var(--c-truthgold);"></span>OLS fitted line</span>
+        </div>
+      </div>
+
+      <div class="insight">
+        <strong>Definition.</strong> This is called <em>heteroscedasticity</em>: non-constant variance.
+        Formally, <span>\(\mathrm{Var}(\varepsilon_i \mid X_i) = \sigma_i^2\)</span> with \(\sigma_i^2\)
+        not constant across observations.
+      </div>
+    </section>
+
+    <!-- =========================================================
+         SECTION 2 — Classical vs robust CIs
+    ========================================================= -->
+    <section class="h-section" id="s-coverage">
+      <div class="kicker">Section 2</div>
+      <h2>The 95% that isn't</h2>
+      <p>
+        The classical 95% confidence interval on \(\hat{\beta}_1\) assumes constant variance.
+        If the variance actually grows with X<sub>1</sub>, the classical CI is too narrow in some
+        regions and too wide in others. Averaged across many samples, it has the wrong
+        <em>coverage</em>.
+      </p>
+      <p>
+        A 95% CI is a promise about a procedure: if you run the whole experiment a hundred times,
+        the interval should contain the truth about ninety-five times. Let us check Dr. Gauss's
+        promise. Press the button, draw a hundred samples, and count.
+      </p>
+
+      <div class="panel">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button class="btn" id="draw-btn">Draw 100 samples</button>
+          <span id="draw-status" style="font-size:12px;color:var(--c-ink-muted);">truth: \(\beta_1 = 8\) (coefficient on \(\log X_1\))</span>
+        </div>
+
+        <div class="counters">
+          <div class="counter classical">
+            <span class="lbl">Classical CI coverage</span>
+            <span class="val" id="cov-classical">—</span>
+            <span class="sub">/ 100 · target 95</span>
+          </div>
+          <div class="counter robust">
+            <span class="lbl">Robust (HC1) CI coverage</span>
+            <span class="val" id="cov-robust">—</span>
+            <span class="sub">/ 100 · target 95</span>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--c-ink-muted); margin:14px 0 6px;">Classical CIs</div>
+            <div id="ci-classical"></div>
+          </div>
+          <div>
+            <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--c-ink-muted); margin:14px 0 6px;">Robust (HC1) CIs</div>
+            <div id="ci-robust"></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--c-robust);"></span>covers truth</span>
+          <span><span class="swatch" style="background: var(--c-miss);"></span>misses truth</span>
+          <span><span class="swatch" style="background: var(--c-truthgold);"></span>\(\beta_1 = 8\)</span>
+        </div>
+      </div>
+
+      <p class="hint" style="color:var(--c-ink-muted); font-size:13.5px; font-style:italic; margin-top:10px;">
+        With the default heteroscedasticity strength (\(h = 2\)), the classical side typically lands
+        around 75–80 out of 100; the robust side lands around 93–95.
+      </p>
+    </section>
+
+    <!-- =========================================================
+         SECTION 3 — h slider
+    ========================================================= -->
+    <section class="h-section" id="s-strength">
+      <div class="kicker">Section 3</div>
+      <h2>How bad is bad?</h2>
+      <p>
+        The DGP has a dial. The noise is \(\varepsilon \sim \mathcal{N}\!\left(0,\; h \cdot |X_1|\right)\).
+        When \(h = 0\), the variance is constant and the classical formula is fine. As \(h\)
+        grows, the funnel widens. Watch the two coverage counters respond.
+      </p>
+
+      <div class="controls">
+        <label for="h-slider">heteroscedasticity <em>h</em></label>
+        <input type="range" id="h-slider" min="0" max="4" step="0.1" value="2" />
+        <span class="val" id="h-val">2.0</span>
+      </div>
+
+      <div class="panel">
+        <div id="funnel-live"></div>
+        <div class="counters">
+          <div class="counter classical">
+            <span class="lbl">Classical coverage (live)</span>
+            <span class="val" id="live-classical">—</span>
+            <span class="sub">/ 100</span>
+          </div>
+          <div class="counter robust">
+            <span class="lbl">Robust coverage (live)</span>
+            <span class="val" id="live-robust">—</span>
+            <span class="sub">/ 100</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint" style="color:var(--c-ink-muted); font-size:13.5px; font-style:italic;">
+        At \(h = 0\) both methods hit ~95. At \(h = 4\) the classical CI collapses to ~70 while robust
+        holds near 95. The coefficient estimate itself does not change — only our story about how
+        sure we are.
+      </p>
+    </section>
+
+    <!-- =========================================================
+         SECTION 4 — Breusch-Pagan
+    ========================================================= -->
+    <section class="h-section" id="s-bp">
+      <div class="kicker">Section 4</div>
+      <h2>Does the data actually have it?</h2>
+      <p>
+        How do you <em>know</em> your regression has heteroscedasticity? The
+        <strong>Breusch–Pagan test</strong>. Regress the squared residuals on the original
+        regressors. If X explains the squared residuals — i.e. the error <em>size</em> varies with
+        X — there is heteroscedasticity.
+      </p>
+      <p>
+        Under \(H_0\) (homoscedasticity) the test statistic \(nR^2\) follows \(\chi^2_p\) where
+        \(p\) is the number of regressors (excluding the constant). If \(p\)-value \(< 0.05\), reject.
+      </p>
+
+      <div class="panel">
+        <div class="counters">
+          <div class="counter bp">
+            <span class="lbl">\(R^2\) of aux regression</span>
+            <span class="val" id="bp-r2">—</span>
+          </div>
+          <div class="counter bp">
+            <span class="lbl">test statistic \(nR^2\)</span>
+            <span class="val" id="bp-stat">—</span>
+            <span class="sub">df = 1</span>
+          </div>
+          <div class="counter bp">
+            <span class="lbl">\(p\)-value</span>
+            <span class="val" id="bp-p">—</span>
+            <span class="sub" id="bp-verdict"></span>
+          </div>
+        </div>
+        <p class="hint" style="color:var(--c-ink-muted); font-size:13.5px; font-style:italic;">
+          Recomputed on the current sample each time you slide \(h\).
+        </p>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         SECTION 5 — The repair
+    ========================================================= -->
+    <section class="h-section" id="s-repair">
+      <div class="kicker">Section 5</div>
+      <h2>The repair</h2>
+      <p>
+        The fix is embarrassingly simple: use <strong>robust standard errors</strong> (HC1,
+        sometimes called sandwich or Huber–White–Eicker). Keep the coefficient estimates exactly
+        as OLS gave them. Change the variance formula to
+      </p>
+
+      <div class="repair">
+        \[
+        \widehat{\mathrm{Var}}(\hat{\beta}) \;=\; (X^\top X)^{-1}
+        \left(\sum_{i=1}^n \hat{\varepsilon}_i^{\,2}\; x_i x_i^\top\right)
+        (X^\top X)^{-1}.
+        \]
+        <div style="font-size:13.5px; color:var(--c-ink-muted); margin-top:6px;">
+          The bread is \((X^\top X)^{-1}\). The meat is \(\sum \hat{\varepsilon}_i^2 x_i x_i^\top\).
+          Each observation contributes its own squared residual — no constant-variance assumption needed.
+        </div>
+      </div>
+
+      <blockquote>
+        The coefficient is the same. Only the uncertainty changes.
+      </blockquote>
+    </section>
+
+    <!-- =========================================================
+         SECTION 6 — Small-sample caveat
+    ========================================================= -->
+    <section class="h-section" id="s-smalln">
+      <div class="kicker">Section 6</div>
+      <h2>Small-sample caveat</h2>
+      <p>
+        Robust SEs are <em>asymptotic</em>. They work in the limit. In small samples each
+        \(\hat{\varepsilon}_i^2\) is itself a noisy estimate of \(\sigma_i^2\), and with only 20 or 30
+        observations that noise can make the sandwich estimator <em>worse</em> than the classical
+        one. The repair has a minimum-sample-size cost.
+      </p>
+
+      <div class="controls">
+        <label for="n-slider">sample size <em>n</em></label>
+        <input type="range" id="n-slider" min="20" max="1000" step="10" value="200" />
+        <span class="val" id="n-val">200</span>
+      </div>
+
+      <div class="panel">
+        <div class="counters">
+          <div class="counter classical">
+            <span class="lbl">Classical coverage</span>
+            <span class="val" id="smalln-classical">—</span>
+            <span class="sub">/ 100</span>
+          </div>
+          <div class="counter robust">
+            <span class="lbl">Robust coverage</span>
+            <span class="val" id="smalln-robust">—</span>
+            <span class="sub">/ 100</span>
+          </div>
+        </div>
+        <div class="warning" id="smalln-warning">
+          <strong>Warning:</strong> at this sample size and heteroscedasticity strength, the robust
+          SE is delivering <em>worse</em> coverage than the classical SE. The sandwich estimator is
+          biased downward in small samples; pushing \(n\) past 50–100 usually cures it.
+        </div>
+      </div>
+
+      <p class="hint" style="color:var(--c-ink-muted); font-size:13.5px; font-style:italic;">
+        Try \(n = 20\) with the \(h\) slider at 3 or 4. Then push \(n\) up past 200 and the robust
+        side recovers.
+      </p>
+    </section>
+
+    <footer class="hfoot">
+      <a href="../hub.html">← Back to the hub</a>
+    </footer>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <script type="module">
+    import { seededRandom, randn, TRUE_BETAS, mean } from '../shared/dgp.js';
+    import { ols, robustSE } from '../shared/regression.js';
+
+    // Render KaTeX.
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+
+    // ==============================================================
+    // DGP with tunable h.  Matches topics/heteroscedasticity.html.
+    // eps ~ N(0, sd = sqrt(h * |X1|)).  The Y ~ X1 fit uses log(X1),
+    // so truth on the log(X1) coefficient is TRUE_BETAS.beta1 == 8.
+    // ==============================================================
+    function generateDataH(n, seed, h) {
+      const rng = seededRandom(seed);
+      const X1 = new Float64Array(n);
+      const X2 = new Float64Array(n);
+      const Y  = new Float64Array(n);
+      const U  = new Float64Array(n);
+      const sdEta1 = Math.sqrt(0.3);
+      const hEff = Math.max(h, 1e-6);
+      for (let i = 0; i < n; i++) {
+        const u = randn(rng);
+        const eta1 = randn(rng) * sdEta1;
+        const eta2 = randn(rng) * 1.0;
+        randn(rng); // keep stream aligned with main DGP (eta3)
+        let x1 = 2 + 0.5 * u + eta1;
+        if (x1 <= 0.05) x1 = 0.05;
+        const x2 = 10 + 0.3 * u + eta2;
+        const epsSd = Math.sqrt(hEff * Math.abs(x1));
+        const eps = randn(rng) * epsSd;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
+      }
+      return { U, X1, X2, Y };
+    }
+
+    // ==============================================================
+    // State
+    // ==============================================================
+    const state = {
+      h: 2.0,                 // default strong funnel for section 2's "wow"
+      n: 200,
+      drawSeed: 101,          // seed for the 100-sample MC
+      funnelSeed: 7,
+      liveSeed: 41,
+      smallnSeed: 77
+    };
+
+    // ==============================================================
+    // SECTION 1 — funnel scatter with vertical residual sticks
+    // ==============================================================
+    function renderFunnelScatter() {
+      // Use current state.h & a decent n for the picture.
+      const n = 180;
+      const d = generateDataH(n, state.funnelSeed, state.h);
+
+      // Simple Y ~ X1 fit (direct, no log, so students see the raw funnel shape).
+      const rows = Array.from(d.X1, x => [x]);
+      const fit = ols(Array.from(d.Y), rows);
+      const a = fit.coefficients[0];
+      const b = fit.coefficients[1];
+
+      const host = document.getElementById('funnel-plot');
+      host.innerHTML = '';
+      const width = 860, height = 340;
+      const margin = { top: 14, right: 18, bottom: 42, left: 56 };
+      const iw = width - margin.left - margin.right;
+      const ih = height - margin.top - margin.bottom;
+
+      const svg = d3.select(host).append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('background', '#fff')
+        .style('border-radius', '4px');
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const xExt = d3.extent(d.X1);
+      const yExt = d3.extent(d.Y);
+      const xPad = (xExt[1] - xExt[0]) * 0.05;
+      const yPad = (yExt[1] - yExt[0]) * 0.06;
+      const xs = d3.scaleLinear().domain([Math.max(0, xExt[0] - xPad), xExt[1] + xPad]).range([0, iw]);
+      const ys = d3.scaleLinear().domain([yExt[0] - yPad, yExt[1] + yPad]).range([ih, 0]);
+
+      g.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xs).ticks(7))
+        .selectAll('text').style('font-size', '11px').style('fill', 'var(--c-ink-muted)');
+      g.append('g').call(d3.axisLeft(ys).ticks(7))
+        .selectAll('text').style('font-size', '11px').style('fill', 'var(--c-ink-muted)');
+      g.append('text').attr('x', iw / 2).attr('y', ih + 34).attr('text-anchor', 'middle')
+        .style('font-size', '12px').style('fill', 'var(--c-ink)').text('X₁ (hours studied)');
+      g.append('text').attr('transform', 'rotate(-90)').attr('x', -ih / 2).attr('y', -42)
+        .attr('text-anchor', 'middle').style('font-size', '12px').style('fill', 'var(--c-ink)')
+        .text('Y (exam score)');
+
+      // fitted line
+      const xA = xs.domain()[0], xB = xs.domain()[1];
+      g.append('line')
+        .attr('x1', xs(xA)).attr('x2', xs(xB))
+        .attr('y1', ys(a + b * xA)).attr('y2', ys(a + b * xB))
+        .attr('stroke', 'var(--c-truthgold)').attr('stroke-width', 2);
+
+      // residual sticks (vertical, from point down/up to the line)
+      g.append('g').selectAll('line').data(d.X1).enter()
+        .append('line')
+        .attr('x1', (_, i) => xs(d.X1[i]))
+        .attr('x2', (_, i) => xs(d.X1[i]))
+        .attr('y1', (_, i) => ys(d.Y[i]))
+        .attr('y2', (_, i) => ys(a + b * d.X1[i]))
+        .attr('stroke', 'var(--c-warn)').attr('stroke-width', 1).attr('opacity', 0.55);
+
+      // points
+      g.append('g').selectAll('circle').data(d.X1).enter()
+        .append('circle')
+        .attr('cx', (_, i) => xs(d.X1[i]))
+        .attr('cy', (_, i) => ys(d.Y[i]))
+        .attr('r', 2.6)
+        .attr('fill', 'var(--c-gauss)').attr('opacity', 0.8);
+    }
+
+    // ==============================================================
+    // SECTION 1 (alt) — live funnel used by the h slider.  Same idea
+    // but with smaller viewport so it fits under the slider panel.
+    // ==============================================================
+    function renderFunnelLive() {
+      const n = 180;
+      const d = generateDataH(n, state.funnelSeed + 1, state.h);
+      const rows = Array.from(d.X1, x => [x]);
+      const fit = ols(Array.from(d.Y), rows);
+      const a = fit.coefficients[0];
+      const b = fit.coefficients[1];
+
+      const host = document.getElementById('funnel-live');
+      host.innerHTML = '';
+      const width = 860, height = 280;
+      const margin = { top: 12, right: 18, bottom: 38, left: 56 };
+      const iw = width - margin.left - margin.right;
+      const ih = height - margin.top - margin.bottom;
+
+      const svg = d3.select(host).append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('background', '#fff')
+        .style('border-radius', '4px');
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const xExt = d3.extent(d.X1);
+      const yExt = d3.extent(d.Y);
+      const xPad = (xExt[1] - xExt[0]) * 0.05;
+      const yPad = (yExt[1] - yExt[0]) * 0.06;
+      const xs = d3.scaleLinear().domain([Math.max(0, xExt[0] - xPad), xExt[1] + xPad]).range([0, iw]);
+      const ys = d3.scaleLinear().domain([yExt[0] - yPad, yExt[1] + yPad]).range([ih, 0]);
+
+      g.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xs).ticks(7))
+        .selectAll('text').style('font-size', '11px').style('fill', 'var(--c-ink-muted)');
+      g.append('g').call(d3.axisLeft(ys).ticks(6))
+        .selectAll('text').style('font-size', '11px').style('fill', 'var(--c-ink-muted)');
+      g.append('text').attr('x', iw / 2).attr('y', ih + 30).attr('text-anchor', 'middle')
+        .style('font-size', '12px').style('fill', 'var(--c-ink)').text('X₁');
+      g.append('text').attr('transform', 'rotate(-90)').attr('x', -ih / 2).attr('y', -42)
+        .attr('text-anchor', 'middle').style('font-size', '12px').style('fill', 'var(--c-ink)').text('Y');
+
+      const xA = xs.domain()[0], xB = xs.domain()[1];
+      g.append('line')
+        .attr('x1', xs(xA)).attr('x2', xs(xB))
+        .attr('y1', ys(a + b * xA)).attr('y2', ys(a + b * xB))
+        .attr('stroke', 'var(--c-truthgold)').attr('stroke-width', 2);
+
+      g.append('g').selectAll('line').data(d.X1).enter()
+        .append('line')
+        .attr('x1', (_, i) => xs(d.X1[i]))
+        .attr('x2', (_, i) => xs(d.X1[i]))
+        .attr('y1', (_, i) => ys(d.Y[i]))
+        .attr('y2', (_, i) => ys(a + b * d.X1[i]))
+        .attr('stroke', 'var(--c-warn)').attr('stroke-width', 1).attr('opacity', 0.45);
+
+      g.append('g').selectAll('circle').data(d.X1).enter()
+        .append('circle')
+        .attr('cx', (_, i) => xs(d.X1[i]))
+        .attr('cy', (_, i) => ys(d.Y[i]))
+        .attr('r', 2.4)
+        .attr('fill', 'var(--c-gauss)').attr('opacity', 0.8);
+    }
+
+    // ==============================================================
+    // Coverage engine — shared across sections 2, 3, 6
+    // Fits Y ~ log(X1) + X2; β_log at index 1 = TRUE_BETAS.beta1 = 8.
+    // Returns { intervalsC, intervalsR, covC, covR }.
+    // ==============================================================
+    function runCoverage(n, h, seedBase, R = 100) {
+      const z = 1.96;
+      const truth = TRUE_BETAS.beta1;
+      const intervalsC = [], intervalsR = [];
+      let covC = 0, covR = 0;
+      for (let r = 0; r < R; r++) {
+        const d = generateDataH(n, (seedBase + r) | 0, h);
+        const rows = Array.from(d.Y, (_, i) => [Math.log(d.X1[i]), d.X2[i]]);
+        let fit, seR;
+        try {
+          fit = ols(Array.from(d.Y), rows);
+          seR = robustSE(Array.from(d.Y), rows, fit.coefficients, fit.residuals);
+        } catch (e) { continue; }
+        const bhat = fit.coefficients[1];
+        const seC  = fit.se[1];
+        const seRo = seR[1];
+        const loC = bhat - z * seC,  hiC = bhat + z * seC;
+        const loR = bhat - z * seRo, hiR = bhat + z * seRo;
+        const okC = loC <= truth && truth <= hiC;
+        const okR = loR <= truth && truth <= hiR;
+        if (okC) covC++;
+        if (okR) covR++;
+        intervalsC.push({ lo: loC, hi: hiC, ok: okC });
+        intervalsR.push({ lo: loR, hi: hiR, ok: okR });
+      }
+      return { intervalsC, intervalsR, covC, covR };
+    }
+
+    function drawCIBars(hostId, intervals, truth, height = 320) {
+      const host = document.getElementById(hostId);
+      host.innerHTML = '';
+      if (intervals.length === 0) return;
+      const width = 420;
+      const margin = { top: 8, right: 12, bottom: 28, left: 12 };
+      const iw = width - margin.left - margin.right;
+      const ih = height - margin.top - margin.bottom;
+
+      const allLo = d3.min(intervals, d => d.lo);
+      const allHi = d3.max(intervals, d => d.hi);
+      const half = Math.max(Math.abs(truth - allLo), Math.abs(allHi - truth));
+      const pad = Math.max(0.5, half * 1.05);
+      const xDomain = [truth - pad, truth + pad];
+
+      const svg = d3.select(host).append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('background', '#fff')
+        .style('border-radius', '3px');
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const xs = d3.scaleLinear().domain(xDomain).range([0, iw]);
+      const ys = d3.scaleLinear().domain([0, intervals.length]).range([0, ih]);
+
+      g.append('g').attr('transform', `translate(0,${ih})`).call(d3.axisBottom(xs).ticks(5))
+        .selectAll('text').style('font-size', '10px').style('fill', 'var(--c-ink-muted)');
+
+      g.append('line')
+        .attr('x1', xs(truth)).attr('x2', xs(truth))
+        .attr('y1', 0).attr('y2', ih)
+        .attr('stroke', 'var(--c-truthgold)').attr('stroke-width', 2);
+
+      const barH = Math.max(1.2, (ih / intervals.length) - 0.4);
+      g.append('g').selectAll('line').data(intervals).enter()
+        .append('line')
+        .attr('x1', d => xs(d.lo))
+        .attr('x2', d => xs(d.hi))
+        .attr('y1', (_, i) => ys(i) + barH / 2)
+        .attr('y2', (_, i) => ys(i) + barH / 2)
+        .attr('stroke', d => d.ok ? 'var(--c-robust)' : 'var(--c-miss)')
+        .attr('stroke-width', barH)
+        .attr('opacity', 0.8);
+
+      g.append('text').attr('x', iw / 2).attr('y', ih + 22).attr('text-anchor', 'middle')
+        .style('font-size', '11px').style('fill', 'var(--c-ink-muted)')
+        .text('CI for β₁ (truth = 8)');
+    }
+
+    // ==============================================================
+    // SECTION 2 — Draw 100 samples button
+    // ==============================================================
+    const drawBtn = document.getElementById('draw-btn');
+    const covClassicalEl = document.getElementById('cov-classical');
+    const covRobustEl    = document.getElementById('cov-robust');
+
+    function runAndRenderSection2() {
+      // Section 2 uses default h=2, n=200 to give the "wow" contrast.
+      const { intervalsC, intervalsR, covC, covR } = runCoverage(200, 2.0, state.drawSeed, 100);
+      covClassicalEl.textContent = covC;
+      covRobustEl.textContent    = covR;
+      drawCIBars('ci-classical', intervalsC, TRUE_BETAS.beta1);
+      drawCIBars('ci-robust',    intervalsR, TRUE_BETAS.beta1);
+    }
+    drawBtn.addEventListener('click', () => {
+      state.drawSeed = (state.drawSeed + 100) | 0;
+      runAndRenderSection2();
+    });
+
+    // ==============================================================
+    // SECTION 3 — h slider (live coverage + live funnel)
+    // ==============================================================
+    const hSlider = document.getElementById('h-slider');
+    const hVal    = document.getElementById('h-val');
+    const liveC   = document.getElementById('live-classical');
+    const liveR   = document.getElementById('live-robust');
+
+    function updateSection3() {
+      hVal.textContent = state.h.toFixed(1);
+      renderFunnelLive();
+      const { covC, covR } = runCoverage(200, state.h, state.liveSeed, 100);
+      liveC.textContent = covC;
+      liveR.textContent = covR;
+      // Also refresh section 1 picture so the funnel shape stays consistent.
+      renderFunnelScatter();
+      // Section 4 BP is computed on the current live sample:
+      updateSection4();
+    }
+    hSlider.addEventListener('input', () => {
+      state.h = +hSlider.value;
+      updateSection3();
+      updateSection6();  // h affects section 6 too
+    });
+
+    // ==============================================================
+    // SECTION 4 — Breusch-Pagan on the current sample
+    // We fit Y ~ log(X1) + X2, take residuals, then regress
+    // residuals^2 on the SAME regressors (log(X1), X2).  p = 2.
+    // Chi-sq p-value via series for df=2: P(X > t) = exp(-t/2).
+    // ==============================================================
+    const bpR2El  = document.getElementById('bp-r2');
+    const bpStat  = document.getElementById('bp-stat');
+    const bpP     = document.getElementById('bp-p');
+    const bpVerd  = document.getElementById('bp-verdict');
+    const bpStatCounter = document.querySelector('.counter.bp .sub'); // for df label
+
+    function chi2SurvDF2(x) {
+      // survival function of chi-square with 2 df: exp(-x/2)
+      if (x <= 0) return 1;
+      return Math.exp(-x / 2);
+    }
+
+    function updateSection4() {
+      // Compute BP on a fresh sample at current h, n=200.
+      const d = generateDataH(200, state.funnelSeed + 1, state.h);
+      const rows = Array.from(d.Y, (_, i) => [Math.log(d.X1[i]), d.X2[i]]);
+      const fit = ols(Array.from(d.Y), rows);
+      const e2  = fit.residuals.map(r => r * r);
+      // Aux regression: e2 ~ log(X1) + X2  (same design matrix rows)
+      const aux = ols(e2, rows);
+      const n = d.Y.length;
+      const stat = n * aux.r2;
+      const df = 2;
+      const p = chi2SurvDF2(stat);  // df=2
+
+      bpR2El.textContent = aux.r2.toFixed(3);
+      bpStat.textContent = stat.toFixed(2);
+      bpP.textContent    = p < 0.001 ? '<0.001' : p.toFixed(3);
+      bpVerd.textContent = p < 0.05 ? 'reject H₀ — heteroscedastic' : 'fail to reject — looks homoscedastic';
+      bpVerd.style.color = p < 0.05 ? 'var(--c-miss)' : 'var(--c-ink-muted)';
+      // Update df label to reflect p=2
+      const subs = document.querySelectorAll('.counter.bp .sub');
+      if (subs[0]) subs[0].textContent = `df = ${df}`;
+    }
+
+    // ==============================================================
+    // SECTION 6 — n slider
+    // ==============================================================
+    const nSlider = document.getElementById('n-slider');
+    const nVal    = document.getElementById('n-val');
+    const snC = document.getElementById('smalln-classical');
+    const snR = document.getElementById('smalln-robust');
+    const snWarn = document.getElementById('smalln-warning');
+
+    function updateSection6() {
+      nVal.textContent = state.n;
+      const { covC, covR } = runCoverage(state.n, state.h, state.smallnSeed, 100);
+      snC.textContent = covC;
+      snR.textContent = covR;
+      if (covR < covC && state.n <= 60) {
+        snWarn.classList.add('visible');
+      } else {
+        snWarn.classList.remove('visible');
+      }
+    }
+    nSlider.addEventListener('input', () => {
+      state.n = +nSlider.value;
+      updateSection6();
+    });
+
+    // ==============================================================
+    // Kickoff
+    // ==============================================================
+    renderFunnelScatter();
+    renderFunnelLive();
+    runAndRenderSection2();
+    updateSection3.hValInit = (document.getElementById('h-val').textContent = state.h.toFixed(1));
+    {
+      const { covC, covR } = runCoverage(200, state.h, state.liveSeed, 100);
+      liveC.textContent = covC;
+      liveR.textContent = covR;
+    }
+    updateSection4();
+    updateSection6();
+  </script>
+</body>
+</html>
