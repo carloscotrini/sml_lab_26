@@ -303,10 +303,123 @@
     </section>
 
     <!-- =======================================================
-         1. FAME FILTER DEMO
+         0. WHY X3 IS A COLLIDER HERE
          ======================================================= -->
     <section class="col-section">
-      <h2><span class="sectag">Demo 1</span>The fame filter — Ellenberg's Great Square of Men</h2>
+      <h2><span class="sectag">Setup</span>Why \(X_3\) is a collider here</h2>
+      <p>
+        Before we touch any regression, let's pin down <em>why</em> \(X_3\) — the student's
+        self-assessed performance — counts as a collider in our running exam DGP. The reasoning
+        lives entirely in the structural equations; no data are needed.
+      </p>
+      <p>
+        The DGP writes \(X_3\) as
+        \[ X_3 \;=\; 0.9\,Y \;+\; \eta_3. \]
+        So \(Y\) causes \(X_3\), not the other way around. The student takes the exam, earns a score
+        \(Y\), and <em>then</em> reports how well they think it went. Their self-assessment is
+        downstream of the actual outcome.
+      </p>
+      <p>
+        Now look at \(Y\) itself. In the DGP, the score is produced by hours studied, class size,
+        unobserved self-discipline, and noise:
+        \[ Y \;=\; 50 + 8\log X_1 + 3X_2 + 6U + \varepsilon. \]
+        That means \(Y\) has <em>multiple arrows pointing in</em> — from \(X_1\), \(X_2\), and
+        \(U\) — and a single arrow pointing out, to \(X_3\).
+      </p>
+      <p>
+        A node is a <strong>collider on a path</strong> when the two arrows of the path both point
+        <em>into</em> it. Consider the path \(X_1 \to Y \leftarrow U\): one arrow from \(X_1\) into
+        \(Y\), one from \(U\) into \(Y\). Both heads land on \(Y\). So \(Y\) is a collider on this
+        particular path, and the path is <em>blocked by default</em> — collider paths do not carry
+        information until you condition on the collider (or on one of its descendants).
+      </p>
+      <p>
+        Here comes the twist. \(X_3\) is not the collider; \(Y\) is. But \(X_3\) is a
+        <em>descendant</em> of the collider \(Y\) (\(Y \to X_3\)). A classical result from d-separation
+        says: <strong>conditioning on a descendant of a collider has the same unblocking effect as
+        conditioning on the collider itself</strong>. Including \(X_3\) as a regressor is, for
+        path-blocking purposes, equivalent to (partially) peeking at \(Y\).
+      </p>
+      <p>
+        That is the precise reason controlling for \(X_3\) opens the otherwise-blocked path
+        \(X_1 \to Y \leftarrow U\) and lets spurious dependence between \(X_1\) and \(U\) leak into
+        the regression. The demo below makes it numerical.
+      </p>
+    </section>
+
+    <!-- =======================================================
+         1. X3 TOGGLE EXPERIMENT + DAG
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Demo 1</span>The exam DGP: what happens if you control for \(X_3\)?</h2>
+      <p>
+        Back to our running exam scenario. The true model is
+        \(Y = 50 + 8\log X_1 + 3X_2 + 6U + \varepsilon\), and the analyst wants the causal effect
+        of hours studied (\(X_1\)) on the exam score. There is a fourth, tempting variable:
+        \(X_3\), the student's <em>self-assessed performance</em>, measured after the exam.
+        Because \(X_3 = 0.9\,Y + \eta_3\), it is a downstream consequence of \(Y\) — a descendant
+        of the collider \(Y\) on the back-door path from \(X_1\) through \(U\). Toggle it on and off.
+      </p>
+
+      <div class="x3-layout">
+        <div class="x3-controls">
+          <label class="checkbox-label" id="x3-label">
+            <input type="checkbox" id="x3-toggle" />
+            Include \(X_3\) as a control
+          </label>
+          <div class="x3-metrics">
+            <span class="label">Fit:</span><span class="value" id="x3-formula" style="grid-column: span 3;">\(Y \sim \log X_1 + X_2\)</span>
+            <span class="label">\(\hat\beta_1\) on \(\log X_1\)</span><span class="value" id="x3-beta">—</span>
+            <span class="label">SE</span><span class="value" id="x3-se">—</span>
+            <span class="label">Distance from truth (β₁ = 8)</span><span class="value" id="x3-gap" style="grid-column: span 3;">—</span>
+          </div>
+          <div class="col-narr" id="x3-narr">
+            Without \(X_3\), the coefficient sits near the truth of 8. Hours studied push scores up.
+          </div>
+        </div>
+
+        <div class="dag-wrap">
+          <svg id="dag-svg" viewBox="0 0 420 260"></svg>
+          <div class="dag-caption" id="dag-caption">
+            Hover or check the box above — when \(X_3\) is conditioned on, a spurious path between \(X_1\) and \(U\) opens.
+          </div>
+          <div class="dag-caption" id="dag-explain" style="min-height: 0; margin-top: 10px;">
+            <p style="margin: 6px 0;">
+              <strong>Reading the picture.</strong> The solid black arrows are the real causal
+              arrows from the DGP: \(U \to X_1\), \(U \to Y\), \(X_1 \to Y\), \(X_2 \to Y\), and
+              \(Y \to X_3\). There is <em>no</em> direct causal arrow between \(X_1\) and \(U\)
+              beyond \(U \to X_1\), which is already drawn.
+            </p>
+            <p style="margin: 6px 0;">
+              <strong>Box off.</strong> When we leave \(X_3\) alone, the path
+              \(X_1 \to Y \leftarrow U\) is <em>blocked</em> because \(Y\) is a collider on it, and
+              collider paths are blocked by default. No spurious information flows between \(X_1\)
+              and \(U\) through \(Y\).
+            </p>
+            <p style="margin: 6px 0;">
+              <strong>Box on.</strong> Ticking the box conditions on \(X_3\), a descendant of \(Y\).
+              That unblocks the collider path: \(X_1 \to Y \leftarrow U\) is now <em>open</em>, and
+              information flows along it, manufacturing a spurious statistical dependence between
+              \(X_1\) and \(U\).
+            </p>
+            <p style="margin: 6px 0;">
+              <strong>The red dashed arc is not a causal arrow.</strong> It depicts the
+              <em>spurious dependence</em> the regression now sees between \(X_1\) and \(U\). With
+              \(X_1\) and \(U\) no longer independent in the conditioned sample, the regression can
+              no longer cleanly assign the variation in \(X_1\) to its causal coefficient on \(Y\).
+              That contamination is exactly what shows up as the shrunken \(\hat\beta_1\) in the
+              metrics panel.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         2. FAME FILTER DEMO
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Demo 2</span>The fame filter — Ellenberg's Great Square of Men</h2>
       <p>
         Here are 1000 synthetic people. Their attractiveness and niceness are drawn
         <em>independently</em>: in the general population, correlation \(\rho \approx 0\). Now hit
@@ -331,46 +444,6 @@
           </div>
           <div class="col-narr" id="fame-narr">
             No filter yet. In the general population, attractiveness and niceness vary independently.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- =======================================================
-         2. X3 TOGGLE EXPERIMENT + DAG
-         ======================================================= -->
-    <section class="col-section">
-      <h2><span class="sectag">Demo 2</span>The exam DGP: what happens if you control for \(X_3\)?</h2>
-      <p>
-        Back to our running exam scenario. The true model is
-        \(Y = 50 + 8\log X_1 + 3X_2 + 6U + \varepsilon\), and the analyst wants the causal effect
-        of hours studied (\(X_1\)) on the exam score. There is a fourth, tempting variable:
-        \(X_3\), the student's <em>self-assessed performance</em>, measured after the exam.
-        Because \(X_3 = 0.9\,Y + \eta_3\), it is a downstream consequence of \(Y\) — a collider
-        on the back-door path from \(X_1\) through \(U\). Toggle it on and off.
-      </p>
-
-      <div class="x3-layout">
-        <div class="x3-controls">
-          <label class="checkbox-label" id="x3-label">
-            <input type="checkbox" id="x3-toggle" />
-            Include \(X_3\) as a control
-          </label>
-          <div class="x3-metrics">
-            <span class="label">Fit:</span><span class="value" id="x3-formula" style="grid-column: span 3;">\(Y \sim \log X_1 + X_2\)</span>
-            <span class="label">\(\hat\beta_1\) on \(\log X_1\)</span><span class="value" id="x3-beta">—</span>
-            <span class="label">SE</span><span class="value" id="x3-se">—</span>
-            <span class="label">Distance from truth (β₁ = 8)</span><span class="value" id="x3-gap" style="grid-column: span 3;">—</span>
-          </div>
-          <div class="col-narr" id="x3-narr">
-            Without \(X_3\), the coefficient sits near the truth of 8. Hours studied push scores up.
-          </div>
-        </div>
-
-        <div class="dag-wrap">
-          <svg id="dag-svg" viewBox="0 0 420 260"></svg>
-          <div class="dag-caption" id="dag-caption">
-            Hover or check the box above — when \(X_3\) is conditioned on, a spurious path between \(X_1\) and \(U\) opens.
           </div>
         </div>
       </div>
@@ -430,22 +503,6 @@
           </span>
           <a class="read" href="https://www.nature.com/articles/s41467-020-19478-2" target="_blank" rel="noopener">Read paper →</a>
         </div>
-      </div>
-    </section>
-
-    <!-- =======================================================
-         4. QUIZ
-         ======================================================= -->
-    <section class="col-section">
-      <h2><span class="sectag">Your turn</span>Which candidate control is a collider?</h2>
-      <p>
-        Our outcome is an exam score. Three covariates are on the table. For each one, predict
-        first: <em>will controlling for this help or hurt the estimate of \(\hat\beta_1\)?</em>
-        Then click the button to see the actual fit before and after.
-      </p>
-
-      <div class="quiz-list" id="quiz-list">
-        <!-- Populated by JS so coefficients are live -->
       </div>
     </section>
 
@@ -857,109 +914,6 @@
     })();
 
     updateX3View();
-
-    // ====================================================================
-    // 4. Quiz: which variable is a collider?
-    // ====================================================================
-    // Candidates:
-    //   (a) Prior GPA: prior trait, correlated with U (self-discipline), not caused by Y.
-    //       Including it should leave β₁ ~ near truth (valid control).
-    //   (b) Confidence (X3): the collider. Including it collapses β₁ toward zero.
-    //   (c) Parent's education: unrelated to Y mechanism in our DGP (weak nuisance),
-    //       valid control — β₁ stays near truth.
-    //
-    // We synthesise prior GPA and parent ed from the exam data + fresh noise so coefs
-    // are live but deterministic across reloads.
-
-    function simulateQuizCovariates(seed = 101) {
-      const rng = seededRandom(seed);
-      const n = examData.Y.length;
-      const priorGPA = new Float64Array(n);
-      const parentEd = new Float64Array(n);
-      for (let i = 0; i < n; i++) {
-        // Prior GPA tracks U (self-discipline) but does not cause Y in the DGP
-        priorGPA[i] = 0.6 * examData.U[i] + randn(rng) * 0.8 + 3.0;
-        // Parent ed — uncorrelated nuisance
-        parentEd[i] = 12 + randn(rng) * 2;
-      }
-      return { priorGPA, parentEd };
-    }
-    const quizCov = simulateQuizCovariates();
-
-    function fitQuiz(extraArr /* Float64Array|null */) {
-      const logX1 = Array.from(examData.X1, x => Math.log(x));
-      const rows = [];
-      for (let i = 0; i < examData.Y.length; i++) {
-        const row = [logX1[i], examData.X2[i]];
-        if (extraArr) row.push(extraArr[i]);
-        rows.push(row);
-      }
-      const fit = ols(Array.from(examData.Y), rows);
-      return fit.coefficients[1];
-    }
-
-    const baselineB1 = fitQuiz(null);
-
-    const quizSpec = [
-      {
-        key: 'gpa',
-        label: 'Prior GPA',
-        desc: 'A student\'s grade-point average from the previous semester, measured before this exam.',
-        extra: quizCov.priorGPA,
-        verdict: 'ok'
-      },
-      {
-        key: 'conf',
-        label: 'Self-assessed confidence (X₃)',
-        desc: 'How confident the student felt about their exam answers — collected after the exam, from the exam itself.',
-        extra: examData.X3,
-        verdict: 'bad'
-      },
-      {
-        key: 'par',
-        label: "Parent's education (years)",
-        desc: 'Number of years of formal education completed by a parent. Pre-dates this exam.',
-        extra: quizCov.parentEd,
-        verdict: 'ok'
-      }
-    ];
-
-    const quizList = document.getElementById('quiz-list');
-    quizSpec.forEach(q => {
-      const b1After = fitQuiz(q.extra);
-      const badge = q.verdict === 'bad'
-        ? '<span class="badge bad-ctrl">Collider — bad control</span>'
-        : '<span class="badge ok-ctrl">Valid control</span>';
-      const explain = q.verdict === 'bad'
-        ? `\\(X_3\\) is measured <em>after</em> the exam and is driven by \\(Y\\). Conditioning on ` +
-          `it opens a back-door path between \\(X_1\\) and \\(U\\), collapsing \\(\\hat\\beta_1\\) ` +
-          `toward zero.`
-        : `This variable is measured <em>before</em> the exam (or unrelated to \\(Y\\)'s mechanism). ` +
-          `Including it does not open any new path — \\(\\hat\\beta_1\\) stays near the truth.`;
-      const card = document.createElement('div');
-      card.className = 'quiz-card';
-      card.innerHTML = `
-        <h4>${q.label}</h4>
-        <div class="quiz-desc">${q.desc}</div>
-        <div class="quiz-row">
-          <div class="coefs">
-            <span class="lbl">β̂₁ before:</span> ${fmt(baselineB1, 3)}
-            &nbsp;·&nbsp;
-            <span class="lbl">β̂₁ after:</span> ${fmt(b1After, 3)}
-          </div>
-          <div></div>
-          <button class="pg-btn ${q.verdict === 'bad' ? '' : 'secondary'}" data-key="${q.key}">
-            Control for this
-          </button>
-        </div>
-        <div class="quiz-explain">${badge}<div style="margin-top:8px">${explain}</div></div>
-      `;
-      card.querySelector('button').addEventListener('click', () => {
-        card.classList.add('revealed');
-        renderMath(card);
-      });
-      quizList.appendChild(card);
-    });
 
     renderMath();
   </script>
