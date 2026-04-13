@@ -249,17 +249,24 @@
     <section style="margin-top: 28px;">
       <h2 style="font-family: var(--sans); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--neutral); margin-bottom: 10px;">1. The seat-number regression</h2>
       <p>
-        Below we generate data from the usual exam DGP
-        \(\;Y = 50 + 8\log X_1 + 3 X_2 + 6U + \varepsilon\;\) and also record each student's seat number
-        \(S \sim \mathrm{Uniform}(1,200)\), which has true coefficient \(\beta_S = 0\). Then we regress
-        \(Y\) on \(X_1\), \(X_2\), and \(S\):
+        To make the point concrete, we add a seat number to the usual exam DGP. Imagine the exam hall has
+        slightly better lighting or ventilation in the back rows — a tiny, nearly imperceptible effect of
+        \(\beta_S = 0.003\) points per seat. Over the whole room that is a <strong>0.6-point swing on a
+        100-point exam</strong>: economically, it might as well be zero. The DGP now reads
+      </p>
+      <p>
+        \[ Y \;=\; 50 \;+\; 8\log X_1 \;+\; 3 X_2 \;+\; 6U \;+\; 0.003\, S \;+\; \varepsilon, \qquad S \sim \mathrm{Uniform}(1,200). \]
+      </p>
+      <p>
+        We fit the model that an analyst would actually run, with <em>S</em> as a regressor:
       </p>
       <div class="pg-panel" id="seat-regpanel">
         <div id="seat-regtable-host"></div>
       </div>
       <p class="pg-hint">
-        Notice the seat-number row: coefficient near zero, but the p-value depends entirely on n.
-        The column <em>“Economic significance”</em> answers the question a p-value never can.
+        Notice the seat-number row: coefficient very close to the true 0.003, but whether its p-value is
+        0.5 or <0.001 depends entirely on n. The column <em>“Economic significance”</em> answers the
+        question a p-value never can.
       </p>
     </section>
 
@@ -288,59 +295,11 @@
       </div>
     </section>
 
-    <!-- Panel 3: reveal -->
-    <section class="reveal-panel">
-      <h2 style="font-family: var(--sans); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--neutral); margin: 0 0 10px;">3. Is this a seat number?</h2>
-      <button class="pg-btn" id="reveal-btn">Reveal the seat-number verdict</button>
-      <div class="stage" id="reveal-stage"></div>
-    </section>
-
-    <!-- Panel 4: power analysis -->
-    <section class="power-panel">
-      <h2 style="font-family: var(--sans); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--neutral); margin-top: 0;">4. Power: which effects can we detect?</h2>
-      <p style="margin-top: 4px;">
-        The flip side of “everything becomes significant eventually” is: <em>how much n do I need to
-        reliably detect a truly non-zero effect of size \(\beta\)?</em> Under a normal approximation,
-      </p>
-      <p>\[ \mathrm{Power} \;\approx\; \Phi\!\Big( |\beta|\,\big/\,(\sigma/\sqrt{n}) \;-\; z_{\alpha/2} \Big). \]</p>
-
-      <div class="thermo-slider-row">
-        <label for="power-beta">True effect β</label>
-        <input type="range" id="power-beta" min="0" max="100" value="15" step="1" />
-        <span class="value-tag" id="power-beta-tag">β = 1.50</span>
-      </div>
-      <div class="thermo-slider-row">
-        <label for="power-n">Sample size n</label>
-        <input type="range" id="power-n" min="0" max="1000" value="300" step="1" />
-        <span class="value-tag" id="power-n-tag">n = 1000</span>
-      </div>
-
-      <div class="gauge-wrap">
-        <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill"></div></div>
-        <div class="gauge-label" id="gauge-label">—</div>
-      </div>
-      <p class="pg-hint" id="power-hint">
-        Below the “detectability frontier” (power ≈ 80%), genuine effects will routinely fail to clear
-        the significance threshold despite being real.
-      </p>
-    </section>
-
-    <!-- Panel 5: multiple testing -->
-    <section class="multi-panel">
-      <h3>Sidebar: multiple testing</h3>
-      <p style="margin: 0;">
-        Run 200 independent tests at \(\alpha = 0.05\) and, under the null, you expect
-        \(200 \times 0.05 = 10\) false positives. Significance is cheap when it's sold in bulk.
-      </p>
-      <button class="pg-btn secondary" id="multi-btn" style="margin-top: 10px;">Test 200 random noise variables</button>
-      <div id="multi-hist" style="margin-top: 10px;"></div>
-      <div class="multi-result" id="multi-result"></div>
-    </section>
-
     <!-- Prev / Next -->
     <div class="pg-prevnext">
-      <a href="heteroscedasticity.html">← Prev: Heteroscedasticity</a>
-      <a href="specification.html">Next: Specification →</a>
+      <a href="collider.html">← Prev: The Fame Filter</a>
+      <a href="../hub.html">back to the hub</a>
+      <a href="../issues/heteroscedasticity.html">Next: The Funnel →</a>
     </div>
   </main>
 
@@ -365,12 +324,14 @@
     });
 
     // ----- DGP with seat number S ~ Uniform(1, 200) -----
-    // We generate exam data via shared generateData() and add a tiny true
-    // effect of 0.003 points per seat to Y — an effect so minute (0.6 points
-    // across all 200 seats, on a 100-point exam) it is economically meaningless,
-    // yet statistically non-zero. That is the whole point of the page: as n
-    // grows, this vanishingly small β_S becomes "statistically significant"
-    // even though it should never change any decision.
+    // The extended DGP is
+    //   Y = 50 + 8 log(X1) + 3 X2 + 6 U + 0.003 S + ε
+    // We generate exam data via the shared generateData() (which gives us
+    // the part before 0.003 S) and then add 0.003 * S to Y. The coefficient
+    // 0.003 is a genuinely tiny but nonzero effect: across 200 seats that
+    // is a 0.6-point swing on a 100-point exam, economically meaningless.
+    // As n grows, this small β_S crosses any fixed significance threshold
+    // — exactly the "is this a seat number?" phenomenon the page teaches.
     const TRUE_BETA_S = 0.003;
     function generateWithSeat(n, seed) {
       const base = generateData(n, seed);
@@ -534,141 +495,6 @@
     window.addEventListener('resize', updateThermo);
     updateThermo();
 
-    // ----- Section 3: "is this a seat number?" reveal -----
-    document.getElementById('reveal-btn').addEventListener('click', () => {
-      const stage = document.getElementById('reveal-stage');
-      stage.className = 'stage flash';
-      stage.textContent = 'This coefficient is statistically significant at p < 0.001';
-      setTimeout(() => {
-        stage.className = 'stage verdict';
-        stage.innerHTML =
-          '…but the effect size is <strong>0.003 points per seat</strong>. ' +
-          'Over 200 seats, that\'s a <strong>0.6 point difference on a 100-point exam</strong>. ' +
-          '<br><br>This is a seat number.';
-        // trigger fade-in
-        requestAnimationFrame(() => stage.classList.add('show'));
-      }, 2800);
-    });
-
-    // ----- Section 4: power analysis -----
-    // z_{0.025} = 1.96; Φ via a simple rational approx (Abramowitz-Stegun 26.2.17).
-    function Phi(z) {
-      const b1 =  0.319381530, b2 = -0.356563782, b3 =  1.781477937;
-      const b4 = -1.821255978, b5 =  1.330274429, p  =  0.2316419;
-      const t = 1 / (1 + p * Math.abs(z));
-      const pdf = Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
-      const poly = ((((b5 * t + b4) * t + b3) * t + b2) * t + b1) * t;
-      const cdf = 1 - pdf * poly;
-      return z >= 0 ? cdf : 1 - cdf;
-    }
-    const Z_ALPHA = 1.959963984540054;
-    const SIGMA = 6; // residual-SE scale of the exam DGP (rough)
-    function updatePower() {
-      // β in [0, 10], n in [50, 100000] log scale.
-      const bRaw = +document.getElementById('power-beta').value;
-      const beta = bRaw / 10; // 0..10
-      const nVal = +document.getElementById('power-n').value;
-      const n = sliderToN(nVal);
-      document.getElementById('power-beta-tag').textContent = `β = ${beta.toFixed(2)}`;
-      document.getElementById('power-n-tag').textContent = `n = ${n.toLocaleString()}`;
-
-      const ncp = Math.abs(beta) / (SIGMA / Math.sqrt(n));
-      const power = Phi(ncp - Z_ALPHA) + Phi(-ncp - Z_ALPHA);
-      const pct = Math.max(0, Math.min(1, power));
-      document.getElementById('gauge-fill').style.width = (pct * 100).toFixed(1) + '%';
-      document.getElementById('gauge-label').textContent = (pct * 100).toFixed(1) + '%';
-
-      const hint = document.getElementById('power-hint');
-      if (beta === 0) {
-        hint.textContent = 'β = 0: “power” reduces to the false-positive rate (≈ α = 5%).';
-      } else if (pct < 0.5) {
-        hint.textContent = 'Underpowered: a true effect of this size would be missed more often than found.';
-      } else if (pct < 0.8) {
-        hint.textContent = 'Approaching the conventional 80% frontier — reliable detection not yet assured.';
-      } else {
-        hint.textContent = 'Above the 80% detectability frontier — a true effect this size is reliably detected.';
-      }
-    }
-    document.getElementById('power-beta').addEventListener('input', updatePower);
-    document.getElementById('power-n').addEventListener('input', updatePower);
-    updatePower();
-
-    // ----- Section 5: multiple-testing simulation -----
-    // Draw 200 noise variables uncorrelated with Y, regress each on Y alone,
-    // collect p-values, plot histogram.
-    function runMultiTest() {
-      const n = 500;
-      const d = generateData(n, 7);
-      const y = Array.from(d.Y);
-      const rng = seededRandom(0xBEEF);
-      const K = 200;
-      const ps = new Array(K);
-      for (let k = 0; k < K; k++) {
-        const rows = new Array(n);
-        for (let i = 0; i < n; i++) rows[i] = [randnPair(rng)];
-        const fit = ols(y, rows);
-        ps[k] = fit.pValues[1];
-      }
-      return ps;
-    }
-    function randnPair(rng) {
-      let u = 0, v = 0;
-      while (u === 0) u = rng();
-      while (v === 0) v = rng();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    }
-
-    function drawMultiHist(ps) {
-      const host = document.getElementById('multi-hist');
-      host.innerHTML = '';
-      const width = host.clientWidth || 600, height = 160;
-      const margin = { top: 8, right: 12, bottom: 28, left: 36 };
-      const w = width - margin.left - margin.right;
-      const h = height - margin.top - margin.bottom;
-      const svg = d3.select(host).append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .attr('preserveAspectRatio', 'xMidYMid meet')
-        .attr('class', 'pg-scatter')
-        .style('width', '100%').style('height', 'auto');
-      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-      const x = d3.scaleLinear().domain([0, 1]).range([0, w]);
-      const bins = d3.bin().domain([0, 1]).thresholds(20)(ps);
-      const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length) || 1]).range([h, 0]);
-
-      g.append('g').attr('transform', `translate(0,${h})`).attr('class', 'axis')
-        .call(d3.axisBottom(x).ticks(6));
-      g.append('g').attr('class', 'axis').call(d3.axisLeft(y).ticks(4));
-
-      g.selectAll('rect').data(bins).enter().append('rect')
-        .attr('x', b => x(b.x0) + 1)
-        .attr('y', b => y(b.length))
-        .attr('width', b => Math.max(0, x(b.x1) - x(b.x0) - 1))
-        .attr('height', b => h - y(b.length))
-        .attr('fill', b => b.x0 < 0.05 ? PALETTE.biasred : PALETTE.olsblue)
-        .attr('opacity', 0.85);
-
-      // α=0.05 line.
-      g.append('line')
-        .attr('x1', x(0.05)).attr('x2', x(0.05))
-        .attr('y1', 0).attr('y2', h)
-        .attr('stroke', PALETTE.biasred)
-        .attr('stroke-dasharray', '4 3');
-      g.append('text')
-        .attr('x', x(0.05) + 4).attr('y', 10)
-        .attr('fill', PALETTE.biasred)
-        .attr('font-family', 'var(--sans)').attr('font-size', 11)
-        .text('α = 0.05');
-    }
-
-    document.getElementById('multi-btn').addEventListener('click', () => {
-      const ps = runMultiTest();
-      const count = ps.filter(p => p < 0.05).length;
-      drawMultiHist(ps);
-      document.getElementById('multi-result').innerHTML =
-        `Out of 200 pure-noise predictors, <span class="count">${count}</span> ` +
-        `cleared p &lt; 0.05. Expected under the null: <strong>10</strong>. ` +
-        `None of these variables have any true relationship with Y.`;
-    });
   </script>
 </body>
 </html>
