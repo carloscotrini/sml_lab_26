@@ -298,14 +298,14 @@
       <h2>The funnel</h2>
       <p>
         Dr. Gauss fit <code>Y ~ X<sub>1</sub></code> — exam score on hours studied — and declared the job done.
-        Look carefully at the residuals. Students who studied a little scatter tightly around the line.
-        Students who studied a lot scatter wildly. The noise is not uniform — it grows with
-        X<sub>1</sub>.
+        Look carefully at the residuals. Students who studied <em>a lot</em> cluster tightly around the line.
+        Students who barely studied scatter wildly: some got lucky, some blanked out, some partly-knew
+        the material. The noise is not uniform — it <em>shrinks</em> as study hours grow.
       </p>
       <p>
-        This is the shape of <em>drunk darts</em>: sober students throw at the bullseye and cluster tight;
-        students who have studied for ten hours (and are running on caffeine, adrenaline, and
-        wildly different study habits) throw all over the wall. The <em>aim</em> is unbiased. The
+        This is the shape of <em>drunk darts</em>: prepared students throw at the bullseye and cluster
+        tight; students running on three hours of study (and are guessing, half-remembering, or
+        freezing in the exam hall) throw all over the wall. The <em>aim</em> is unbiased. The
         <em>spread</em> is not constant.
       </p>
 
@@ -380,8 +380,9 @@
       </div>
 
       <p class="hint" style="color:var(--c-ink-muted); font-size:13.5px; font-style:italic; margin-top:10px;">
-        With the default heteroscedasticity strength (\(h = 2\)), the classical side typically lands
-        around 75–80 out of 100; the robust side lands around 93–95.
+        With the default heteroscedasticity strength (\(h = 1.5\)), the classical side typically lands
+        around 30–50 out of 100 — far below the nominal 95. The robust side lands around 90, close to target.
+        (Robust SE is slightly anticonservative in finite samples — a known HC1 property that shrinks as \(n\) grows.)
       </p>
     </section>
 
@@ -392,14 +393,17 @@
       <div class="kicker">Section 3</div>
       <h2>How bad is bad?</h2>
       <p>
-        The DGP has a dial. The noise is \(\varepsilon \sim \mathcal{N}\!\left(0,\; h \cdot |X_1|\right)\).
-        When \(h = 0\), the variance is constant and the classical formula is fine. As \(h\)
-        grows, the funnel widens. Watch the two coverage counters respond.
+        The DGP has a dial. The noise variance is \(\operatorname{Var}(\varepsilon \mid X_1) = \sigma^2 \cdot X_1^{-h}\)
+        — students who <em>barely</em> study end up with wildly scattered scores (a bad week, a lucky guess,
+        a missed concept), while conscientious students land consistently high. When \(h = 0\), the variance
+        is constant and the classical formula is fine. As \(h\) grows, the spread concentrates at small
+        \(X_1\) — exactly where \(\log X_1\) has its highest leverage — and that's what makes the classical
+        formula go wrong. Watch the two coverage counters respond.
       </p>
 
       <div class="controls">
         <label for="h-slider">heteroscedasticity <em>h</em></label>
-        <input type="range" id="h-slider" min="0" max="4" step="0.1" value="2" />
+        <input type="range" id="h-slider" min="0" max="2" step="0.1" value="1.5" />
         <span class="val" id="h-val">2.0</span>
       </div>
 
@@ -569,6 +573,12 @@
     // eps ~ N(0, sd = sqrt(h * |X1|)).  The Y ~ X1 fit uses log(X1),
     // so truth on the log(X1) coefficient is TRUE_BETAS.beta1 == 8.
     // ==============================================================
+    // Var(eps | X1) = SIGMA2 * X1^(-h).  At h=0 the noise is homoscedastic
+    // and classical SE works; as h grows, the variance is concentrated at
+    // small X1 (students who barely study), which is exactly where log(X1)
+    // has the highest leverage.  That's the alignment that makes classical
+    // SE understate true SE — the textbook heteroscedasticity-bites story.
+    const SIGMA2_HET = 4.0;
     function generateDataH(n, seed, h) {
       const rng = seededRandom(seed);
       const X1 = new Float64Array(n);
@@ -577,7 +587,7 @@
       const U  = new Float64Array(n);
       const sdEta1 = Math.sqrt(0.5);
       const sdEta2 = Math.sqrt(2.0);
-      const hEff = Math.max(h, 1e-6);
+      const hEff = Math.max(h, 0);
       for (let i = 0; i < n; i++) {
         const u = randn(rng);
         const eta1 = randn(rng) * sdEta1;
@@ -586,8 +596,8 @@
         let x1 = 2 + 0.5 * u + eta1;
         if (x1 <= 0.05) x1 = 0.05;
         const x2 = 10 + 1.5 * u + eta2;
-        const epsSd = Math.sqrt(hEff * Math.abs(x1));
-        const eps = randn(rng) * epsSd;
+        const epsVar = SIGMA2_HET * Math.pow(x1, -hEff);
+        const eps = randn(rng) * Math.sqrt(epsVar);
         const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
       }
@@ -598,8 +608,8 @@
     // State
     // ==============================================================
     const state = {
-      h: 2.0,                 // default strong funnel for section 2's "wow"
-      n: 200,
+      h: 1.5,                 // default heteroscedasticity strength
+      n: 400,
       drawSeed: 101,          // seed for the 100-sample MC
       funnelSeed: 7,
       liveSeed: 41,
@@ -836,7 +846,7 @@
 
     function runAndRenderSection2() {
       // Section 2 uses default h=2, n=200 to give the "wow" contrast.
-      const { intervalsC, intervalsR, covC, covR } = runCoverage(200, 2.0, state.drawSeed, 100);
+      const { intervalsC, intervalsR, covC, covR } = runCoverage(400, 1.5, state.drawSeed, 100);
       covClassicalEl.textContent = covC;
       covRobustEl.textContent    = covR;
       drawCIBars('ci-classical', intervalsC, TRUE_BETAS.beta1);
@@ -858,7 +868,7 @@
     function updateSection3() {
       hVal.textContent = state.h.toFixed(1);
       renderFunnelLive();
-      const { covC, covR } = runCoverage(200, state.h, state.liveSeed, 100);
+      const { covC, covR } = runCoverage(400, state.h, state.liveSeed, 100);
       liveC.textContent = covC;
       liveR.textContent = covR;
       // Also refresh section 1 picture so the funnel shape stays consistent.
@@ -946,7 +956,7 @@
     runAndRenderSection2();
     updateSection3.hValInit = (document.getElementById('h-val').textContent = state.h.toFixed(1));
     {
-      const { covC, covR } = runCoverage(200, state.h, state.liveSeed, 100);
+      const { covC, covR } = runCoverage(400, state.h, state.liveSeed, 100);
       liveC.textContent = covC;
       liveR.textContent = covR;
     }
