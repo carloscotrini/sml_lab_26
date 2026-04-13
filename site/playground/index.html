@@ -95,10 +95,10 @@
     const formulaEl = document.getElementById('dgp-formula');
     formulaEl.innerHTML = `
       <div>\\( U \\sim \\mathcal{N}(0,1) \\)</div>
-      <div>\\( X_1 = 2 + 0.5\\,U + \\eta_1,\\ \\eta_1 \\sim \\mathcal{N}(0, 0.3) \\)</div>
-      <div>\\( X_2 = 10 + 0.3\\,U + \\eta_2,\\ \\eta_2 \\sim \\mathcal{N}(0, 1) \\)</div>
-      <div>\\( \\varepsilon \\sim \\mathcal{N}(0,\\ 0.5\\,|X_1|) \\)</div>
-      <div>\\( Y = 50 + 8\\log(X_1) + 3X_2 + 2U + \\varepsilon \\)</div>
+      <div>\\( X_1 = 2 + 0.5\\,U + \\eta_1,\\ \\eta_1 \\sim \\mathcal{N}(0, 0.5) \\)</div>
+      <div>\\( X_2 = 10 + 1.5\\,U + \\eta_2,\\ \\eta_2 \\sim \\mathcal{N}(0, 2) \\)</div>
+      <div>\\( \\varepsilon \\sim \\mathcal{N}(0,\\ 2\\,|X_1|) \\)</div>
+      <div>\\( Y = 50 + 8\\log(X_1) + 3X_2 + 6U + \\varepsilon \\)</div>
       <div>\\( X_3 = 0.9\\,Y + \\eta_3,\\ \\eta_3 \\sim \\mathcal{N}(0, 2) \\)</div>
     `;
     renderMathInElement(formulaEl, {

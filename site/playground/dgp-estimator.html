@@ -553,7 +553,7 @@
       <section class="stage" data-stage="5">
         <div class="kicker">Stage 5</div>
         <h2>How sure is Dr. Gauss?</h2>
-        <p>Dr. Gauss reads off \( \hat b_2 \approx 3.1 \). Is that <em>really</em> the effect of an extra lecture? What if he'd collected a different 150 students?</p>
+        <p>Dr. Gauss reads off \( \hat b_2 \approx 4.7 \). Is that <em>really</em> the effect of an extra lecture? What if he'd collected a different 150 students?</p>
         <p>Click "Resample" a few times. Each click regenerates 150 students from the same world, refits the plane, and shows the new \( \hat b_2 \). Watch it wobble.</p>
 
         <div class="controls">
@@ -566,8 +566,8 @@
         </div>
 
         <p style="margin-top:14px;">That spread has a name. The <strong>standard error</strong> (SE) is the standard deviation of \( \hat b_2 \) across hypothetical resamples.</p>
-        <p>Dr. Gauss reports it as a one-liner: \( \hat b_2 = 3.10,\; \text{SE} = 0.15,\; \text{95\% CI} = [2.80,\, 3.40] \). The <strong>95% confidence interval</strong> means: if we repeated this experiment many times, about 95% of the intervals we compute would cover the true \( b_2 \).</p>
-        <p>And if someone doubts that X₂ matters at all — that is, claims \( b_2 = 0 \) — the <strong>p-value</strong> answers: "under that claim, how surprising is it to observe \( \hat b_2 = 3.1 \)?" A small p-value means: very surprising. Dr. Gauss replies, "I doubt \( b_2 = 0 \)."</p>
+        <p>Dr. Gauss reports it as a one-liner: \( \hat b_2 = 4.70,\; \text{SE} = 0.18,\; \text{95\% CI} = [4.35,\, 5.05] \). The <strong>95% confidence interval</strong> means: if we repeated this experiment many times, about 95% of the intervals we compute would cover the <em>population value</em> that \( \hat b_2 \) is estimating. (Whether that value equals the true causal effect of an extra lecture is a separate — and, as we'll see on the next page, urgent — question.)</p>
+        <p>And if someone doubts that X₂ matters at all — that is, claims \( b_2 = 0 \) — the <strong>p-value</strong> answers: "under that claim, how surprising is it to observe \( \hat b_2 = 4.7 \)?" A small p-value means: very surprising. Dr. Gauss replies, "I doubt \( b_2 = 0 \)."</p>
 
         <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>Sampling distribution, standard error (SE), confidence interval (CI), p-value.</span></div>
       </section>
@@ -606,11 +606,11 @@
             <path d="M10 33 Q22 27 34 33 L34 40 L10 40 Z" fill="var(--c-gauss)" opacity="0.85"/>
           </svg>
           <div class="gauss-body">
-            Dr. Gauss is pleased. His predictions look good, his standard errors are tight, his R² is near 0.97. <em>But…</em>
+            Dr. Gauss is pleased. His predictions look plausible, his standard errors are tight, his R² is high. He reads off <strong>\( \hat b_2 \approx 4.7 \)</strong> — "an extra lecture is worth nearly five points on the exam" — and thinks he's done. <em>But…</em>
           </div>
         </div>
 
-        <p style="margin-top:14px;font-style:italic;color:var(--c-ink-muted);">Something is off. Every semester, certain students consistently sit above Dr. Gauss's plane. Others consistently sit below. If the residuals were just noise, they'd flip sign at random — but they don't. There's a <strong>ghost</strong> in the residuals.</p>
+        <p style="margin-top:14px;font-style:italic;color:var(--c-ink-muted);">Something is off. Every semester, certain students consistently sit above Dr. Gauss's plane. Others consistently sit below. If the residuals were just noise, they'd flip sign at random — but they don't. There's a <strong>ghost</strong> in the residuals — and, as we're about to see, it has been secretly inflating his \( \hat b_2 \) the whole time.</p>
 
         <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>Standard regression output: Estimate, Std. Error, t-value, p-value, R².</span></div>
       </section>
@@ -650,7 +650,7 @@
       seed: 7,
       n: 150,
       gamma1: 0.5,
-      gamma2: 0.3,
+      gamma2: 1.5,
       // Stage 2: manual fit of Y on X2 (simple regression)
       manual: { a: 40.0, b: 5.0 },
       revealedBest: false,
@@ -679,7 +679,7 @@
         const x2 = 10 + state.gamma2 * u + eta2;
         const epsSd = Math.sqrt(2.0 * Math.abs(x1));
         const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         U[i]=u; X1[i]=x1; X2[i]=x2; Y[i]=y;
       }
       return { U, X1, X2, Y };
@@ -1143,7 +1143,7 @@
       g.append('line').attr('x1', xS(3)).attr('x2', xS(3))
         .attr('y1', 0).attr('y2', ih2).attr('stroke', 'var(--c-alice)').attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
       g.append('text').attr('x', xS(3) + 4).attr('y', 12).attr('font-size', 10).attr('fill', 'var(--c-alice)')
-        .text('true β₂ = 3');
+        .text('true β₂ = 3 (!)');
       g.append('text').attr('x', xS(mean)).attr('y', -2).attr('font-size', 10).attr('fill', 'var(--c-est)')
         .attr('text-anchor', 'middle').text(`mean = ${mean.toFixed(2)}, SE ≈ ${sd.toFixed(3)}`);
 

@@ -314,7 +314,6 @@
     footer a { color: var(--c-ink-muted); }
 
     .dot { fill: var(--c-gauss); opacity: 0.55; }
-    .dot.watson { fill: var(--c-warn); opacity: 0.6; }
     .axis line, .axis path { stroke: #d7d2c7; }
     .axis text { fill: var(--c-ink-muted); font-size: 11px; font-family: var(--mono); }
     .line-biased { stroke: var(--c-biased); stroke-width: 2.2; fill: none; }
@@ -348,14 +347,14 @@
 
     <section id="setup">
       <div class="kicker">The setup</div>
-      <h2>Dr. Gauss's suspiciously lucky coefficient</h2>
-      <p>On the last page, Dr. Gauss fit a single regression:</p>
+      <h2>Dr. Gauss's inflated coefficient</h2>
+      <p>On the last page, Dr. Gauss fit his multivariate regression and read off a surprisingly large slope on lectures:</p>
       <div class="eq-box">
-        $$ Y \;=\; \beta_0 \;+\; \beta_2\, X_2 \;+\; \text{error} $$
+        $$ \hat b_2 \;\approx\; 4.7\ \text{points per lecture.} $$
       </div>
-      <p>He was delighted. His estimate came out near <span style="font-family:var(--mono);color:var(--c-biased);font-weight:600;">\(\hat\beta_2 \approx 3.1\)</span>, which looked suspiciously close to the truth (<span style="font-family:var(--mono);color:var(--c-repair);font-weight:600;">\(\beta_2 = 3\)</span>). Case closed?</p>
-      <blockquote>Not quite. Dr. Gauss was <em>lucky</em>. The DGP does produce bias on his estimate — but in this particular scenario, the bias happens to be small (around +0.5 in expectation). A single noisy sample puts him near 3, and he never notices the ghost. That's the <strong>real</strong> danger of OVB: sometimes it's loud enough to flip a sign, and sometimes it's quiet enough to let you believe a wrong answer.</blockquote>
-      <p>This page does three things. First we derive the OVB formula and show that, yes, the bias in Dr. Gauss's DGP is real — just small. Then we build a <em>different</em> DGP (a gym / health-score scenario) where the very same mechanism produces a bias so large you can't miss it. Finally, we confront the hard question: <strong>how do you detect OVB in practice, when you can't see the confounder?</strong></p>
+      <p>Then — out of curiosity — he also ran the even simpler short regression \( Y = \beta_0 + \beta_2 X_2 + \text{error} \) and got something even larger: <span style="font-family:var(--mono);color:var(--c-biased);font-weight:600;">\(\hat\beta_2^{\text{short}} \approx 5.8\)</span>. "An extra lecture buys almost six points? Let's tell the dean — make attendance mandatory." Case closed?</p>
+      <blockquote>Not quite. The truth in the data-generating process is <span style="font-family:var(--mono);color:var(--c-repair);font-weight:600;">\(\beta_2 = 3\)</span>. Dr. Gauss is overstating the effect of attendance by <strong>almost a factor of two</strong>. The lever he'd pull at the university — mandatory attendance — would deliver only half the bump he's promising. And his estimate isn't off because of bad luck on a small sample: no matter how many students he collects, his short regression would keep converging to ~6, not 3. There is a systematic ghost in his data, and its name is <strong>omitted-variable bias</strong>.</blockquote>
+      <p>This page does three things. First we derive the OVB formula and show exactly how the ghost enters Dr. Gauss's fit. Then we visualise the bias — both on a single sample and across 500 Monte-Carlo replications — to make it viscerally clear that the shift is systematic, not noise. Finally, we confront the hard practical question: <strong>how do you detect OVB when you can't see the confounder?</strong></p>
     </section>
 
     <section id="formula">
@@ -363,15 +362,20 @@
       <h2>Where the ghost enters</h2>
       <p>The true DGP for exam scores is</p>
       <div class="eq-box">
-        $$ Y \;=\; 50 \;+\; 8\,\log X_1 \;+\; 3\,X_2 \;+\; 2\,U \;+\; \varepsilon, $$
+        $$ Y \;=\; 50 \;+\; 8\,\log X_1 \;+\; 3\,X_2 \;+\; 6\,U \;+\; \varepsilon, $$
       </div>
-      <p>and both \(X_2\) (lectures attended) and \(U\) (self-discipline) are positively correlated, because disciplined students attend more lectures. When you regress \(Y\) on \(X_2\) alone, your estimator converges not to \(\beta_2\) but to</p>
+      <p>and both \(X_2\) (lectures attended) and \(U\) (self-discipline) are positively correlated, because disciplined students attend more lectures (\(X_2 = 10 + 1.5\,U + \eta_2\)). When you regress \(Y\) on \(X_2\) alone, your estimator converges not to \(\beta_2\) but to</p>
       <div class="eq-box">
         \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;=\; \beta_2 \;+\; \beta_U \cdot \delta_U, \qquad \delta_U \;=\; \frac{\operatorname{Cov}(X_2,\, U)}{\operatorname{Var}(X_2)}. \]
       </div>
-      <p>The bias is \(\beta_U \cdot \delta_U\). In Dr. Gauss's DGP, \(\beta_U = 2\) and \(\gamma_2 = 0.3\), so \(\delta_U = 0.3 / (0.3^2 + 1) \approx 0.275\), and the bias is <strong>+0.55</strong>. Positive — Dr. Gauss overshoots — but small enough that on a single noisy sample with \(n = 150\) he can land near 3.0 and think all is well.</p>
+      <p>The bias is \(\beta_U \cdot \delta_U\). In Dr. Gauss's DGP, \(\beta_U = 6\) and \(\gamma_2 = 1.5\), so</p>
+      <div class="eq-box">
+        \[ \delta_U \;=\; \frac{\gamma_2 \cdot \operatorname{Var}(U)}{\gamma_2^2 \cdot \operatorname{Var}(U) + \operatorname{Var}(\eta_2)} \;=\; \frac{1.5}{1.5^2 + 2} \;\approx\; 0.353, \]
+        \[ \operatorname{plim}\hat\beta_2^{\text{short}} \;\approx\; 3 \;+\; 6 \cdot 0.353 \;\approx\; 5.1. \]
+      </div>
+      <p>(In the actual simulated samples below, the short-regression estimate lands even higher — around 5.8 on seed 7, and around 6.0 averaged across 500 Monte-Carlo draws — because \(\log X_1\) is also quietly correlated with \(X_2\) through \(U\), so a slice of \(\beta_1 \log X_1\) gets absorbed into \(\hat\beta_2\) too. Either way: the bias is positive, large, and <em>systematic</em>. It does not shrink with sample size.)</p>
       <div class="callout warn">
-        <strong>Key point.</strong> OVB is <em>real</em> in Dr. Gauss's DGP. Its <em>magnitude</em>, however, is modest. The magnitude depends on two things: how strongly \(U\) drives \(X_2\) (the slope \(\gamma_2\)) and how strongly \(U\) drives \(Y\) (the coefficient \(\beta_U\)). Push either of them up and the bias explodes.
+        <strong>Key point.</strong> The magnitude of OVB depends on two knobs: how strongly \(U\) drives \(X_2\) (the slope \(\gamma_2\)) and how strongly \(U\) drives \(Y\) (the coefficient \(\beta_U\)). Zero out either factor and the bias vanishes. Crank either up and the bias explodes. Dr. Gauss's studying DGP has both dialed up — disciplined students <em>really do</em> attend more lectures, and discipline <em>really does</em> contribute points to the exam through channels independent of hours and attendance — so the ghost is loud.
       </div>
     </section>
 
@@ -421,19 +425,19 @@
           <span class="val" id="valGap">—</span>
         </div>
       </div>
-      <p style="margin-top: 10px; font-size: 13px; color: var(--c-ink-muted);">On this single seed, the bias looks small. Is it small <em>in expectation</em>, or small just by luck? Only many repeated samples can tell. We'll see that below.</p>
+      <p style="margin-top: 10px; font-size: 13px; color: var(--c-ink-muted);">On this single seed the short-regression slope is visibly inflated. Is it inflated <em>systematically</em>, or just by luck on this sample? Five hundred fresh draws will answer that — see the Monte Carlo panel below.</p>
     </section>
 
     <section id="slider">
       <div class="kicker">Slider — strength of the confounder</div>
-      <h2>Dial up the ghost</h2>
-      <p>In the true DGP, \(X_2 = 10 + \gamma_2 \cdot U + \eta_2\). The baseline value is \(\gamma_2 = 0.3\) — a mild confounding link. Watch what happens when we crank \(\gamma_2\) up (disciplined students attend <em>much</em> more) or push it to zero (discipline no longer drives attendance).</p>
+      <h2>Dial the ghost up or down</h2>
+      <p>In the true DGP, \(X_2 = 10 + \gamma_2 \cdot U + \eta_2\). The baseline value is \(\gamma_2 = 1.5\) — discipline is a strong driver of attendance. Watch what happens when we crank \(\gamma_2\) up further, or push it to zero (discipline no longer drives attendance at all).</p>
 
       <div class="controls" id="ctrl">
         <div class="slider-row">
           <label class="lbl" for="gamma">\(\gamma_2\)</label>
-          <input type="range" id="gamma" min="-0.5" max="3.0" step="0.02" value="0.3" />
-          <span class="val" id="gammaVal">0.30</span>
+          <input type="range" id="gamma" min="-0.5" max="3.0" step="0.02" value="1.5" />
+          <span class="val" id="gammaVal">1.50</span>
         </div>
         <div class="readout">
           <div class="cell">
@@ -450,76 +454,23 @@
           </div>
         </div>
         <p style="margin-top:14px;margin-bottom:0;font-size:13px;color:var(--c-ink-muted);">
-          When \(\gamma_2 = 0\), \(X_2\) and \(U\) become uncorrelated, \(\delta_U\) collapses to zero, and the bias vanishes. The short regression is only safe when the confounder doesn't actually confound. Push the slider to 3.0 and watch the bias become unmissable.
+          When \(\gamma_2 = 0\), \(X_2\) and \(U\) become uncorrelated, \(\delta_U\) collapses to zero, and the bias vanishes — the short regression is only safe when the confounder doesn't actually confound. Push the slider to 3.0 and watch the short estimate drift even further above the truth.
         </p>
       </div>
     </section>
 
     <section id="dramatic">
-      <div class="kicker">A second scenario — where OVB bites hard</div>
-      <h2>Dr. Watson's gym study</h2>
-      <p>To <em>see</em> OVB rather than <em>argue</em> it, let's switch dataset. Dr. Watson runs an observational study on 200 office workers. He records:</p>
-      <ul>
-        <li><em>X</em> — hours per week at the gym</li>
-        <li><em>Y</em> — a composite <em>health score</em> (blood pressure, resting heart rate, VO<sub>2</sub>-max, etc.)</li>
-      </ul>
-      <p>He does <em>not</em> observe \(U\) — each worker's <em>baseline fitness</em>, their athletic background before the study began. But baseline fitness drives both: fitter people go to the gym more often <em>and</em> have higher health scores for reasons independent of the gym.</p>
-
-      <div class="eq-box">
-        \[ U \sim \mathcal{N}(0,1), \quad X = 2 + 1.2\,U + \eta, \quad \eta \sim \mathcal{N}(0, 0.4), \]
-        \[ Y = 3\,X + 6\,U + \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, 1). \]
-      </div>
-
-      <p>The true causal effect of gym hours on health is \(\beta = 3\). What does Dr. Watson's short regression \(Y\) on \(X\) recover?</p>
-
-      <div class="callout insight">
-        <strong>Plim calculation.</strong> \(\delta_U = \operatorname{Cov}(X, U) / \operatorname{Var}(X) = 1.2 / (1.2^2 \cdot 1 + 0.4) = 1.2 / 1.84 \approx 0.652\). Bias \(= \beta_U \cdot \delta_U = 6 \cdot 0.652 \approx\) <strong>+3.91</strong>. So \(\operatorname{plim}\hat\beta^{\text{short}} \approx 3.00 + 3.91 =\) <strong>6.91</strong> — more than double the truth.
-      </div>
-
-      <div class="compare">
-        <div class="plot-card biased">
-          <h3>Dr. Watson (biased)</h3>
-          <div class="sub">Health ~ gym hours, no controls.</div>
-          <svg id="plotWatsonBiased" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-        <div class="plot-card repair">
-          <h3>With \(U\) included</h3>
-          <div class="sub">Partial effect of \(X\) after removing \(U\).</div>
-          <svg id="plotWatsonRepair" viewBox="0 0 420 260" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-      </div>
-
-      <div class="bias-bar-holder" style="margin-top:18px;">
-        <div class="row">
-          <span class="lbl">\(\hat\beta^{\text{short}}\) (Watson)</span>
-          <div class="bar-track"><div class="bar-fill" id="barWatsonShort"></div></div>
-          <span class="val" id="valWatsonShort">—</span>
-        </div>
-        <div class="row">
-          <span class="lbl">\(\operatorname{plim}\hat\beta^{\text{short}} \approx 6.91\)</span>
-          <div class="bar-track"><div class="bar-fill" id="barWatsonPlim" style="background: linear-gradient(90deg, #b5654a, #e4b29a);"></div></div>
-          <span class="val" id="valWatsonPlim">6.91</span>
-        </div>
-        <div class="row">
-          <span class="lbl">\(\beta^{\text{true}} = 3.00\)</span>
-          <div class="bar-track"><div class="bar-fill true" id="barWatsonTrue"></div></div>
-          <span class="val" id="valWatsonTrue">3.00</span>
-        </div>
-      </div>
-
-      <h3 class="sub-head">Monte Carlo: 500 re-samples of Dr. Watson's study</h3>
-      <p>A single sample can always mislead — maybe Watson got unlucky. So we run his study 500 times, each with a fresh random draw of 200 workers, and plot the histogram of \(\hat\beta^{\text{short}}\). The systematic shift becomes visceral.</p>
+      <div class="kicker">Is it bias or just noise?</div>
+      <h2>Monte Carlo: 500 re-runs of Dr. Gauss's short regression</h2>
+      <p>A single sample can always mislead — maybe Dr. Gauss got unlucky with seed 7. So we re-run his study 500 times, each with a fresh random draw of 150 students from the same DGP, and plot the histogram of \(\hat\beta_2^{\text{short}}\). The systematic shift becomes visceral.</p>
 
       <div class="plot-card">
-        <h3>Sampling distribution of \(\hat\beta^{\text{short}}\) — 500 Monte Carlo draws</h3>
-        <div class="sub">Green dashed line = truth (3.00). Red solid line = plim (≈ 6.91). Red bars = sample estimates.</div>
+        <h3>Sampling distribution of \(\hat\beta_2^{\text{short}}\) — 500 Monte Carlo draws</h3>
+        <div class="sub">Green dashed line = truth (\(\beta_2 = 3.00\)). Red solid line = empirical plim (the value \(\hat\beta_2^{\text{short}}\) converges to as \(n \to \infty\), ≈ 6 here). Red bars = sample estimates.</div>
         <svg id="plotMC" viewBox="0 0 840 280" preserveAspectRatio="xMidYMid meet" style="height: 280px;"></svg>
       </div>
       <div class="callout warn">
-        <strong>Read the picture.</strong> The histogram is centered near 6.91, not 3.00. The truth is <em>entirely outside the sampling distribution</em> of \(\hat\beta^{\text{short}}\). No amount of data cures this — doubling \(n\) would just concentrate the histogram tighter around 6.91. OVB is not noise; it's a <em>systematic</em> shift.
-      </div>
-      <div class="callout">
-        <strong>The contrast.</strong> In Dr. Gauss's studying DGP, \(\gamma_2 = 0.3\) and \(\beta_U = 2\), so the bias is only +0.55. In Dr. Watson's gym DGP, \(\gamma = 1.2\) and \(\beta_U = 6\), so the bias is +3.91. Both scenarios suffer from OVB. Only one gives you a coefficient that screams "wrong" when you look at it. <strong>The mechanism is identical; the magnitude depends entirely on the DGP.</strong>
+        <strong>Read the picture.</strong> The histogram is centered near 6, not 3. The truth is <em>entirely outside the sampling distribution</em> of \(\hat\beta_2^{\text{short}}\) — not a single one of the 500 replications lands near 3. No amount of data cures this: doubling \(n\) would just concentrate the histogram tighter around 6. OVB is not noise; it is a <em>systematic</em> shift that stays the same size (in expectation) as the sample grows.
       </div>
     </section>
 
@@ -567,7 +518,7 @@
         </li>
         <li>
           <h4>Proxy variables</h4>
-          <p>If you suspect a specific confounder \(U\), find anything observable that correlates with it. For the gym study: a short survey question about exercise <em>before</em> the study period. For the studying study: GPA as a proxy for discipline. Include the proxy; any reduction in \(|\hat\beta|\) is circumstantial evidence that a real confounder was lurking.</p>
+          <p>If you suspect a specific confounder \(U\), find anything observable that correlates with it. For Dr. Gauss's studying study: GPA, library-hours, or a study-habits survey as proxies for discipline. Include the proxy; any reduction in \(|\hat\beta_2|\) is circumstantial evidence that a real confounder was lurking.</p>
           <p class="limit">Limit: an imperfect proxy only partially absorbs the bias. You've reduced OVB, not eliminated it.</p>
         </li>
         <li>
@@ -577,13 +528,13 @@
         </li>
         <li>
           <h4>Natural or designed experiments (randomization, RDD, DiD)</h4>
-          <p>The gold standard. Randomly assign \(X\) — e.g. randomize who gets a gym membership voucher — and by construction \(U\) cannot correlate with \(X\). OVB is eliminated <em>by design</em>, not by statistical correction. Observational methods (IV, regression discontinuity, difference-in-differences) try to <em>approximate</em> this; real experiments <em>deliver</em> it.</p>
+          <p>The gold standard. Randomly assign \(X\) — e.g. randomly force half the students to attend all 12 lectures and the other half to attend only 6 — and by construction \(U\) cannot correlate with \(X\). OVB is eliminated <em>by design</em>, not by statistical correction. Observational methods (IV, regression discontinuity, difference-in-differences) try to <em>approximate</em> this; real experiments <em>deliver</em> it.</p>
           <p class="limit">Limit: randomization is often infeasible (you cannot randomize smoking, parental income, or war) or unethical. Quasi-experiments require their own identifying assumptions.</p>
         </li>
       </ol>
 
       <h3 class="sub-head">A small interactive demo: stability across specifications</h3>
-      <p>Below is a dataset (our gym scenario, extended with five observed covariates). Slide the "controls included" slider from 0 to 5. Each added covariate is an observed variable that <em>partially</em> proxies for baseline fitness \(U\). Watch \(\hat\beta\) converge toward the truth as more of \(U\)'s information gets absorbed.</p>
+      <p>Below is a fresh draw from Dr. Gauss's DGP, extended with five observed covariates that each partially proxy for self-discipline \(U\) (imagine them as GPA, library-hours, a study-habits survey, a focus-test score, a homework-completion rate). Slide "controls included" from 0 to 5. Each added covariate absorbs a bit more of \(U\)'s information. Watch \(\hat\beta_2\) on lectures drop toward the truth.</p>
 
       <div class="controls">
         <div class="slider-row">
@@ -593,7 +544,7 @@
         </div>
         <div class="readout">
           <div class="cell biased">
-            <div class="k">\(\hat\beta\) on gym hours</div>
+            <div class="k">\(\hat\beta_2\) on lectures</div>
             <div class="v" id="stabBeta">—</div>
           </div>
           <div class="cell">
@@ -606,7 +557,7 @@
           </div>
         </div>
         <p style="margin-top:14px;margin-bottom:0;font-size:13px;color:var(--c-ink-muted);" id="stabNote">
-          With 0 controls: we're reproducing Watson's naive regression — \(\hat\beta\) is wildly inflated.
+          With 0 proxies: the fit is \(Y \sim \log X_1 + X_2\) — Dr. Gauss's multivariate regression — so \(\hat\beta_2\) starts around 4.7, well above the truth of 3.
         </p>
       </div>
       <div class="callout insight">
@@ -620,7 +571,7 @@
     <section id="teaser">
       <div class="teaser">
         <h3>When OVB goes nuclear</h3>
-        <p>In the gym study, bias inflated the coefficient. But OVB has an even more spectacular mode: it can <strong>flip the sign</strong> of a coefficient, turning a positive effect into a negative one. For that dramatic version — and the story of the 1973 Berkeley admissions lawsuit — see the <a href="simpson.html">Simpson's paradox page</a>.</p>
+        <p>In Dr. Gauss's study, bias inflated the coefficient by roughly +3 — almost doubling it. But OVB has an even more spectacular mode: it can <strong>flip the sign</strong> of a coefficient, turning a positive effect into a negative one. For that dramatic version — and the story of the 1973 Berkeley admissions lawsuit — see the <a href="simpson.html">Simpson's paradox page</a>.</p>
       </div>
     </section>
 
@@ -736,24 +687,25 @@
 
     // ---- Section 4: gamma2 slider ----
     function generateWithGamma(n, seed, gamma2) {
+      // Mirror the shared studying DGP (beta_U = 6, variances matched to dgp.js)
+      // but let the slider override gamma_2 to show the ghost dialing up/down.
       const rng = seededRandom(seed);
       const U = new Float64Array(n);
       const X1 = new Float64Array(n);
       const X2 = new Float64Array(n);
       const Y  = new Float64Array(n);
-      const sdEta1 = Math.sqrt(0.3);
-      const sdEta2 = 1.0;
+      const sdEta1 = Math.sqrt(0.5);
+      const sdEta2 = Math.sqrt(2.0);
       for (let i = 0; i < n; i++) {
         const u = randn(rng);
         const eta1 = randn(rng) * sdEta1;
         const eta2 = randn(rng) * sdEta2;
-        const eta3 = randn(rng) * 2.0;
         let x1 = 2 + 0.5 * u + eta1;
         if (x1 <= 0.05) x1 = 0.05;
         const x2 = 10 + gamma2 * u + eta2;
-        const epsSd = Math.sqrt(0.5 * Math.abs(x1));
+        const epsSd = Math.sqrt(2.0 * Math.abs(x1));
         const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
       }
       return { U, X1, X2, Y };
@@ -782,7 +734,7 @@
     }
     const gammaSlider = document.getElementById('gamma');
     gammaSlider.addEventListener('input', e => refreshSlider(parseFloat(e.target.value)));
-    refreshSlider(0.30);
+    refreshSlider(1.50);
 
     // ---- Section 5 (old): regression output tables ----
     function fmtReg(fit, labels, title) {
@@ -815,82 +767,19 @@
       'Full regression:  lm(Y ~ log(X1) + X2 + U)'
     ) + '\n\n<span class="comment"># beta-hat_2 now lands on the truth (~ 3.00). The ghost is exorcised.</span>';
 
-    // ================================================================
-    //  Dr. Watson gym DGP
-    //    U ~ N(0,1) baseline fitness
-    //    X = 2 + 1.2*U + eta,   eta ~ N(0, sd=sqrt(0.4))
-    //    Y = 3*X + 6*U + eps,   eps ~ N(0, 1)
-    // ================================================================
-    const NW = 200;
-    function generateWatson(n, seed) {
-      const rng = seededRandom(seed);
-      const U = new Float64Array(n);
-      const X = new Float64Array(n);
-      const Y = new Float64Array(n);
-      const sdEta = Math.sqrt(0.4);
-      for (let i = 0; i < n; i++) {
-        const u = randn(rng);
-        const eta = randn(rng) * sdEta;
-        const eps = randn(rng) * 1.0;
-        const x = 2 + 1.2 * u + eta;
-        const y = 3 * x + 6 * u + eps;
-        U[i] = u; X[i] = x; Y[i] = y;
-      }
-      return { U, X, Y };
-    }
-
-    const watson = generateWatson(NW, 42);
-
-    // Short regression Y ~ X
-    const WXs = Array.from(watson.X, v => [v]);
-    const fitWShort = ols(Array.from(watson.Y), WXs);
-    const wBshort = fitWShort.coefficients[1];
-    const wB0 = fitWShort.coefficients[0];
-
-    // Full regression Y ~ X + U
-    const WXfull = [];
-    for (let i = 0; i < NW; i++) WXfull.push([watson.X[i], watson.U[i]]);
-    const fitWFull = ols(Array.from(watson.Y), WXfull);
-    const wBfull = fitWFull.coefficients[1];
-
-    drawScatter('plotWatsonBiased',
-      Array.from(watson.X), Array.from(watson.Y),
-      wBshort, wB0,
-      'line-biased',
-      'X (gym hours / week)', 'Y (health score)',
-      'dot watson');
-
-    // Frisch-Waugh for Watson: partial out U
-    const Wu = [];
-    for (let i = 0; i < NW; i++) Wu.push([watson.U[i]]);
-    const fitXonU = ols(Array.from(watson.X), Wu);
-    const fitYonU = ols(Array.from(watson.Y), Wu);
-    drawScatter('plotWatsonRepair',
-      fitXonU.residuals, fitYonU.residuals,
-      wBfull, 0,
-      'line-truth',
-      'X | U', 'Y | U');
-
-    // Bias bar for Watson
-    (function updateWatsonBar() {
-      const truth = 3.0, plim = 6.91;
-      const maxAbs = Math.max(Math.abs(wBshort), plim, truth) * 1.05;
-      const pct = v => Math.max(0, Math.min(100, (Math.abs(v) / maxAbs) * 100));
-      document.getElementById('barWatsonShort').style.width = pct(wBshort) + '%';
-      document.getElementById('barWatsonPlim').style.width = pct(plim) + '%';
-      document.getElementById('barWatsonTrue').style.width = pct(truth) + '%';
-      document.getElementById('valWatsonShort').textContent = wBshort.toFixed(3);
-    })();
-
-    // ---- Monte Carlo: 500 draws of Watson's short regression ----
+    // ---- Monte Carlo: 500 draws of Dr. Gauss's short regression (studying DGP) ----
+    // Each draw pulls a fresh 150-student sample from the shared DGP and refits
+    // Y ~ X2. The histogram shows the sampling distribution of beta2^short,
+    // centered at the plim (~5) with the true beta2 = 3 sitting outside it.
     const MC_DRAWS = 500;
     const mcEstimates = new Array(MC_DRAWS);
     for (let k = 0; k < MC_DRAWS; k++) {
-      const dk = generateWatson(NW, 1000 + k);
-      const Xk = Array.from(dk.X, v => [v]);
+      const dk = generateData(N, 1000 + k);
+      const Xk = Array.from(dk.X2, v => [v]);
       const fk = ols(Array.from(dk.Y), Xk);
       mcEstimates[k] = fk.coefficients[1];
     }
+    const mcMean = mcEstimates.reduce((s,v)=>s+v,0) / MC_DRAWS;
 
     function drawHistogram(svgId, data, truth, plim) {
       const svg = d3.select('#' + svgId);
@@ -955,51 +844,59 @@
         .attr('fill', 'var(--c-ink-muted)')
         .text(`MC mean = ${mcMean.toFixed(3)}`);
     }
-    drawHistogram('plotMC', mcEstimates, 3.00, 6.91);
+    // Empirical plim (MC mean) is ~5-6; we pass it to the histogram so the
+    // red "plim" line is drawn at the actual Monte Carlo mean.
+    drawHistogram('plotMC', mcEstimates, 3.00, mcMean);
 
     // ================================================================
-    //  Stability-across-specifications interactive
+    //  Stability-across-specifications interactive — studying DGP
     //
-    //  Build a dataset with U plus 5 observed covariates C1..C5, each a
-    //  noisy proxy for U. Adding controls in order C1 -> ... -> C5
-    //  makes β̂ on X approach the truth (3).
+    //  Start from Dr. Gauss's studying DGP (N=400 for less resampling noise)
+    //  and add 5 observed proxies C1..C5 for the hidden U. The fit is always
+    //  Y ~ log(X1) + X2 + (C1, ..., Ck). As k grows, the slope on X2 is freed
+    //  of more and more of U's confounding and approaches the truth beta2=3.
     // ================================================================
     const NS = 400;
     function generateStability(n, seed) {
       const rng = seededRandom(seed);
       const U  = new Float64Array(n);
-      const X  = new Float64Array(n);
+      const X1 = new Float64Array(n);
+      const X2 = new Float64Array(n);
       const Y  = new Float64Array(n);
       const C1 = new Float64Array(n);
       const C2 = new Float64Array(n);
       const C3 = new Float64Array(n);
       const C4 = new Float64Array(n);
       const C5 = new Float64Array(n);
-      const sdEta = Math.sqrt(0.4);
+      const sdEta1 = Math.sqrt(0.5);
+      const sdEta2 = Math.sqrt(2.0);
       for (let i = 0; i < n; i++) {
         const u = randn(rng);
-        const eta = randn(rng) * sdEta;
-        const eps = randn(rng) * 1.0;
-        const x = 2 + 1.2 * u + eta;
-        const y = 3 * x + 6 * u + eps;
-        // Proxies for U of varying quality
-        const c1 = 1.0 * u + randn(rng) * 1.2;   // weak
-        const c2 = 1.0 * u + randn(rng) * 0.9;
-        const c3 = 1.0 * u + randn(rng) * 0.7;
-        const c4 = 1.0 * u + randn(rng) * 0.5;
-        const c5 = 1.0 * u + randn(rng) * 0.3;   // strongest
-        U[i] = u; X[i] = x; Y[i] = y;
+        const eta1 = randn(rng) * sdEta1;
+        const eta2 = randn(rng) * sdEta2;
+        let x1 = 2 + 0.5 * u + eta1;
+        if (x1 <= 0.05) x1 = 0.05;
+        const x2 = 10 + 1.5 * u + eta2;
+        const eps = randn(rng) * Math.sqrt(2.0 * Math.abs(x1));
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
+        // Proxies for U of varying quality (higher noise = weaker proxy).
+        const c1 = u + randn(rng) * 1.2;   // weak
+        const c2 = u + randn(rng) * 0.9;
+        const c3 = u + randn(rng) * 0.7;
+        const c4 = u + randn(rng) * 0.5;
+        const c5 = u + randn(rng) * 0.3;   // strongest
+        U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
         C1[i] = c1; C2[i] = c2; C3[i] = c3; C4[i] = c4; C5[i] = c5;
       }
-      return { U, X, Y, C1, C2, C3, C4, C5 };
+      return { U, X1, X2, Y, C1, C2, C3, C4, C5 };
     }
     const stab = generateStability(NS, 99);
 
     function runStability(k) {
-      // Build design: X plus first k controls
+      // Design: [log(X1), X2, C1, ..., Ck]. The slope on X2 is coefficient [2].
       const rows = [];
       for (let i = 0; i < NS; i++) {
-        const row = [stab.X[i]];
+        const row = [Math.log(stab.X1[i]), stab.X2[i]];
         if (k >= 1) row.push(stab.C1[i]);
         if (k >= 2) row.push(stab.C2[i]);
         if (k >= 3) row.push(stab.C3[i]);
@@ -1008,16 +905,16 @@
         rows.push(row);
       }
       const fit = ols(Array.from(stab.Y), rows);
-      return fit.coefficients[1]; // slope on X
+      return fit.coefficients[2]; // slope on X2
     }
 
     const notes = [
-      "With 0 controls: we're reproducing Watson's naive regression — \\(\\hat\\beta\\) is wildly inflated by the unobserved \\(U\\).",
-      "With 1 weak proxy: some of \\(U\\)'s information leaks into the fit — bias shrinks but is still large.",
-      "With 2 proxies: the combined signal tracks \\(U\\) better. \\(\\hat\\beta\\) keeps drifting.",
-      "With 3 proxies: \\(\\hat\\beta\\) continues to settle. The fact that it's still moving tells us we haven't captured \\(U\\) yet.",
-      "With 4 proxies: \\(\\hat\\beta\\) is close to the truth, but still a little off.",
-      "With 5 proxies: \\(\\hat\\beta\\) has (essentially) stopped moving and landed near 3. In practice, this settling is the only signal we get."
+      "With 0 proxies: the fit is \\(Y \\sim \\log X_1 + X_2\\) — Dr. Gauss's multivariate regression. \\(\\hat\\beta_2\\) lands near 4.7, well above the truth of 3, because \\(U\\) is still unobserved and loading onto \\(X_2\\).",
+      "With 1 weak proxy: a little of \\(U\\)'s information leaks into the design. \\(\\hat\\beta_2\\) drops a bit, but is still biased.",
+      "With 2 proxies: the combined signal tracks \\(U\\) better. \\(\\hat\\beta_2\\) keeps drifting toward 3.",
+      "With 3 proxies: \\(\\hat\\beta_2\\) continues to settle. The fact that it's still moving tells us we haven't captured \\(U\\) yet.",
+      "With 4 proxies: \\(\\hat\\beta_2\\) is close to the truth, but still a little off.",
+      "With 5 proxies: \\(\\hat\\beta_2\\) has (essentially) stopped moving and landed near 3. In practice, this settling is the only signal we get."
     ];
 
     function refreshStab(k) {

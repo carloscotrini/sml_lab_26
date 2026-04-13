@@ -275,20 +275,21 @@
       const X1 = new Float64Array(n);
       const X2 = new Float64Array(n);
       const Y = new Float64Array(n);
-      const sdEta1 = Math.sqrt(0.3);
+      const sdEta1 = Math.sqrt(0.5);
+      const sdEta2 = Math.sqrt(2.0);
       const hEff = Math.max(h, 1e-6);
       for (let i = 0; i < n; i++) {
         const u = randn(rng);
         const eta1 = randn(rng) * sdEta1;
-        const eta2 = randn(rng) * 1.0;
+        const eta2 = randn(rng) * sdEta2;
         // burn one rv so streams stay comparable to the main DGP (it draws eta3).
         randn(rng);
         let x1 = 2 + 0.5 * u + eta1;
         if (x1 <= 0.05) x1 = 0.05;
-        const x2 = 10 + 0.3 * u + eta2;
+        const x2 = 10 + 1.5 * u + eta2;
         const epsSd = Math.sqrt(hEff * Math.abs(x1));
         const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         U[i] = u; X1[i] = x1; X2[i] = x2; Y[i] = y;
       }
       return { U, X1, X2, Y };

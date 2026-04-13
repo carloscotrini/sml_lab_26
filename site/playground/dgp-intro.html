@@ -295,7 +295,7 @@
       <div class="f-line" data-line="U">\( U \sim \mathcal{N}(0,1) \)</div>
       <div class="f-line" data-line="X1">\( X_1 = 2 + \gamma_1\,U + \eta_1 \)</div>
       <div class="f-line" data-line="X2">\( X_2 = 10 + \gamma_2\,U + \eta_2 \)</div>
-      <div class="f-line" data-line="Y">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</div>
+      <div class="f-line" data-line="Y">\( Y = 50 + 8\log(X_1) + 3X_2 + 6U + \varepsilon \)</div>
       <div class="f-line" data-line="X3">\( X_3 = 0.9\,Y + \eta_3 \)</div>
     </div>
 
@@ -356,29 +356,32 @@
         <div class="controls">
           <label>
             \( \gamma_2 \): U's pull on X₂
-            <input type="range" id="sldGamma2" min="0" max="1.5" step="0.01" value="0.3" />
-            <span class="val" id="valGamma2">0.30</span>
+            <input type="range" id="sldGamma2" min="0" max="3" step="0.01" value="1.5" />
+            <span class="val" id="valGamma2">1.50</span>
           </label>
           <button id="btnReplayFountain">Replay the fountain</button>
         </div>
-        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_2 = 10 + 0.3\,U + \eta_2,\quad \eta_2 \sim \mathcal{N}(0, 2) \)</span></div>
+        <p style="margin-top:10px;font-size:13.5px;color:var(--c-ink-muted);">
+          Self-discipline is a <em>strong</em> driver of attendance: a one-standard-deviation bump in U pushes a student to attend roughly 1.5 more lectures. \(\eta_2\) — the random jitter around that pull — has variance 2, so attendance still varies plenty even at a fixed level of discipline.
+        </p>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( X_2 = 10 + 1.5\,U + \eta_2,\quad \eta_2 \sim \mathcal{N}(0, 2) \)</span></div>
       </section>
 
       <section class="stage" data-stage="4">
         <div class="kicker">Stage 4</div>
         <h2>The outcome (the full DGP arrives)</h2>
         <p>Now the exam happens. And the machine that produces scores looks like this:</p>
-        <p style="text-align:center;" class="katex-big">\( Y = 50 + 8\log(X_1) + 3X_2 + 2U + \varepsilon \)</p>
-        <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth: diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>2·U</code> is the direct fingerprint of discipline on the exam itself.</p>
+        <p style="text-align:center;" class="katex-big">\( Y = 50 + 8\log(X_1) + 3X_2 + 6U + \varepsilon \)</p>
+        <p>Every term earns its place. The <code>log</code> says the first hour of study is worth much more than the tenth: diminishing returns, baked right in. The <code>3·X₂</code> rewards showing up. The <code>6·U</code> is the direct fingerprint of discipline on the exam itself — and it is <em>big</em>. A one-standard-deviation bump in self-discipline contributes six points to the final score, entirely through channels the analyst never sees: focus during study sessions, the practice problem a disciplined student does anyway, the ability to read a question carefully under time pressure. Hours studied and lectures attended are only part of how U lifts a score; U has a direct line to Y as well.</p>
         <p>And ε? <strong>ε is the irreducible exam-day noise:</strong> a lucky guess on a question, a moment of panic, a pen that ran out, a question that happened to favour one student's intuition. It's what neither U nor X₁ nor X₂ can predict. We'll see its shape in the next stage.</p>
-        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + 8\log(X_1) + 3\,X_2 + 2\,U + \varepsilon \)</span></div>
+        <div class="stage-eq"><span class="stage-eq-label">This stage introduced:</span><span>\( Y = 50 + 8\log(X_1) + 3\,X_2 + 6\,U + \varepsilon \)</span></div>
       </section>
 
       <section class="stage" data-stage="5">
         <div class="kicker">Stage 5</div>
         <h2>The shape of the noise</h2>
         <p>We wrote \( \varepsilon \) as if it were one uniform cloud. It isn't.</p>
-        <p>Plot each student's exam-day noise — ε, the leftover after we subtract \(50 + 8\log(X_1) + 3X_2 + 2U\) from their score — against the hours they studied. Instead of a flat band you see a <strong>funnel</strong>. Students who studied barely at all cluster tightly around zero. Students who studied a lot fan out wildly, above and below.</p>
+        <p>Plot each student's exam-day noise — ε, the leftover after we subtract \(50 + 8\log(X_1) + 3X_2 + 6U\) from their score — against the hours they studied. Instead of a flat band you see a <strong>funnel</strong>. Students who studied barely at all cluster tightly around zero. Students who studied a lot fan out wildly, above and below.</p>
         <p>This is <strong>heteroscedasticity</strong>. The noise variance is not a constant; it scales with \( |X_1| \):</p>
         <p style="text-align:center;" class="katex-big">\( \varepsilon \sim \mathcal{N}\!\left(0,\; 2\,|X_1|\right) \)</p>
         <p>Why this shape? A student who studied 30 minutes can only do so well, and can only do so badly — their score is pinned. A student who studied six hours has more room to move: momentum, fatigue, lucky topic overlap, unlucky question ordering. Their outcomes fan out. The gold curves show ±SD(ε) — the characteristic funnel.</p>
@@ -429,9 +432,9 @@
       seed: 7,
       n: 150,
       gamma1: 0.5,
-      gamma2: 0.3,
-      aliceU: 0.85,
-      bobU: -0.85,
+      gamma2: 1.5,
+      aliceU: 0.55,
+      bobU: -0.55,
       sample: null,
       view: { azimuth: Math.PI / 6, elevation: Math.PI / 6 }
     };
@@ -459,7 +462,7 @@
         const x2 = 10 + state.gamma2 * u + eta2;
         const epsSd = Math.sqrt(2.0 * Math.abs(x1));
         const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         const x3 = 0.9 * y + eta3;
         U[i]=u; X1[i]=x1; X2[i]=x2; X3[i]=x3; Y[i]=y; EPS[i]=eps;
       }
@@ -748,7 +751,7 @@
       gOverlay.append('text')
         .attr('x', (xScale(baseline) + xScale(aliceX2)) / 2).attr('y', centreY + arrowOffsetAlice - 5)
         .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
-        .text(`+ 0.3 × ${state.aliceU.toFixed(2)} = ${(state.gamma2 * state.aliceU).toFixed(2)}`);
+        .text(`+ ${state.gamma2.toFixed(2)} × ${state.aliceU.toFixed(2)} = ${(state.gamma2 * state.aliceU).toFixed(2)}`);
 
       gOverlay.append('line')
         .attr('x1', xScale(baseline)).attr('y1', centreY + arrowOffsetBob)
@@ -758,7 +761,7 @@
       gOverlay.append('text')
         .attr('x', (xScale(baseline) + xScale(bobX2)) / 2).attr('y', centreY + arrowOffsetBob + 15)
         .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--c-truth)')
-        .text(`+ 0.3 × (${state.bobU.toFixed(2)}) = ${(state.gamma2 * state.bobU).toFixed(2)}`);
+        .text(`+ ${state.gamma2.toFixed(2)} × (${state.bobU.toFixed(2)}) = ${(state.gamma2 * state.bobU).toFixed(2)}`);
 
       renderAvatar(gAliceBob, 'alice', 24).attr('transform', `translate(${xScale(aliceX2)},${centreY + arrowOffsetAlice})`);
       renderAvatar(gAliceBob, 'bob', 24).attr('transform', `translate(${xScale(bobX2)},${centreY + arrowOffsetBob})`);
@@ -885,10 +888,10 @@
 
       const aliceX1 = 2 + state.gamma1 * state.aliceU;
       const aliceX2 = 10 + state.gamma2 * state.aliceU;
-      const aliceY  = 50 + 8 * Math.log(aliceX1) + 3 * aliceX2 + 2 * state.aliceU;
+      const aliceY  = 50 + 8 * Math.log(aliceX1) + 3 * aliceX2 + 6 * state.aliceU;
       const bobX1   = 2 + state.gamma1 * state.bobU;
       const bobX2   = 10 + state.gamma2 * state.bobU;
-      const bobY    = 50 + 8 * Math.log(bobX1) + 3 * bobX2 + 2 * state.bobU;
+      const bobY    = 50 + 8 * Math.log(bobX1) + 3 * bobX2 + 6 * state.bobU;
       const [aSx, aSy] = project(aliceX1, aliceX2, clipY(aliceY));
       const [bSx, bSy] = project(bobX1,   bobX2,   clipY(bobY));
       const [aFx, aFy] = project(aliceX1, aliceX2, yDomain[0]);
@@ -1018,10 +1021,10 @@
       }
 
       // Alice & Bob canonical
-      const alice = { X1: 2.43, X2: 10.25, U: 0.85 };
-      const bob   = { X1: 1.57, X2: 9.75, U: -0.85 };
-      const aliceY = 50 + 8 * Math.log(alice.X1) + 3 * alice.X2 + 2 * alice.U;
-      const bobY   = 50 + 8 * Math.log(bob.X1) + 3 * bob.X2 + 2 * bob.U;
+      const alice = { X1: 2.275, X2: 10.825, U: 0.55 };
+      const bob   = { X1: 1.725, X2:  9.175, U: -0.55 };
+      const aliceY = 50 + 8 * Math.log(alice.X1) + 3 * alice.X2 + 6 * alice.U;
+      const bobY   = 50 + 8 * Math.log(bob.X1) + 3 * bob.X2 + 6 * bob.U;
       const aliceX3 = 0.9 * aliceY;
       const bobX3   = 0.9 * bobY;
       renderAvatar(gAliceBob, 'alice', 22).attr('transform', `translate(${xScale(aliceY)},${yScale(aliceX3)})`);
@@ -1135,8 +1138,11 @@
     // ---------- control wiring ----------
     document.getElementById('sldU').addEventListener('input', e => {
       const t = +e.target.value;
-      state.aliceU = 0.3 + t*1.7;
-      state.bobU = -(0.3 + t*1.7);
+      // Map slider t in [0,1] to |U| in [0.15, 1.2]. Default t=0.5 -> |U|≈0.55,
+      // which keeps Alice/Bob's 14-point gap consistent with the stage-1 claim
+      // at the amplified parameters (gamma_2=1.5, beta_U=6).
+      state.aliceU = 0.15 + t*1.05;
+      state.bobU = -(0.15 + t*1.05);
       document.getElementById('valU').textContent = t.toFixed(2);
       if (state.activeStage === 1) renderStage1();
     });

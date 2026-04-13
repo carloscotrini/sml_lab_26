@@ -497,18 +497,15 @@
     //
     //  U   ~ N(0, 1)              self-discipline (hidden)
     //  Z   ~ N(3, 1)              roommate's study hours (randomly assigned)
-    //  X1  = 2 + 0.5 U + pi Z + eta1,  eta1 ~ N(0, sd=sqrt(0.3))
-    //  X2  = 10 + 0.3 U + eta2,   eta2 ~ N(0, sd=1)
-    //  eps ~ N(0, sd = sqrt(0.5 |X1|))   heteroscedastic
-    //  Y   = 50 + 8 log(X1) + 3 X2 + 2 U + eps
+    //  X1  = 2 + 0.5 U + pi Z + eta1,  eta1 ~ N(0, sd=sqrt(0.5))
+    //  X2  = 10 + 1.5 U + eta2,   eta2 ~ N(0, sd=sqrt(2))
+    //  eps ~ N(0, sd = sqrt(2 |X1|))   heteroscedastic
+    //  Y   = 50 + 8 log(X1) + 3 X2 + 6 U + eps
     //
     //  pi = instrument strength (slider). Note Z enters X1 but NOT Y.
     //
-    // We report the slope of Y on X1 near its mean, i.e. d/dX1 of
-    //   50 + 8 log(X1) + 3 X2 + 2 U  =  8 / X1.
-    // At X1 ≈ 4 (a typical value after Z lifts the mean), that's ≈ 2.
-    // But students expect a SLOPE on log-scale. To keep the narrative clean
-    // ("IV recovers ~8, OLS inflated by U's ghost to ~10"), we fit the model
+    // Students expect a SLOPE on log-scale. To keep the narrative clean
+    // ("IV recovers ~8, OLS inflated by U's ghost to ~10+"), we fit the model
     // with log(X1) as the regressor on both OLS and IV sides. That way the
     // true coefficient is literally 8.
 
@@ -521,8 +518,8 @@
       const X1 = new Float64Array(n);
       const X2 = new Float64Array(n);
       const Y = new Float64Array(n);
-      const sdEta1 = Math.sqrt(0.3);
-      const sdEta2 = 1.0;
+      const sdEta1 = Math.sqrt(0.5);
+      const sdEta2 = Math.sqrt(2.0);
 
       for (let i = 0; i < n; i++) {
         const u = randn(rng);
@@ -531,10 +528,10 @@
         const eta2 = randn(rng) * sdEta2;
         let x1 = 2 + 0.5 * u + pi * z + eta1;
         if (x1 <= 0.05) x1 = 0.05;
-        const x2 = 10 + 0.3 * u + eta2;
-        const epsSd = Math.sqrt(0.5 * Math.abs(x1));
+        const x2 = 10 + 1.5 * u + eta2;
+        const epsSd = Math.sqrt(2.0 * Math.abs(x1));
         const eps = randn(rng) * epsSd;
-        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 2 * u + eps;
+        const y = 50 + 8 * Math.log(x1) + 3 * x2 + 6 * u + eps;
         U[i] = u; Z[i] = z; X1[i] = x1; X2[i] = x2; Y[i] = y;
       }
       return { U, Z, X1, X2, Y };
