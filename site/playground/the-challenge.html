@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The leitmotif — SML playground</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <style>
+    :root {
+      --c-bg: #fbf8f3;
+      --c-ink: #2a2a2a;
+      --c-ink-muted: #5a5a5a;
+      --c-border: #e4dfd5;
+      --c-truth: #D4A017;
+      --c-hidden: #B83280;
+      --c-data: #2E5EA8;
+      --c-new: #27AE60;
+      --serif: 'Fraunces', Georgia, serif;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 42px 24px 72px;
+    }
+    nav.top {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+    nav.top a { color: var(--c-ink-muted); text-decoration: none; }
+    nav.top a:hover { color: var(--c-ink); }
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 40px;
+      line-height: 1.12;
+      margin: 8px 0 4px;
+    }
+    .subtitle {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--c-ink-muted);
+      font-size: 19px;
+      margin: 0 0 24px;
+    }
+    h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 26px;
+      margin: 40px 0 10px;
+    }
+    p { font-size: 16px; color: var(--c-ink); margin: 10px 0; }
+    .lede { font-size: 17px; color: var(--c-ink); }
+    .kicker {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--c-ink-muted);
+      margin-bottom: 2px;
+    }
+    .muted { color: var(--c-ink-muted); font-size: 14px; }
+
+    /* the big diagram */
+    .diagram {
+      margin: 28px 0;
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* the cards that show the "rows of data" */
+    .callout {
+      border-left: 3px solid var(--c-truth);
+      background: #fbf4e4;
+      padding: 14px 18px;
+      margin: 18px 0;
+      border-radius: 3px;
+    }
+    .callout strong { color: var(--c-ink); }
+
+    .cohort-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 18px 0 24px;
+    }
+    @media (max-width: 760px) { .cohort-grid { grid-template-columns: 1fr; } }
+    .student-card {
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .student-card h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      margin: 0 0 6px;
+      font-size: 19px;
+      color: var(--c-new);
+    }
+    .student-card table {
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--c-ink);
+    }
+    .student-card table td { padding: 2px 8px 2px 0; }
+    .student-card table td:first-child { color: var(--c-ink-muted); }
+    .student-card .y-cell {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: #f0f0ef;
+      color: var(--c-ink-muted);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      margin: 10px 0 18px;
+      background: #fff;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .data-table th, .data-table td {
+      padding: 7px 14px;
+      text-align: right;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .data-table th:first-child, .data-table td:first-child { text-align: center; color: var(--c-ink-muted); }
+    .data-table thead th {
+      background: #f6f2e8;
+      color: var(--c-ink-muted);
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table .hidden-cell {
+      color: #c0a46e;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(184, 50, 128, 0.08) 0, rgba(184, 50, 128, 0.08) 4px,
+        transparent 4px, transparent 8px);
+    }
+
+    .cta {
+      display: block;
+      margin: 36px 0 0;
+      padding: 22px 26px;
+      background: linear-gradient(180deg, #fbf4e4 0%, #f4e9d3 100%);
+      border: 1px solid #e5d2a2;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .cta h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      margin: 0 0 6px;
+    }
+    .cta p { color: var(--c-ink); }
+    .cta a {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 18px;
+      background: var(--c-truth);
+      color: #fff;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .cta a:hover { filter: brightness(0.92); }
+
+    /* coda */
+    .coda {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--c-border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+    .coda a { color: var(--c-ink-muted); text-decoration: none; }
+    .coda a:hover { color: var(--c-ink); }
+    .katex { font-size: 1em; }
+  </style>
+</head>
+<body>
+
+  <nav class="top">
+    <a href="dgp-intro.html">← Back to the DGP intro</a>
+    <a href="../index.html">Playground home</a>
+  </nav>
+
+  <main>
+
+    <div class="kicker">Between the world and the estimator</div>
+    <h1>What are we actually trying to do?</h1>
+    <p class="subtitle">A leitmotif for every page that follows.</p>
+
+    <p class="lede">
+      You just built a world — a whole data-generating process, variable by variable, noise-term by noise-term.
+      <strong>Now pause.</strong> In real life, nobody hands us that world on a silver platter. We don't know
+      <em>U</em>. We don't know the true coefficients. We don't even know whether \(Y\) depends on \(X_1\) linearly,
+      logarithmically, or not at all. We only see a table of numbers, and we have to work backwards.
+    </p>
+
+    <h2>This is what nature gives us — and this is what we actually get</h2>
+
+    <p>The picture below separates the two:</p>
+
+    <svg class="diagram" viewBox="0 0 920 520" preserveAspectRatio="xMidYMid meet" aria-label="A diagram of the DGP, the observed data, and the prediction task">
+      <defs>
+        <marker id="arrowDark" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,-5 L10,0 L0,5" fill="#444"/>
+        </marker>
+        <marker id="arrowGold" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,-5 L10,0 L0,5" fill="#b88a15"/>
+        </marker>
+        <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(-45)">
+          <rect width="6" height="6" fill="#fbeef3"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#B83280" stroke-width="1.1" opacity="0.35"/>
+        </pattern>
+      </defs>
+
+      <!-- LEFT: Nature / the DGP -->
+      <g>
+        <rect x="18" y="30" width="320" height="470" rx="10"
+              fill="#fff" stroke="#B83280" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="178" y="58" text-anchor="middle"
+              font-family="Fraunces, serif" font-size="18" font-weight="500" fill="#B83280">
+          Nature (the true DGP)
+        </text>
+        <text x="178" y="76" text-anchor="middle"
+              font-family="Inter, sans-serif" font-size="11" fill="#9c5f85" font-style="italic">
+          Unknown to us
+        </text>
+
+        <!-- U box, hatched -->
+        <rect x="45" y="100" width="266" height="56" rx="6" fill="url(#hatch)" stroke="#B83280" stroke-width="1.2"/>
+        <text x="178" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#7a1f55">
+          U ∼ N(0, 1)
+        </text>
+        <text x="178" y="144" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#7a1f55">
+          self-discipline — hidden
+        </text>
+
+        <!-- X1 -->
+        <rect x="45" y="178" width="266" height="44" rx="6" fill="#fff" stroke="#B83280" stroke-width="0.8"/>
+        <text x="178" y="202" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#2a2a2a">
+          X₁ = 2 + 0.5·U + η₁
+        </text>
+        <text x="178" y="215" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#5a5a5a">
+          hours studied
+        </text>
+
+        <!-- X2 -->
+        <rect x="45" y="234" width="266" height="44" rx="6" fill="#fff" stroke="#B83280" stroke-width="0.8"/>
+        <text x="178" y="258" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#2a2a2a">
+          X₂ = 10 + 1.5·U + η₂
+        </text>
+        <text x="178" y="271" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#5a5a5a">
+          lectures attended
+        </text>
+
+        <!-- epsilon -->
+        <rect x="45" y="290" width="266" height="44" rx="6" fill="url(#hatch)" stroke="#B83280" stroke-width="0.8"/>
+        <text x="178" y="314" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#7a1f55">
+          ε ∼ N(0, 2·|X₁|)
+        </text>
+        <text x="178" y="327" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#7a1f55">
+          exam-day noise — hidden
+        </text>
+
+        <!-- Y -->
+        <rect x="45" y="346" width="266" height="54" rx="6" fill="#fff" stroke="#B83280" stroke-width="1.2"/>
+        <text x="178" y="370" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#2a2a2a">
+          Y = 50 + 8·log(X₁) + 3·X₂
+        </text>
+        <text x="178" y="386" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#2a2a2a">
+          + 6·U + ε
+        </text>
+
+        <!-- X3 -->
+        <rect x="45" y="414" width="266" height="44" rx="6" fill="#fff" stroke="#B83280" stroke-width="0.8"/>
+        <text x="178" y="438" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#2a2a2a">
+          X₃ = 0.9·Y + η₃
+        </text>
+        <text x="178" y="451" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#5a5a5a">
+          self-assessment
+        </text>
+
+        <!-- legend -->
+        <g transform="translate(45, 472)">
+          <rect width="14" height="14" fill="url(#hatch)" stroke="#B83280" stroke-width="0.8"/>
+          <text x="22" y="11" font-family="Inter, sans-serif" font-size="11" fill="#7a1f55">hatched = hidden from the analyst</text>
+        </g>
+      </g>
+
+      <!-- ARROW: nature → data -->
+      <g>
+        <line x1="350" y1="260" x2="410" y2="260" stroke="#444" stroke-width="1.6" marker-end="url(#arrowDark)"/>
+        <text x="380" y="248" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#444">samples</text>
+      </g>
+
+      <!-- MIDDLE: the table we actually see -->
+      <g>
+        <rect x="420" y="70" width="320" height="380" rx="10"
+              fill="#fff" stroke="#2E5EA8" stroke-width="1.5"/>
+        <text x="580" y="96" text-anchor="middle"
+              font-family="Fraunces, serif" font-size="18" font-weight="500" fill="#2E5EA8">
+          The data we actually see
+        </text>
+        <text x="580" y="113" text-anchor="middle"
+              font-family="Inter, sans-serif" font-size="11" fill="#527aae" font-style="italic">
+          All we have in reality
+        </text>
+
+        <!-- table header -->
+        <g font-family="JetBrains Mono, monospace" font-size="12.5">
+          <rect x="440" y="132" width="280" height="28" fill="#f0ebde" stroke="#e4dfd5"/>
+          <text x="460" y="150" font-weight="600" fill="#444">X₁</text>
+          <text x="520" y="150" font-weight="600" fill="#444">X₂</text>
+          <text x="590" y="150" font-weight="600" fill="#444">X₃</text>
+          <text x="670" y="150" font-weight="600" fill="#444">Y</text>
+
+          <!-- rows -->
+          <g fill="#2a2a2a">
+            <text x="455" y="180">3.21</text><text x="515" y="180">11.0</text><text x="585" y="180">74.4</text><text x="665" y="180">78.3</text>
+            <text x="455" y="204">2.12</text><text x="515" y="204">9.27</text><text x="585" y="204">60.9</text><text x="665" y="204">64.1</text>
+            <text x="455" y="228">1.87</text><text x="515" y="228">8.41</text><text x="585" y="228">58.7</text><text x="665" y="228">61.0</text>
+            <text x="455" y="252">4.02</text><text x="515" y="252">13.1</text><text x="585" y="252">84.5</text><text x="665" y="252">88.9</text>
+            <text x="455" y="276">2.55</text><text x="515" y="276">10.2</text><text x="585" y="276">69.3</text><text x="665" y="276">72.8</text>
+            <text x="455" y="300">1.44</text><text x="515" y="300">7.90</text><text x="585" y="300">54.2</text><text x="665" y="300">57.1</text>
+            <text x="455" y="324">3.78</text><text x="515" y="324">12.6</text><text x="585" y="324">81.0</text><text x="665" y="324">85.2</text>
+          </g>
+          <text x="580" y="356" text-anchor="middle" fill="#888" font-family="Inter, sans-serif" font-size="11" font-style="italic">⋮</text>
+          <text x="580" y="378" text-anchor="middle" fill="#888" font-family="Inter, sans-serif" font-size="12">150 rows total</text>
+        </g>
+
+        <!-- note about what's missing -->
+        <g transform="translate(440, 400)">
+          <text font-family="Inter, sans-serif" font-size="11.5" fill="#888">
+            <tspan x="0" dy="0">Notice what's <tspan fill="#B83280" font-style="italic">not</tspan> in this table:</tspan>
+            <tspan x="0" dy="16">U, ε. The ghosts never show up in the spreadsheet.</tspan>
+          </text>
+        </g>
+      </g>
+
+      <!-- ARROW DOWN: inference -->
+      <g>
+        <line x1="580" y1="460" x2="580" y2="490" stroke="#b88a15" stroke-width="1.8" marker-end="url(#arrowGold)"/>
+        <text x="596" y="478" font-family="Inter, sans-serif" font-size="11" fill="#b88a15" font-style="italic">infer</text>
+      </g>
+
+      <!-- RIGHT sidebar, small -->
+      <g>
+        <text x="770" y="220" font-family="Fraunces, serif" font-size="15" font-weight="500" fill="#27AE60">
+          The goal
+        </text>
+        <foreignObject x="755" y="232" width="155" height="220">
+          <div xmlns="http://www.w3.org/1999/xhtml"
+               style="font-family:'Inter',sans-serif;font-size:12px;color:#2a2a2a;line-height:1.5;">
+            From this table alone,
+            <strong>guess the DGP</strong> well enough to predict a new student's score.
+            <br/><br/>
+            We will never see <em>U</em>. We will never see <em>ε</em>. Whatever we recover has to live
+            entirely inside the observed columns.
+          </div>
+        </foreignObject>
+      </g>
+    </svg>
+
+    <div class="callout">
+      <strong>Two worlds, one arrow.</strong> On the left is the machine that generates the numbers.
+      Only nature gets to see it. On the right is the spreadsheet we actually wake up to — four columns,
+      150 rows, no labels telling us which terms are log and which are linear. The whole
+      remaining course is about the <em>arrow</em>: how do we get from the table back to a
+      working model, knowing the truth is permanently out of reach?
+    </div>
+
+    <h2>Three new students arrive</h2>
+
+    <p>
+      To make the stakes concrete: tomorrow morning, three new students walk in. The university has their
+      hours-studied and lectures-attended records. They haven't taken the exam yet. The dean wants a
+      prediction for each — a best guess at the score they'll get.
+    </p>
+
+    <div class="cohort-grid">
+      <div class="student-card">
+        <h3>Charlie</h3>
+        <table>
+          <tr><td>X₁ (hours)</td><td>2.5</td></tr>
+          <tr><td>X₂ (lectures)</td><td>11</td></tr>
+          <tr><td>U (discipline)</td><td>—</td></tr>
+          <tr><td>ε (noise)</td><td>—</td></tr>
+        </table>
+        <div class="y-cell">Y = ?</div>
+      </div>
+      <div class="student-card">
+        <h3>David</h3>
+        <table>
+          <tr><td>X₁ (hours)</td><td>1.8</td></tr>
+          <tr><td>X₂ (lectures)</td><td>8</td></tr>
+          <tr><td>U (discipline)</td><td>—</td></tr>
+          <tr><td>ε (noise)</td><td>—</td></tr>
+        </table>
+        <div class="y-cell">Y = ?</div>
+      </div>
+      <div class="student-card">
+        <h3>Evelyn</h3>
+        <table>
+          <tr><td>X₁ (hours)</td><td>3.5</td></tr>
+          <tr><td>X₂ (lectures)</td><td>13</td></tr>
+          <tr><td>U (discipline)</td><td>—</td></tr>
+          <tr><td>ε (noise)</td><td>—</td></tr>
+        </table>
+        <div class="y-cell">Y = ?</div>
+      </div>
+    </div>
+
+    <p>
+      Notice: for each new student we still only see \(X_1\) and \(X_2\). Their self-discipline is invisible.
+      Their exam-day noise hasn't happened yet. The question on the table is: given only the 150 rows of
+      past data, what is our best guess for the <em>Y</em> of each of these three?
+    </p>
+
+    <h2>This is the leitmotif</h2>
+
+    <p>
+      Every page after this one is about solving a version of this puzzle. Some will be about
+      <em>finding the right function</em> (so the prediction hits the target). Others will be about
+      <em>trusting our answer</em> (how confident should we be?). A few will be about spectacular
+      ways the inference can go wrong.
+    </p>
+
+    <p>
+      The DGP we just built is a <strong>teaching scaffold</strong>: it lets us know, in this notebook,
+      what the "true" answer is, so we can catch our methods red-handed when they stray. In any real study
+      you never get that luxury. You get the table. You get to pick a model family. You get to fit it.
+      And then you get to wonder whether your fit is telling you something about the world or something
+      about your sample.
+    </p>
+
+    <div class="cta">
+      <h3>Next: meet the researcher who takes on the challenge</h3>
+      <p>
+        On the next page, Dr. Gauss inherits the 150-row table and the three new students. He has no
+        idea that there is a hidden U, no idea that Y depends on the log of X₁, no idea what the true
+        coefficients are. Watch him build — and then trust — a prediction machine from the data alone.
+      </p>
+      <a href="dgp-estimator.html">Meet Dr. Gauss →</a>
+    </div>
+
+    <div class="coda">
+      <a href="dgp-intro.html">← Back to the DGP</a>
+      <a href="dgp-estimator.html">Continue to the estimation →</a>
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script>
+    (function render() {
+      if (typeof renderMathInElement !== 'function') {
+        window.addEventListener('load', render);
+        return;
+      }
+      try {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false }
+          ],
+          throwOnError: false
+        });
+      } catch (e) { console.warn('KaTeX render failed:', e); }
+    })();
+  </script>
+</body>
+</html>

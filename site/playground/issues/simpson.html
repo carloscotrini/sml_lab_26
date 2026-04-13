@@ -241,6 +241,45 @@
       color: var(--c-ink-muted);
     }
     footer a { color: var(--c-ink-muted); }
+
+    /* Collapsible optional-math block */
+    details.optional-math {
+      margin: 22px 0;
+      padding: 8px 16px;
+      border: 1px dashed var(--c-border);
+      border-radius: 6px;
+      background: #fbf8f3;
+    }
+    details.optional-math summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 6px 0;
+      color: var(--c-ink-muted);
+    }
+    details.optional-math summary::-webkit-details-marker { display: none; }
+    details.optional-math summary::before {
+      content: '▸  ';
+      color: var(--c-ink-muted);
+      font-size: 14px;
+    }
+    details.optional-math[open] summary::before { content: '▾  '; }
+    details.optional-math summary h2 {
+      font-size: 22px;
+      color: var(--c-ink-muted);
+      font-weight: 500;
+    }
+    details.optional-math[open] summary h2 { color: var(--c-ink); }
+    details.optional-math .optional-tag {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--c-ink-muted);
+      letter-spacing: 0.03em;
+      font-style: italic;
+    }
+    details.optional-math > *:not(summary) {
+      margin-left: 4px;
+    }
   </style>
 </head>
 <body>
@@ -327,64 +366,43 @@
 
     <p>The coefficient on X is <strong>−0.5</strong>. Negative. Nursing helps. Simpson's paradox is the catastrophe of aggregating over a missing variable.</p>
 
-    <!-- SECTION 5 -->
-    <h2>5. The OVB formula explains exactly</h2>
-    <p>The sign flip is not mysterious. It is arithmetic. Before we write it down, let's name each term carefully — the formula looks innocent, but every symbol carries weight.</p>
+    <!-- SECTION 5 (optional, collapsible) -->
+    <details class="optional-math">
+      <summary><h2 style="display:inline;">5. The OVB formula explains exactly <span class="optional-tag">— optional, math-heavy</span></h2></summary>
+      <p style="color:var(--c-ink-muted); font-style:italic; margin-top:6px;">
+        This section is optional. The intuition above already captures the story (the bias = true effect of the omitted variable × how strongly the included variable tracks it). If you want to see the plim computed step by step for the Nursing DGP, read on.
+      </p>
 
-    <ul>
-      <li>\(\operatorname*{plim}\hat\beta^{\text{short}}\) — the <em>probability limit</em> of the estimator: the value \(\hat\beta^{\text{short}}\) converges to as the sample size grows to infinity. Think of it as "what the short regression would report if we had infinite data."</li>
-      <li>\(\hat\beta^{\text{short}}\) — the OLS estimate of the slope on X when we fit \(Y\) on \(X\) <em>alone</em>, ignoring the confounder U. This is what Dr. Naive reports.</li>
-      <li>\(\beta_X = -0.5\) — the <em>true</em> causal effect of nursing on recovery, read directly off the DGP. (Nursing helps.)</li>
-      <li>\(\beta_U = +2\) — the <em>true</em> direct effect of severity on recovery, also from the DGP. (Severity hurts — a lot.)</li>
-      <li>\(\delta \;=\; \dfrac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)}\) — the <em>auxiliary slope</em>: the coefficient you would get from regressing the omitted variable U on the included variable X. It measures how strongly X tracks U.</li>
-    </ul>
+      <p>The sign flip is not mysterious. It is arithmetic. Before we write it down, let's name each term carefully — the formula looks innocent, but every symbol carries weight.</p>
 
-    <p>The omitted-variable-bias formula then says:</p>
+      <ul>
+        <li>\(\operatorname*{plim}\hat\beta^{\text{short}}\) — the <em>probability limit</em> of the estimator: the value \(\hat\beta^{\text{short}}\) converges to as the sample size grows to infinity. Think of it as "what the short regression would report if we had infinite data."</li>
+        <li>\(\hat\beta^{\text{short}}\) — the OLS estimate of the slope on X when we fit \(Y\) on \(X\) <em>alone</em>, ignoring the confounder U. This is what Dr. Naive reports.</li>
+        <li>\(\beta_X = -0.5\) — the <em>true</em> causal effect of nursing on recovery, read directly off the DGP. (Nursing helps.)</li>
+        <li>\(\beta_U = +2\) — the <em>true</em> direct effect of severity on recovery, also from the DGP. (Severity hurts — a lot.)</li>
+        <li>\(\delta \;=\; \dfrac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)}\) — the <em>auxiliary slope</em>: the coefficient you would get from regressing the omitted variable U on the included variable X. It measures how strongly X tracks U.</li>
+      </ul>
 
-    <div class="math-display">
-      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X \;+\; \underbrace{\beta_U \cdot \delta}_{\text{bias}} \]
-    </div>
+      <p>The omitted-variable-bias formula then says:</p>
 
-    <p>In plain words: <strong>the bias the naive regression suffers is the true effect of the omitted variable, times how strongly X correlates with it.</strong> If either factor is zero, the bias vanishes.</p>
-
-    <p>Plug in the Nursing DGP. With U taking values 3 and 8 with equal probability, \(\operatorname{Var}(U) = 6.25\), so \(\operatorname{Cov}(X, U) = 0.8 \cdot 6.25 = 5.00\) and \(\operatorname{Var}(X) = 0.8^2 \cdot 6.25 + 0.8^2 = 4.64\). Hence:</p>
-
-    <div class="math-display">
-      \[ \delta \;=\; \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; \frac{5.00}{4.64} \;\approx\; 1.08 \]
-      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X + \beta_U \cdot \delta \;=\; -0.5 \;+\; 2 \cdot 1.08 \;\approx\; +1.66 \]
-    </div>
-
-    <p>Severity drives nursing hours almost one-for-one (\(\delta \approx 1.08\)), and severity's direct effect on recovery (\(\beta_U = +2\)) is four times larger than nursing's (\(\beta_X = -0.5\)). The larger effect wins; the bias swamps the truth; the sign flips. In our finite sample of 40 patients we happen to see \(\hat\beta^{\text{short}} \approx +1.44\) — close to the plim, with the gap due to sampling noise.</p>
-
-    <!-- SECTION 6 -->
-    <h2>6. Try it yourself</h2>
-    <p>The strength of the confounding depends on how strongly severity drives nursing hours. Call this \(\gamma\) — the coefficient on \(U\) in the equation for \(X\). In the real DGP, \(\gamma = 0.8\). What if the hospital assigned nursing without regard to severity (\(\gamma = 0\))? What if the link were even stronger?</p>
-
-    <div class="viz-card">
-      <div>
-        <span class="lbl">γ — how strongly severity drives nursing:</span>
-        <div class="slider-row">
-          <input id="gamma-slider" type="range" min="0" max="1.5" step="0.01" value="0.8" />
-          <span class="val" id="gamma-val">0.80</span>
-        </div>
+      <div class="math-display">
+        \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X \;+\; \underbrace{\beta_U \cdot \delta}_{\text{bias}} \]
       </div>
-      <div class="coef-bar truth">
-        <span class="coef-label">True β<sub>X</sub> (fixed)</span>
-        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-true2"></span></div>
-        <span class="coef-val">−0.50</span>
-      </div>
-      <div class="coef-bar short" id="bar-short2-row">
-        <span class="coef-label">Pooled β̂ (you)</span>
-        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-short2"></span></div>
-        <span class="coef-val" id="bar-short2-val">+1.44</span>
-      </div>
-      <figcaption style="margin-top:10px; font-size:13px; color:var(--c-ink-muted); font-style:italic;">
-        When γ = 0, severity doesn't drive nursing: the pooled slope recovers the truth (−0.5). Turn γ up even a little and the bias appears; the sign flip is easy to produce.
-      </figcaption>
-    </div>
 
-    <!-- SECTION 7 -->
-    <h2>7. The real-world corollary</h2>
+      <p>In plain words: <strong>the bias the naive regression suffers is the true effect of the omitted variable, times how strongly X correlates with it.</strong> If either factor is zero, the bias vanishes.</p>
+
+      <p>Plug in the Nursing DGP. With U taking values 3 and 8 with equal probability, \(\operatorname{Var}(U) = 6.25\), so \(\operatorname{Cov}(X, U) = 0.8 \cdot 6.25 = 5.00\) and \(\operatorname{Var}(X) = 0.8^2 \cdot 6.25 + 0.8^2 = 4.64\). Hence:</p>
+
+      <div class="math-display">
+        \[ \delta \;=\; \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; \frac{5.00}{4.64} \;\approx\; 1.08 \]
+        \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X + \beta_U \cdot \delta \;=\; -0.5 \;+\; 2 \cdot 1.08 \;\approx\; +1.66 \]
+      </div>
+
+      <p>Severity drives nursing hours almost one-for-one (\(\delta \approx 1.08\)), and severity's direct effect on recovery (\(\beta_U = +2\)) is four times larger than nursing's (\(\beta_X = -0.5\)). The larger effect wins; the bias swamps the truth; the sign flips. In our finite sample of 40 patients we happen to see \(\hat\beta^{\text{short}} \approx +1.44\) — close to the plim, with the gap due to sampling noise.</p>
+    </details>
+
+    <!-- SECTION 6 (real-world corollary) -->
+    <h2>6. The real-world corollary</h2>
     <p>The canonical real example is the <strong>1973 UC Berkeley graduate admissions case</strong>. Aggregated across the university, men were admitted at higher rates than women. Prima facie evidence of sex discrimination?</p>
     <p>Not quite. Within each individual department, women were admitted at <em>equal or higher</em> rates than men. Women simply applied in greater numbers to more competitive departments (lower admission rates overall), while men applied more to less competitive departments. Department was the confounder. Include it, and the pooled sign flips — just like in the nursing paradox.</p>
 
@@ -632,29 +650,6 @@
     document.getElementById('bar-mild-val').textContent  = (mildEnds.b1 >= 0 ? '+' : '') + mildEnds.b1.toFixed(2);
     document.getElementById('bar-severe-val').textContent = (sevEnds.b1 >= 0 ? '+' : '') + sevEnds.b1.toFixed(2);
 
-    // ---------- Slider (Section 6) ----------
-    setBar('bar-true2', -0.5);
-    const slider = document.getElementById('gamma-slider');
-    const gVal = document.getElementById('gamma-val');
-    const bar2 = document.getElementById('bar-short2');
-    const bar2Val = document.getElementById('bar-short2-val');
-    const bar2Row = document.getElementById('bar-short2-row');
-
-    function updateSlider() {
-      const gamma = parseFloat(slider.value);
-      gVal.textContent = gamma.toFixed(2);
-      // Generate a fresh sample (same seed so changes look smooth as gamma varies)
-      const d = makeData(N, SEED, gamma);
-      const fit = ols(d.Y, d.X.map(x => [x]));
-      const b = fit.coefficients[1];
-      setBar('bar-short2', b);
-      bar2Val.textContent = (b >= 0 ? '+' : '') + b.toFixed(2);
-      // colour safety: green if close to truth, red if far
-      const closeToTruth = Math.abs(b - (-0.5)) < 0.25;
-      bar2Row.classList.toggle('safe', closeToTruth);
-    }
-    slider.addEventListener('input', updateSlider);
-    updateSlider();
   </script>
 </body>
 </html>
