@@ -273,16 +273,16 @@
 
     <p style="margin-top:18px;">Emphasize: the fit is not wrong in a mathematical sense. The arithmetic is exact. <strong>The interpretation would be catastrophic.</strong></p>
 
-    <blockquote>"If we cut nursing by two hours a day, patients will recover two days faster, right?" — the administrator, extrapolating from β̂ = +1.44.</blockquote>
+    <blockquote>"If we cut nursing by two hours a day, patients will recover two days faster, right?" — the administrator, extrapolating from \(\hat\beta = +1.44\).</blockquote>
 
     <!-- SECTION 2 -->
     <h2>2. The hidden variable</h2>
-    <p>Every patient was admitted with some severity <em>U</em> — on a scale from 1 (mild) to 10 (severe). The severely ill get more nursing (naturally), and they also take longer to recover (also naturally). Severity is doing the work. Nursing is just along for the ride.</p>
+    <p>Every patient was admitted with some severity \(U\). For this toy example, half the patients are <em>mild</em> (\(U = 3\)) and half are <em>severe</em> (\(U = 8\)) — a clean two-point split that makes the stratification easy to see. The severely ill get more nursing (naturally), and they also take longer to recover (also naturally). Severity is doing the work. Nursing is just along for the ride.</p>
     <p>Click <strong>Colour by severity</strong> above. Suddenly you see the structure: the dots are not a shapeless cloud. They are stratified.</p>
 
     <!-- SECTION 3 -->
     <h2>3. Within-group reveals the truth</h2>
-    <p>Now split the patients by severity — mild (U ≤ 5) and severe (U &gt; 5) — and fit a line within each group.</p>
+    <p>Now split the patients by severity — mild (\(U = 3\)) and severe (\(U = 8\)) — and fit a line within each group.</p>
     <p>Click <strong>Show within-group fits</strong> above. Both slopes are <em>negative</em>. Within each severity stratum, more nursing really does speed recovery — by roughly half a day per hour, just as the true DGP says.</p>
 
     <div class="insight-box">
@@ -318,25 +318,47 @@
     <p>Here is the data-generating process, in full. No hidden complexity — just a two-variable truth.</p>
 
     <div class="math-display">
-      \[ U \in \{1, 2, \ldots, 10\} \text{ (severity)}, \qquad X = 2 + 0.8\,U + \eta, \quad \eta \sim \mathcal{N}(0, \sigma_\eta^2) \]
-      \[ Y = 5 \;-\; 0.5\,X \;+\; 2\,U \;+\; \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, 0.5^2) \]
+      \[ U \in \{3, 8\} \text{ (severity)}, \qquad \Pr(U = 3) = \Pr(U = 8) = \tfrac{1}{2} \]
+      \[ X \;=\; 2 \;+\; 0.8\,U \;+\; \eta, \qquad \eta \sim \mathcal{N}(0,\; 0.8^2) \]
+      \[ Y \;=\; 5 \;-\; 0.5\,X \;+\; 2\,U \;+\; \varepsilon, \qquad \varepsilon \sim \mathcal{N}(0,\; 0.5^2) \]
     </div>
+
+    <p>Half the patients are <em>mild</em> (U = 3) and half are <em>severe</em> (U = 8) — a two-point severity distribution. This clean split is what makes the within-group structure visible in the scatter above: each "cloud" of dots corresponds to one severity level, with X varying only through the nursing-assignment noise η.</p>
 
     <p>The coefficient on X is <strong>−0.5</strong>. Negative. Nursing helps. Simpson's paradox is the catastrophe of aggregating over a missing variable.</p>
 
     <!-- SECTION 5 -->
     <h2>5. The OVB formula explains exactly</h2>
-    <p>The sign flip is not mysterious. It is arithmetic. The omitted-variable-bias formula says:</p>
+    <p>The sign flip is not mysterious. It is arithmetic. Before we write it down, let's name each term carefully — the formula looks innocent, but every symbol carries weight.</p>
+
+    <ul>
+      <li>\(\operatorname*{plim}\hat\beta^{\text{short}}\) — the <em>probability limit</em> of the estimator: the value \(\hat\beta^{\text{short}}\) converges to as the sample size grows to infinity. Think of it as "what the short regression would report if we had infinite data."</li>
+      <li>\(\hat\beta^{\text{short}}\) — the OLS estimate of the slope on X when we fit \(Y\) on \(X\) <em>alone</em>, ignoring the confounder U. This is what Dr. Naive reports.</li>
+      <li>\(\beta_X = -0.5\) — the <em>true</em> causal effect of nursing on recovery, read directly off the DGP. (Nursing helps.)</li>
+      <li>\(\beta_U = +2\) — the <em>true</em> direct effect of severity on recovery, also from the DGP. (Severity hurts — a lot.)</li>
+      <li>\(\delta \;=\; \dfrac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)}\) — the <em>auxiliary slope</em>: the coefficient you would get from regressing the omitted variable U on the included variable X. It measures how strongly X tracks U.</li>
+    </ul>
+
+    <p>The omitted-variable-bias formula then says:</p>
 
     <div class="math-display">
-      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X \;+\; \beta_U \cdot \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; -0.5 \;+\; 2 \cdot 0.97 \;\approx\; +1.44 \]
+      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X \;+\; \underbrace{\beta_U \cdot \delta}_{\text{bias}} \]
     </div>
 
-    <p>The short regression gives nursing credit — actually, blame — for severity's effect. And severity's effect (β<sub>U</sub> = +2) is four times larger than nursing's (β<sub>X</sub> = −0.5). The larger effect wins. The sign flips.</p>
+    <p>In plain words: <strong>the bias the naive regression suffers is the true effect of the omitted variable, times how strongly X correlates with it.</strong> If either factor is zero, the bias vanishes.</p>
+
+    <p>Plug in the Nursing DGP. With U taking values 3 and 8 with equal probability, \(\operatorname{Var}(U) = 6.25\), so \(\operatorname{Cov}(X, U) = 0.8 \cdot 6.25 = 5.00\) and \(\operatorname{Var}(X) = 0.8^2 \cdot 6.25 + 0.8^2 = 4.64\). Hence:</p>
+
+    <div class="math-display">
+      \[ \delta \;=\; \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; \frac{5.00}{4.64} \;\approx\; 1.08 \]
+      \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X + \beta_U \cdot \delta \;=\; -0.5 \;+\; 2 \cdot 1.08 \;\approx\; +1.66 \]
+    </div>
+
+    <p>Severity drives nursing hours almost one-for-one (\(\delta \approx 1.08\)), and severity's direct effect on recovery (\(\beta_U = +2\)) is four times larger than nursing's (\(\beta_X = -0.5\)). The larger effect wins; the bias swamps the truth; the sign flips. In our finite sample of 40 patients we happen to see \(\hat\beta^{\text{short}} \approx +1.44\) — close to the plim, with the gap due to sampling noise.</p>
 
     <!-- SECTION 6 -->
     <h2>6. Try it yourself</h2>
-    <p>The strength of the confounding depends on how strongly severity drives nursing hours. Call this γ — the coefficient on U in the equation for X. In the real DGP, γ = 0.8. What if the hospital assigned nursing without regard to severity (γ = 0)? What if the link were even stronger?</p>
+    <p>The strength of the confounding depends on how strongly severity drives nursing hours. Call this \(\gamma\) — the coefficient on \(U\) in the equation for \(X\). In the real DGP, \(\gamma = 0.8\). What if the hospital assigned nursing without regard to severity (\(\gamma = 0\))? What if the link were even stronger?</p>
 
     <div class="viz-card">
       <div>
