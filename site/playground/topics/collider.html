@@ -290,23 +290,73 @@
     <section id="topic-content">
       <p>
         An analyst's instinct — <q>the more variables I control for, the cleaner the estimate</q> —
-        is wrong. A control that is itself caused by the outcome (or by the treatment) is a
-        <strong>collider</strong>. Conditioning on it opens a spurious path between the other variables
-        and distorts everything downstream.
-      </p>
-      <p>
-        The canonical picture in graph form:
-        \[ A \longrightarrow C \longleftarrow B \]
-        \(A\) and \(B\) are unrelated. But condition on \(C\) (slice the data by it, or include it as
-        a regressor) and an association between \(A\) and \(B\) appears out of thin air.
+        is sometimes dangerously wrong. Before we say <em>why</em>, let's walk into the trap.
       </p>
     </section>
 
     <!-- =======================================================
-         0. WHY X3 IS A COLLIDER HERE
+         1. RUG PULL — FAME FILTER
          ======================================================= -->
     <section class="col-section">
-      <h2><span class="sectag">Setup</span>Why \(X_3\) is a collider here</h2>
+      <h2><span class="sectag">Demo 1</span>Hot guys really <em>are</em> jerks — the data says so</h2>
+      <p>
+        Below is a dataset of 200 famous people. For each, we've measured two traits as standardised
+        z-scores: <strong>attractiveness</strong> (x-axis) and <strong>niceness</strong> (y-axis).
+        Look at the cloud, read off the correlation on the right, and draw your own conclusion.
+      </p>
+      <div class="fame-layout">
+        <div class="fame-plot" id="fame-plot"></div>
+        <div class="fame-side">
+          <div class="fame-metric">
+            <span class="label">Correlation in this dataset</span>
+            <span class="value bad" id="fame-rho-sub">—</span>
+            <span class="label">Sample size</span>
+            <span class="value" id="fame-counts">—</span>
+            <span class="label" id="fame-rho-full-label" style="display:none;">Correlation in full population</span>
+            <span class="value" id="fame-rho-full" style="display:none;">—</span>
+          </div>
+          <div class="fame-btnrow">
+            <button class="pg-btn" id="fame-toggle">Reveal the full population</button>
+            <button class="pg-btn secondary" id="fame-resample">Resample</button>
+          </div>
+          <div class="col-narr" id="fame-narr">
+            The trend is unmistakable. More attractive → less nice. The fit line slopes clearly
+            downward. A real, negative correlation in a real sample of people.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         2. WHAT JUST HAPPENED — COLLIDERS
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">Concept</span>What just happened — colliders</h2>
+      <p>
+        The 200 "famous people" were not a random sample of humans. In the simulation, we generated
+        1,000 people with attractiveness and niceness drawn <em>independently</em> — correlation
+        \(\rho \approx 0\). Then we defined fame = attractiveness + niceness, and kept the top 20%.
+        Fame is a <strong>common effect</strong> of both traits: you can be famous because you are
+        very attractive, or very nice, or both. When we conditioned on "famous," we sliced away the
+        bottom-left corner (people low on both) — leaving an anti-diagonal ridge that reads as a
+        negative correlation, even though none exists in the population.
+      </p>
+      <p>
+        A variable that is itself caused by two other variables is called a <strong>collider</strong>
+        on the path between them. In graph form:
+        \[ A \longrightarrow C \longleftarrow B. \]
+        Here \(A\) and \(B\) are statistically independent. But condition on \(C\) — filter by it,
+        group by it, or include it as a regressor — and an association between \(A\) and \(B\)
+        appears out of thin air. This is <strong>collider bias</strong>, and it is why "control for
+        everything you measured" is not a safe default.
+      </p>
+    </section>
+
+    <!-- =======================================================
+         3. WHY X3 IS A COLLIDER HERE (in our DGP)
+         ======================================================= -->
+    <section class="col-section">
+      <h2><span class="sectag">In our DGP</span>The same trap, in the exam data</h2>
       <p>
         Before we touch any regression, let's pin down <em>why</em> \(X_3\) — the student's
         self-assessed performance — counts as a collider in our running exam DGP. The reasoning
@@ -351,7 +401,7 @@
          1. X3 TOGGLE EXPERIMENT + DAG
          ======================================================= -->
     <section class="col-section">
-      <h2><span class="sectag">Demo 1</span>The exam DGP: what happens if you control for \(X_3\)?</h2>
+      <h2><span class="sectag">Demo 2</span>The exam DGP: what happens if you control for \(X_3\)?</h2>
       <p>
         Back to our running exam scenario. The true model is
         \(Y = 50 + 8\log X_1 + 3X_2 + 6U + \varepsilon\), and the analyst wants the causal effect
@@ -416,41 +466,7 @@
     </section>
 
     <!-- =======================================================
-         2. FAME FILTER DEMO
-         ======================================================= -->
-    <section class="col-section">
-      <h2><span class="sectag">Demo 2</span>The fame filter — Ellenberg's Great Square of Men</h2>
-      <p>
-        Here are 1000 synthetic people. Their attractiveness and niceness are drawn
-        <em>independently</em>: in the general population, correlation \(\rho \approx 0\). Now hit
-        <em>Filter to famous people</em>. Fame rewards being either very attractive or very nice
-        (or both) — it is a common effect, a collider. Watch what happens to the correlation inside
-        the famous subset.
-      </p>
-      <div class="fame-layout">
-        <div class="fame-plot" id="fame-plot"></div>
-        <div class="fame-side">
-          <div class="fame-metric">
-            <span class="label">Correlation (full population)</span>
-            <span class="value" id="fame-rho-full">—</span>
-            <span class="label">Correlation (famous subset)</span>
-            <span class="value bad" id="fame-rho-sub">—</span>
-            <span class="label">Famous n / Total n</span>
-            <span class="value" id="fame-counts">—</span>
-          </div>
-          <div class="fame-btnrow">
-            <button class="pg-btn" id="fame-toggle">Filter to famous people</button>
-            <button class="pg-btn secondary" id="fame-resample">Resample</button>
-          </div>
-          <div class="col-narr" id="fame-narr">
-            No filter yet. In the general population, attractiveness and niceness vary independently.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- =======================================================
-         3. REAL WORLD ARTICLES
+         4. REAL WORLD ARTICLES
          ======================================================= -->
     <section class="col-section">
       <h2><span class="sectag">In the wild</span>Colliders in real journalism and real science</h2>
@@ -558,7 +574,10 @@
     const FAME_N = 1000;
     const FAME_FRAC = 0.20;                // top 20% by (attr+nice)
 
-    let fameState = { seed: 3, filtered: false };
+    // Rug-pull: start already filtered, with the rest of the population hidden.
+    // The reveal button re-adds the non-famous points and the full-population
+    // correlation row, exposing the trap.
+    let fameState = { seed: 3, filtered: true, revealed: false };
 
     function generateFameData(seed) {
       const rng = seededRandom(seed);
@@ -631,19 +650,14 @@
           .attr('cy', i => fameYS(nice[i]))
           .attr('fill', i => famous[i] ? PALETTE.biasred : '#b7b4a8')
           .attr('opacity', i => {
-            if (!fameState.filtered) return 0.55;
-            return famous[i] ? 0.9 : 0.12;
+            if (!fameState.revealed) return famous[i] ? 0.9 : 0;
+            return famous[i] ? 0.9 : 0.35;
           })
-          .attr('r', i => {
-            if (!fameState.filtered) return 2.5;
-            return famous[i] ? 3.2 : 2;
-          });
+          .attr('r', i => famous[i] ? 3.2 : 2);
       pts.exit().remove();
 
-      // Draw boundary line when filtered
-      if (fameState.filtered) {
-        // attr + nice = c  =>  nice = c - attr
-        // compute c from current data
+      // Decision boundary: only after the reveal, so the "trap" isn't tipped off.
+      if (fameState.revealed) {
         const fame = Array.from(attr, (a, i) => a + nice[i]);
         const sorted = fame.slice().sort((a, b) => a - b);
         const c = sorted[Math.floor((1 - FAME_FRAC) * FAME_N)];
@@ -657,7 +671,6 @@
         fameBoundary.attr('opacity', 0);
       }
 
-      // Correlations
       const rhoFull = pearson(Array.from(attr), Array.from(nice));
       const subAttr = [], subNice = [];
       for (let i = 0; i < FAME_N; i++) {
@@ -667,24 +680,34 @@
 
       document.getElementById('fame-rho-full').textContent = fmt(rhoFull);
       document.getElementById('fame-rho-sub').textContent = fmt(rhoSub);
-      document.getElementById('fame-counts').textContent = `${subAttr.length} / ${FAME_N}`;
+      document.getElementById('fame-counts').textContent =
+        fameState.revealed ? `${subAttr.length} famous of ${FAME_N}` : `${subAttr.length}`;
+
+      const fullLabel = document.getElementById('fame-rho-full-label');
+      const fullVal   = document.getElementById('fame-rho-full');
+      fullLabel.style.display = fameState.revealed ? '' : 'none';
+      fullVal.style.display   = fameState.revealed ? '' : 'none';
 
       const narr = document.getElementById('fame-narr');
-      if (!fameState.filtered) {
-        narr.className = 'col-narr';
-        narr.textContent = `In the general population, \u03c1 \u2248 ${fmt(rhoFull, 2)}. No visible tradeoff between the two traits.`;
-      } else {
+      if (!fameState.revealed) {
         narr.className = 'col-narr bad';
         narr.innerHTML =
-          `Inside the famous subset, \u03c1 \u2248 <strong>${fmt(rhoSub, 2)}</strong> — a ` +
-          `negative correlation manufactured out of nothing. Fame is a collider: conditioning on ` +
-          `<em>top 20% by (attractiveness + niceness)</em> cuts away the top-right corner and the ` +
-          `bottom-left corner, leaving the anti-diagonal ridge.`;
+          `The trend is unmistakable: \u03c1 \u2248 <strong>${fmt(rhoSub, 2)}</strong>. ` +
+          `More attractive → less nice. Case closed?`;
+      } else {
+        narr.className = 'col-narr good';
+        narr.innerHTML =
+          `Surprise. In the <em>full</em> population of ${FAME_N} people, \u03c1 \u2248 ` +
+          `<strong>${fmt(rhoFull, 2)}</strong> — essentially zero. The famous 200 were not a random ` +
+          `sample: they were selected on <em>top 20% by (attractiveness + niceness)</em>. That filter ` +
+          `cuts away the bottom-left corner (the red dashed line), leaving an anti-diagonal ridge that ` +
+          `reads as a negative correlation even though none exists in the population.`;
       }
 
-      // Fit line inside subset
+      // Fit line inside subset — always drawn, because the negative slope is
+      // what sells the trap before the reveal.
       fameFitG.selectAll('*').remove();
-      if (fameState.filtered && subAttr.length > 3) {
+      if (subAttr.length > 3) {
         // simple OLS of nice on attr in subset
         let mx = 0, my = 0;
         for (let i = 0; i < subAttr.length; i++) { mx += subAttr[i]; my += subNice[i]; }
@@ -710,9 +733,9 @@
     }
 
     document.getElementById('fame-toggle').addEventListener('click', () => {
-      fameState.filtered = !fameState.filtered;
+      fameState.revealed = !fameState.revealed;
       document.getElementById('fame-toggle').textContent =
-        fameState.filtered ? 'Show everyone again' : 'Filter to famous people';
+        fameState.revealed ? 'Hide the full population' : 'Reveal the full population';
       refreshFameView();
     });
     document.getElementById('fame-resample').addEventListener('click', () => {
