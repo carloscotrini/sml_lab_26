@@ -306,23 +306,23 @@
       <button id="btn-color" class="toggle-btn">Colour by severity</button>
       <button id="btn-groupfits" class="toggle-btn" disabled style="opacity:0.5">Show within-group fits</button>
       <span class="legend" id="legend" style="display:none;">
-        <span>mild (U=1)</span><span class="bar"></span><span>severe (U=10)</span>
+        <span>mild (U=3)</span><span class="bar"></span><span>severe (U=8)</span>
       </span>
     </div>
 
     <p style="margin-top:18px;">Emphasize: the fit is not wrong in a mathematical sense. The arithmetic is exact. <strong>The interpretation would be catastrophic.</strong></p>
 
-    <blockquote>"If we cut nursing by two hours a day, patients will recover two days faster, right?" — the administrator, extrapolating from \(\hat\beta = +1.44\).</blockquote>
+    <blockquote>"If we cut nursing by two hours a day, patients will recover faster, right?" — the administrator, extrapolating from a firmly positive \(\hat\beta\).</blockquote>
 
     <!-- SECTION 2 -->
     <h2>2. The hidden variable</h2>
-    <p>Every patient was admitted with some severity \(U\). For this toy example, half the patients are <em>mild</em> (\(U = 3\)) and half are <em>severe</em> (\(U = 8\)) — a clean two-point split that makes the stratification easy to see. The severely ill get more nursing (naturally), and they also take longer to recover (also naturally). Severity is doing the work. Nursing is just along for the ride.</p>
+    <p>Every patient was admitted with some severity \(U\), taking one of six values \(U \in \{3,4,5,6,7,8\}\) in equal numbers. The severely ill get more nursing (naturally), and they also take longer to recover (also naturally). Severity is doing the work. Nursing is just along for the ride. Because severity varies almost continuously along with nursing hours, the uncoloured scatter above looks like one tidy upward-sloping cloud — the six strata are hidden in plain sight.</p>
     <p>Click <strong>Colour by severity</strong> above. Suddenly you see the structure: the dots are not a shapeless cloud. They are stratified.</p>
 
     <!-- SECTION 3 -->
     <h2>3. Within-group reveals the truth</h2>
-    <p>Now split the patients by severity — mild (\(U = 3\)) and severe (\(U = 8\)) — and fit a line within each group.</p>
-    <p>Click <strong>Show within-group fits</strong> above. Both slopes are <em>negative</em>. Within each severity stratum, more nursing really does speed recovery — by roughly half a day per hour, just as the true DGP says.</p>
+    <p>Now split the patients by severity — one stratum per value of \(U\) — and fit a line within each of the six groups.</p>
+    <p>Click <strong>Show within-group fits</strong> above. All six slopes are <em>negative</em>. Within each severity stratum, more nursing really does speed recovery — by roughly half a day per hour, just as the true DGP says.</p>
 
     <div class="insight-box">
       <strong>Simpson's paradox.</strong> Within each severity group, more nursing speeds recovery. The aggregate pooled slope is wrong because it confuses the <em>within-group</em> effect with the <em>between-group</em> differences in severity. Pooling across a confounder hides the truth.
@@ -341,14 +341,9 @@
         <span class="coef-val" id="bar-short-val">+1.44</span>
       </div>
       <div class="coef-bar truth">
-        <span class="coef-label">Within mild group</span>
-        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-mild"></span></div>
-        <span class="coef-val" id="bar-mild-val">—</span>
-      </div>
-      <div class="coef-bar truth">
-        <span class="coef-label">Within severe group</span>
-        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-severe"></span></div>
-        <span class="coef-val" id="bar-severe-val">—</span>
+        <span class="coef-label">Within-group β̂ (avg)</span>
+        <div class="coef-track"><span class="zero"></span><span class="fill" id="bar-within"></span></div>
+        <span class="coef-val" id="bar-within-val">—</span>
       </div>
     </div>
 
@@ -357,12 +352,12 @@
     <p>Here is the data-generating process, in full. No hidden complexity — just a two-variable truth.</p>
 
     <div class="math-display">
-      \[ U \in \{3, 8\} \text{ (severity)}, \qquad \Pr(U = 3) = \Pr(U = 8) = \tfrac{1}{2} \]
+      \[ U \in \{3, 4, 5, 6, 7, 8\} \text{ (severity)}, \qquad \Pr(U = u) = \tfrac{1}{6} \text{ for each level} \]
       \[ X \;=\; 2 \;+\; 0.8\,U \;+\; \eta, \qquad \eta \sim \mathcal{N}(0,\; 0.8^2) \]
       \[ Y \;=\; 5 \;-\; 0.5\,X \;+\; 2\,U \;+\; \varepsilon, \qquad \varepsilon \sim \mathcal{N}(0,\; 0.5^2) \]
     </div>
 
-    <p>Half the patients are <em>mild</em> (U = 3) and half are <em>severe</em> (U = 8) — a two-point severity distribution. This clean split is what makes the within-group structure visible in the scatter above: each "cloud" of dots corresponds to one severity level, with X varying only through the nursing-assignment noise η.</p>
+    <p>Severity is spread uniformly over six integer levels from mild (\(U = 3\)) to severe (\(U = 8\)). Each level contributes one stratum to the scatter above: within a stratum, \(U\) is constant, so X varies only through the nursing-assignment noise η — which is why each within-group fit recovers the true negative slope.</p>
 
     <p>The coefficient on X is <strong>−0.5</strong>. Negative. Nursing helps. Simpson's paradox is the catastrophe of aggregating over a missing variable.</p>
 
@@ -391,14 +386,14 @@
 
       <p>In plain words: <strong>the bias the naive regression suffers is the true effect of the omitted variable, times how strongly X correlates with it.</strong> If either factor is zero, the bias vanishes.</p>
 
-      <p>Plug in the Nursing DGP. With U taking values 3 and 8 with equal probability, \(\operatorname{Var}(U) = 6.25\), so \(\operatorname{Cov}(X, U) = 0.8 \cdot 6.25 = 5.00\) and \(\operatorname{Var}(X) = 0.8^2 \cdot 6.25 + 0.8^2 = 4.64\). Hence:</p>
+      <p>Plug in the Nursing DGP. With U uniform on \(\{3,4,5,6,7,8\}\), \(\operatorname{Var}(U) = 35/12 \approx 2.92\), so \(\operatorname{Cov}(X, U) = 0.8 \cdot 2.92 \approx 2.33\) and \(\operatorname{Var}(X) = 0.8^2 \cdot 2.92 + 0.8^2 \approx 2.51\). Hence:</p>
 
       <div class="math-display">
-        \[ \delta \;=\; \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; \frac{5.00}{4.64} \;\approx\; 1.08 \]
-        \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X + \beta_U \cdot \delta \;=\; -0.5 \;+\; 2 \cdot 1.08 \;\approx\; +1.66 \]
+        \[ \delta \;=\; \frac{\operatorname{Cov}(X, U)}{\operatorname{Var}(X)} \;=\; \frac{2.33}{2.51} \;\approx\; 0.93 \]
+        \[ \operatorname*{plim}\hat\beta^{\text{short}} \;=\; \beta_X + \beta_U \cdot \delta \;=\; -0.5 \;+\; 2 \cdot 0.93 \;\approx\; +1.36 \]
       </div>
 
-      <p>Severity drives nursing hours almost one-for-one (\(\delta \approx 1.08\)), and severity's direct effect on recovery (\(\beta_U = +2\)) is four times larger than nursing's (\(\beta_X = -0.5\)). The larger effect wins; the bias swamps the truth; the sign flips. In our finite sample of 40 patients we happen to see \(\hat\beta^{\text{short}} \approx +1.44\) — close to the plim, with the gap due to sampling noise.</p>
+      <p>Severity drives nursing hours nearly one-for-one (\(\delta \approx 0.93\)), and severity's direct effect on recovery (\(\beta_U = +2\)) is four times larger than nursing's (\(\beta_X = -0.5\)). The larger effect wins; the bias swamps the truth; the sign flips. In our finite sample of 60 patients the realised \(\hat\beta^{\text{short}}\) sits near this plim, with the gap due to sampling noise.</p>
     </details>
 
     <!-- SECTION 6 (real-world corollary) -->
@@ -449,47 +444,44 @@
       return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     }
 
-    // ---------- Generate 40 patients ----------
-    // Nursing Paradox DGP (discrete severity levels for clearer within-group slopes):
-    //   U ∈ {2, 3, 4} (mild) or {7, 8, 9} (severe), equal probability within each
-    //   X = 2 + gamma*U + N(0, 0.3^2)                         (nursing hours)
-    //   Y = 5 - 0.5*X + 2*U + N(0, 0.5^2)                     (recovery days)
-    // With equal numbers of mild and severe patients, the confounder U creates
-    // the sign flip between the pooled fit and the within-group fits.
-    function makeData(n, seed, gamma) {
+    // ---------- Generate patients across six severity levels ----------
+    // Nursing Paradox DGP: U ∈ {3,4,5,6,7,8} uniform, equal counts.
+    //   X = 2 + gamma*U + N(0, 0.8^2)   (nursing hours)
+    //   Y = 5 - 0.5*X + 2*U + N(0, 0.5^2)  (recovery days)
+    // Spreading severity across six levels fills the gap in X, so the
+    // uncoloured scatter looks like one continuous positive trend.
+    const LEVELS = [3, 4, 5, 6, 7, 8];
+    function makeData(nPerLevel, seed, gamma) {
       const rng = mulberry32(seed);
-      // Two severity groups: mild (U = 3) and severe (U = 8). Half of each.
-      // Within each group, U is constant, so X varies only through nursing noise eta,
-      // and Y = 5 - 0.5*X + 2*U + eps has a clean within-group slope of -0.5.
+      const n = nPerLevel * LEVELS.length;
       const U = new Array(n), X = new Array(n), Y = new Array(n);
       for (let i = 0; i < n; i++) {
-        U[i] = (i < n / 2) ? 3 : 8;
-        // wider eta to spread nursing hours visibly within a group
+        U[i] = LEVELS[Math.floor(i / nPerLevel)];
         X[i] = 2 + gamma * U[i] + 0.8 * normal(rng);
         Y[i] = 5 - 0.5 * X[i] + 2 * U[i] + 0.5 * normal(rng);
       }
       return { U, X, Y };
     }
 
-    const N = 40;
+    const N_PER_LEVEL = 10;
+    const N = N_PER_LEVEL * LEVELS.length;
     const SEED = 2026;
-    const data = makeData(N, SEED, 0.8);
+    const data = makeData(N_PER_LEVEL, SEED, 0.8);
 
     // Pooled fit
     const pooledFit = ols(data.Y, data.X.map(x => [x]));
     const betaPooled = pooledFit.coefficients[1];
     const interPooled = pooledFit.coefficients[0];
 
-    // Group fits
-    const mildIdx = [], sevIdx = [];
-    for (let i = 0; i < N; i++) (data.U[i] <= 5 ? mildIdx : sevIdx).push(i);
+    // Within-level fits: one per severity stratum
+    const groupIdx = LEVELS.map(() => []);
+    for (let i = 0; i < N; i++) groupIdx[LEVELS.indexOf(data.U[i])].push(i);
     const fitGroup = (idx) => {
       const y = idx.map(i => data.Y[i]);
       const x = idx.map(i => [data.X[i]]);
       return ols(y, x);
     };
-    const mildFit = fitGroup(mildIdx);
-    const sevFit  = fitGroup(sevIdx);
+    const groupFits = groupIdx.map(fitGroup);
 
     // ---------- Chart ----------
     const svg = d3.select('#chart');
@@ -522,7 +514,7 @@
 
     // severity color scale
     const sevColor = d3.scaleLinear()
-      .domain([1, 5.5, 10])
+      .domain([3, 5.5, 8])
       .range(['#2c5aa0', '#a58b4a', '#b03030']);
 
     // dots
@@ -558,27 +550,21 @@
       const b0 = fit.coefficients[0], b1 = fit.coefficients[1];
       return { x1: lo, y1: b0 + b1 * lo, x2: hi, y2: b0 + b1 * hi, b1 };
     }
-    const mildEnds = groupLineEndpoints(mildFit, mildIdx);
-    const sevEnds = groupLineEndpoints(sevFit, sevIdx);
-
-    const mildLine = g.append('line').attr('class', 'fit-group mild')
-      .attr('x1', xScale(mildEnds.x1)).attr('y1', yScale(mildEnds.y1))
-      .attr('x2', xScale(mildEnds.x2)).attr('y2', yScale(mildEnds.y2))
-      .style('opacity', 0);
-    const sevLine = g.append('line').attr('class', 'fit-group severe')
-      .attr('x1', xScale(sevEnds.x1)).attr('y1', yScale(sevEnds.y1))
-      .attr('x2', xScale(sevEnds.x2)).attr('y2', yScale(sevEnds.y2))
-      .style('opacity', 0);
-    const mildLabel = g.append('text').attr('class', 'fit-label')
-      .attr('fill', '#2c5aa0')
-      .attr('x', xScale(mildEnds.x1) + 6).attr('y', yScale(mildEnds.y1) - 6)
-      .text(`mild: β̂ = ${mildEnds.b1.toFixed(2)}`)
-      .style('opacity', 0);
-    const sevLabel = g.append('text').attr('class', 'fit-label')
-      .attr('fill', '#b03030')
-      .attr('x', xScale(sevEnds.x2) - 6).attr('y', yScale(sevEnds.y2) + 14)
-      .attr('text-anchor', 'end')
-      .text(`severe: β̂ = ${sevEnds.b1.toFixed(2)}`)
+    const groupEnds = groupFits.map((f, k) => groupLineEndpoints(f, groupIdx[k]));
+    const groupLines = groupEnds.map((e, k) => g.append('line')
+      .attr('class', 'fit-group')
+      .attr('stroke', sevColor(LEVELS[k]))
+      .attr('x1', xScale(e.x1)).attr('y1', yScale(e.y1))
+      .attr('x2', xScale(e.x2)).attr('y2', yScale(e.y2))
+      .style('opacity', 0));
+    // Single average-within-group label (positioned near the middle stratum)
+    const midK = Math.floor(LEVELS.length / 2);
+    const avgWithinBeta = d3.mean(groupEnds, e => e.b1);
+    const withinLabel = g.append('text').attr('class', 'fit-label')
+      .attr('fill', '#444')
+      .attr('x', xScale(groupEnds[midK].x2) + 6)
+      .attr('y', yScale(groupEnds[midK].y2) - 6)
+      .text(`within-group β̂ ≈ ${avgWithinBeta.toFixed(2)} (avg over 6 strata)`)
       .style('opacity', 0);
 
     // ---------- Toggle handlers ----------
@@ -614,12 +600,10 @@
       btnGroup.classList.toggle('active', groupShown);
       btnGroup.textContent = groupShown ? 'Hide within-group fits' : 'Show within-group fits';
       const target = groupShown ? 1 : 0;
-      mildLine.transition().duration(500).style('opacity', target);
-      sevLine.transition().duration(500).style('opacity', target);
-      mildLabel.transition().duration(500).style('opacity', target);
-      sevLabel.transition().duration(500).style('opacity', target);
+      groupLines.forEach(ln => ln.transition().duration(500).style('opacity', target));
+      withinLabel.transition().duration(500).style('opacity', target);
       if (groupShown) {
-        caption.textContent = 'Within each severity group, the slope is negative — the truth emerges.';
+        caption.textContent = 'Within each severity level, the slope is negative — the truth emerges.';
       } else if (coloured) {
         caption.textContent = 'Coloured by severity: blue = mild, red = severe. Stratification appears.';
       }
@@ -644,11 +628,9 @@
     }
     setBar('bar-true', -0.5);
     setBar('bar-short', betaPooled);
-    setBar('bar-mild', mildEnds.b1);
-    setBar('bar-severe', sevEnds.b1);
+    setBar('bar-within', avgWithinBeta);
     document.getElementById('bar-short-val').textContent = (betaPooled >= 0 ? '+' : '') + betaPooled.toFixed(2);
-    document.getElementById('bar-mild-val').textContent  = (mildEnds.b1 >= 0 ? '+' : '') + mildEnds.b1.toFixed(2);
-    document.getElementById('bar-severe-val').textContent = (sevEnds.b1 >= 0 ? '+' : '') + sevEnds.b1.toFixed(2);
+    document.getElementById('bar-within-val').textContent = (avgWithinBeta >= 0 ? '+' : '') + avgWithinBeta.toFixed(2);
 
   </script>
 </body>
