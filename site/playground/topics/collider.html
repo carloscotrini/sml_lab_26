@@ -292,6 +292,14 @@
         An analyst's instinct — <q>the more variables I control for, the cleaner the estimate</q> —
         is sometimes dangerously wrong. Before we say <em>why</em>, let's walk into the trap.
       </p>
+      <p>
+        The dataset below comes from a simple simulation. We generated 1,000 people, each with two
+        <em>independent</em> traits drawn from a standard normal: attractiveness \(A \sim \mathcal{N}(0,1)\)
+        and niceness \(N \sim \mathcal{N}(0,1)\). Then we defined fame as the sum,
+        \[ \text{fame} \;=\; A + N, \]
+        and tagged the top 20% as "famous." In the full population of 1,000, attractiveness and niceness
+        are uncorrelated by construction. Keep that in mind as you read the famous subset below.
+      </p>
     </section>
 
     <!-- =======================================================
